@@ -57,7 +57,7 @@ export default function Home() {
       </div>
 
       <div className="relative mx-auto max-w-6xl px-6 pb-20 pt-6 sm:px-8">
-        <header className="animate-fade-slide flex items-center justify-between rounded-full border border-white/10 bg-white/5 px-5 py-3 backdrop-blur-lg">
+        <header className="animate-fade-slide flex items-center justify-between rounded-md border border-white/10 bg-white/5 px-5 py-3 backdrop-blur-lg">
           <div className="font-[var(--font-finwin-heading)] text-lg tracking-tight">FinWin</div>
           <nav className="hidden items-center gap-7 text-sm text-[#bcc8d5] md:flex">
             <a href="#features" className="transition hover:text-white">
@@ -77,7 +77,7 @@ export default function Home() {
           </nav>
           <Link
             href="/sign-up"
-            className="rounded-full border border-[#55d6ff]/60 bg-[#0f1a2a] px-4 py-2 text-sm font-medium text-[#b9edff] transition hover:-translate-y-0.5 hover:border-[#84e5ff] hover:bg-[#11223a]"
+            className="rounded-md border border-[#55d6ff]/60 bg-[#0f1a2a] px-4 py-2 text-sm font-medium text-[#b9edff] transition hover:-translate-y-0.5 hover:border-[#84e5ff] hover:bg-[#11223a]"
           >
             Create account
           </Link>
@@ -98,7 +98,7 @@ export default function Home() {
               <div className="animate-fade-slide flex flex-wrap items-center gap-4 [animation-delay:300ms]">
                 <Link
                   href="/sign-up"
-                  className="rounded-full bg-[#5ad8ff] px-6 py-3 text-sm font-semibold text-[#041320] transition hover:-translate-y-0.5 hover:bg-[#83e4ff]"
+                  className="rounded-md bg-[#5ad8ff] px-6 py-3 text-sm font-semibold text-[#041320] transition hover:-translate-y-0.5 hover:bg-[#83e4ff]"
                 >
                   Start free
                 </Link>
@@ -106,7 +106,7 @@ export default function Home() {
                   href="https://github.com/abbeazale/finwin"
                   target="_blank"
                   rel="noreferrer"
-                  className="rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-white/90 transition hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/5"
+                  className="rounded-md border border-white/20 px-6 py-3 text-sm font-semibold text-white/90 transition hover:-translate-y-0.5 hover:border-white/40 hover:bg-white/5"
                 >
                   View on GitHub
                 </a>
@@ -188,7 +188,7 @@ export default function Home() {
             <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
               <Link
                 href="/sign-up"
-                className="rounded-full bg-[#5ad8ff] px-6 py-3 text-sm font-semibold text-[#03111d] transition hover:-translate-y-0.5 hover:bg-[#88e7ff]"
+                className="rounded-md bg-[#5ad8ff] px-6 py-3 text-sm font-semibold text-[#03111d] transition hover:-translate-y-0.5 hover:bg-[#88e7ff]"
               >
                 Create account
               </Link>
@@ -196,7 +196,7 @@ export default function Home() {
                 href="https://github.com/abbeazale/finwin"
                 target="_blank"
                 rel="noreferrer"
-                className="rounded-full border border-white/20 px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:border-white/45"
+                className="rounded-md border border-white/20 px-6 py-3 text-sm font-semibold text-white transition hover:-translate-y-0.5 hover:border-white/45"
               >
                 Explore source code
               </a>

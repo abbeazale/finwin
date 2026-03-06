@@ -33,6 +33,7 @@ Framework
 
 - Next.js
 - TypeScript
+- Bun
 
 UI System
 
