@@ -172,7 +172,7 @@ export default function Home() {
                 style={{ animationDelay: `${120 + index * 120}ms` }}
               >
                 <p className="text-xs uppercase tracking-[0.2em] text-[#6f8aa7]">0{index + 1}</p>
-                <h3 className="mt-3 font-[var(--font-finwin-heading)] text-xl text-white">
+                <h3 className="mt-3 font-(--font-finwin-heading) text-xl text-white">
                   {step.title}
                 </h3>
                 <p className="mt-2 text-sm text-[#a9bfd5]">{step.detail}</p>
