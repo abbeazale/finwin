@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
-import LoginComponent from "@/components/auth/loginSection";
-import SignupComponent from "@/components/auth/signupSection";
+import LoginForm from "@/components/auth/loginForm";
+import SignupComponent from "@/components/auth/signupForm";
 import { useState } from "react";
 
 export default function Login() {
@@ -39,7 +39,7 @@ export default function Login() {
 
       {/* Form */}
       <div className="w-1/2 mt-10 text-white">
-        {activePage === "signin" ? <LoginComponent /> : <SignupComponent />}
+        {activePage === "signin" ? <LoginForm /> : <SignupComponent />}
       </div>
 
     </div>
