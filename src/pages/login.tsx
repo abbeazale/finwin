@@ -1,44 +1,47 @@
-
 import { Button } from "@/components/ui/button";
+import LoginComponent from "@/components/auth/loginSection";
+import SignupComponent from "@/components/auth/signupSection";
 import { useState } from "react";
-
-
 
 export default function Login() {
   const [activePage, setActivePage] = useState<"signin" | "signup">("signin");
 
-  function handlePageChange(page: "signin" | "signup") {
-    setActivePage(page);
-  }
-
   return (
-    <div className="flex w-full bg-background justify-center h-screen ">
-      <div className="relative mt-10 flex h-auto w-1/2 self-start rounded-md bg-slate-900 p-1">
+    <div className="flex flex-col items-center w-full min-h-screen bg-background">
+      
+      {/* Toggle */}
+      <div className="relative mt-10 flex w-1/2 rounded-md bg-slate-900 p-1 overflow-hidden">
         <div
-          className={`absolute inset-y-1 w-[calc(50%-0.25rem)] rounded-md bg-lb hover:bg-lb transition-transform duration-300 ease-out ${
+          className={`absolute inset-1 w-[calc(50%-0.25rem)] rounded-md bg-lb transition-transform duration-300 ease-out ${
             activePage === "signin" ? "translate-x-0" : "translate-x-full"
           }`}
           aria-hidden="true"
         />
-
         <Button
-          className={`relative z-10 w-1/2 justify-center bg-transparent transition-colors duration-300 ${
-            activePage === "signin" ? "text-black hover:bg-lb" : "text-white"
+          variant="ghost"
+          className={`relative z-10 w-1/2 bg-transparent hover:bg-transparent transition-colors duration-300 ${
+            activePage === "signin" ? "text-black hover:text-black" : "text-white hover:text-white"
           }`}
-          onClick={() => handlePageChange("signin")}
+          onClick={() => setActivePage("signin")}
         >
           Sign in
         </Button>
-
         <Button
-          className={`relative z-10 w-1/2 justify-center bg-transparent transition-colors duration-300 ${
-            activePage === "signup" ? "text-black hover:bg-lb" : "text-white"
+          variant="ghost"
+          className={`relative z-10 w-1/2 bg-transparent hover:bg-transparent transition-colors duration-300 ${
+            activePage === "signup" ? "text-black hover:text-black" : "text-white hover:text-white"
           }`}
-          onClick={() => handlePageChange("signup")}
+          onClick={() => setActivePage("signup")}
         >
           Create an account
         </Button>
       </div>
+
+      {/* Form */}
+      <div className="w-1/2 mt-10 text-white">
+        {activePage === "signin" ? <LoginComponent /> : <SignupComponent />}
+      </div>
+
     </div>
   );
 }

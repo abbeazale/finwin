@@ -76,7 +76,7 @@ export default function Home() {
             </a>
           </nav>
           <Link
-            href="/sign-up"
+            href="/login"
             className="rounded-md border border-[#55d6ff]/60 bg-[#0f1a2a] px-4 py-2 text-sm font-medium text-[#b9edff] transition hover:-translate-y-0.5 hover:border-[#84e5ff] hover:bg-[#11223a]"
           >
             Create account
@@ -97,7 +97,7 @@ export default function Home() {
               </p>
               <div className="animate-fade-slide flex flex-wrap items-center gap-4 [animation-delay:300ms]">
                 <Link
-                  href="/sign-up"
+                  href="/login"
                   className="rounded-md bg-[#5ad8ff] px-6 py-3 text-sm font-semibold text-[#041320] transition hover:-translate-y-0.5 hover:bg-[#83e4ff]"
                 >
                   Start free
@@ -187,7 +187,7 @@ export default function Home() {
             </h2>
             <div className="mt-7 flex flex-wrap items-center justify-center gap-4">
               <Link
-                href="/sign-up"
+                href="/login"
                 className="rounded-md bg-[#5ad8ff] px-6 py-3 text-sm font-semibold text-[#03111d] transition hover:-translate-y-0.5 hover:bg-[#88e7ff]"
               >
                 Create account
