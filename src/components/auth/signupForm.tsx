@@ -1,7 +1,92 @@
-export default function SignupComponent() {
-    return(
-        <div>
+import { cn } from "@/lib/utils"
+import { Button } from "@/components/ui/button"
+import Image from "next/image"
 
-        </div>
-    )
+import {
+  Field,
+  FieldDescription,
+  FieldGroup,
+  FieldLabel,
+  FieldSeparator,
+} from "@/components/ui/field"
+import { Input } from "@/components/ui/input"
+import { signUpEmail } from "better-auth/api"
+
+export default function SignupForm({
+  className,
+  ...props
+}: React.ComponentProps<"div">) {
+  return (
+    <div className={cn("flex flex-col gap-6", className)} {...props}>
+      <div>
+        <h1 className="justify-start text-4xl font-medium leading-10 tracking-tight">Create your account!</h1>
+        <p className="mt-5 justify-start text-gray-500 text-md font-normal leading-5">Start building better money habits today.</p>
+          <form className="mt-8">
+            <FieldGroup>
+              <Field className="flex w-1/2 flex-row xs:flex-col gap-4">
+              <Button variant="outline" className="bg-slate-900 border-0.5 p-6 text-md text-white" type="button">
+              <Image src="/gitinverted.svg" alt="Github" width={30} height={30} className="mr-2 block group-hover:hidden" />
+                   Github
+                </Button>
+                <Button variant="outline" className="bg-slate-900 border-0.5 p-6 text-md text-white" type="button">
+                  <Image src="/google.svg" alt="Google" width={30} height={30} className="mr-2 " />
+                   Google
+                </Button>
+              </Field>
+              <FieldSeparator >
+                Or continue with email
+              </FieldSeparator>
+              <Field>
+                <FieldLabel htmlFor="firstname">First Name</FieldLabel>
+                <Input
+                  className="bg-slate-900 border-none"
+                  id="email"
+                  type="email"
+                  placeholder="John"
+                  required
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="email">Last Name</FieldLabel>
+                <Input
+                  className="bg-slate-900 border-none"
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  required
+                />
+              </Field>
+              <Field>
+                <FieldLabel htmlFor="email">Email</FieldLabel>
+                <Input
+                  className="bg-slate-900 border-none"
+                  id="email"
+                  type="email"
+                  placeholder="m@example.com"
+                  required
+                />
+              </Field>
+              <Field>
+                <div className="flex items-center">
+                  <FieldLabel htmlFor="password">Password</FieldLabel>
+                  <a
+                    href="#"
+                    className="ml-auto text-sm underline-offset-4 hover:underline"
+                  >
+                    Forgot your password?
+                  </a>
+                </div>
+                <Input id="password" className="bg-slate-900 border-none" type="password" placeholder="enter password" required />
+              </Field>
+              <Field>
+                <Button type="submit" className="h-11 relative bg-lb text-black hover:bg-lb rounded-md overflow-hidden">Login</Button>
+                <FieldDescription className="text-center">
+                  Already have an account? <a href="#" className="pointer-events-none">Sign in</a>
+                </FieldDescription>
+              </Field>
+            </FieldGroup>
+          </form>
+      </div>
+    </div>
+  )
 }

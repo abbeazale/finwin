@@ -10,7 +10,7 @@ export default function Login() {
     <div className="flex flex-col items-center w-full min-h-screen bg-background">
       
       {/* Toggle */}
-      <div className="relative mt-10 flex w-1/2 rounded-md bg-slate-900 p-1 overflow-hidden">
+      <div className="relative mt-10 flex w-1/2 lg:w-1/3  rounded-md bg-slate-900 p-1 overflow-hidden">
         <div
           className={`absolute inset-1 w-[calc(50%-0.25rem)] rounded-md bg-lb transition-transform duration-300 ease-out ${
             activePage === "signin" ? "translate-x-0" : "translate-x-full"
@@ -38,7 +38,7 @@ export default function Login() {
       </div>
 
       {/* Form */}
-      <div className="w-1/2 mt-10 text-white">
+      <div className="w-1/2 lg:w-1/3 mt-10 text-white">
         {activePage === "signin" ? <LoginForm /> : <SignupComponent />}
       </div>
 
