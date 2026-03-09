@@ -14,8 +14,8 @@ import {
 } from "@/lib/page-auth";
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import { useRouter } from "next/router";
-import { FormEvent, useState, useTransition } from "react";
-import { Check, ChevronDown } from "lucide-react";
+import { SubmitEvent, useState, useTransition } from "react";
+import { Check } from "lucide-react";
 import {
   Select,
   SelectContent,
@@ -33,22 +33,21 @@ const COMMON_CURRENCIES = [
   { value: "GBP", label: "GBP — British Pound", helper: "Amounts will be displayed in British Pound (£)" },
   { value: "AUD", label: "AUD — Australian Dollar", helper: "Amounts will be displayed in Australian Dollar ($)" },
 ];
-const COMMON_TIMEZONES = [
-  { value: "America/Toronto", label: "Toronto (ET) · UTC-5/4", helper: "America/Toronto" },
-  { value: "America/Vancouver", label: "Vancouver (PT) · UTC-8/7", helper: "America/Vancouver" },
-  { value: "America/New_York", label: "New York (ET) · UTC-5/4", helper: "America/New_York" },
-  { value: "America/Los_Angeles", label: "Los Angeles (PT) · UTC-8/7", helper: "America/Los_Angeles" },
-  { value: "Europe/London", label: "London (GMT/BST) · UTC+0/1", helper: "Europe/London" },
-];
-const AGE_GROUPS = [
-  { value: "18-24", label: "18-24", ageValue: "18" },
-  { value: "25-34", label: "25-34", ageValue: "25" },
-  { value: "35-44", label: "35-44", ageValue: "35" },
-  { value: "45-54", label: "45-54", ageValue: "45" },
-  { value: "55-64", label: "55-64", ageValue: "55" },
-  { value: "65+", label: "65+", ageValue: "65" },
-];
 
+const COMMON_TIMEZONES = [
+  { value: "America/Toronto",     label: "Eastern Time — Toronto",      helper: "America/Toronto" },
+  { value: "America/Vancouver",   label: "Pacific Time — Vancouver",    helper: "America/Vancouver" },
+  { value: "America/New_York",    label: "Eastern Time — New York",     helper: "America/New_York" },
+  { value: "America/Los_Angeles", label: "Pacific Time — Los Angeles",  helper: "America/Los_Angeles" },
+  { value: "Europe/London",       label: "GMT/BST — London",            helper: "Europe/London" },
+  { value: "Asia/Dubai",          label: "Gulf Time — Dubai",           helper: "Asia/Dubai" },
+  { value: "Asia/Dhaka",          label: "Bangladesh Standard Time — Dhaka", helper: "Asia/Dhaka" },
+  { value: "Asia/Bangkok",        label: "Indochina Time — Bangkok",    helper: "Asia/Bangkok" },
+  { value: "Asia/Singapore",      label: "Singapore Time — Singapore",  helper: "Asia/Singapore" },
+  { value: "Asia/Philippines",       label: "China Standard Time — Shanghai", helper: "Asia/Shanghai" },
+  { value: "Asia/Tokyo",          label: "Japan Standard Time — Tokyo", helper: "Asia/Tokyo" },
+  { value: "Asia/Seoul",          label: "Korea Standard Time — Seoul", helper: "Asia/Seoul" },
+];
 function splitDisplayName(name: string | null | undefined) {
   const normalizedName = name?.trim().replace(/\s+/g, " ") ?? "";
 
@@ -84,42 +83,6 @@ function capitalizeNameWords(value: string | null | undefined) {
     .join(" ");
 }
 
-function getAgeGroupValue(age: number | null | undefined) {
-  if (typeof age !== "number") {
-    return "";
-  }
-
-  if (age >= 65) {
-    return "65+";
-  }
-
-  if (age >= 55) {
-    return "55-64";
-  }
-
-  if (age >= 45) {
-    return "45-54";
-  }
-
-  if (age >= 35) {
-    return "35-44";
-  }
-
-  if (age >= 25) {
-    return "25-34";
-  }
-
-  if (age >= 18) {
-    return "18-24";
-  }
-
-  if (age >= 13) {
-    return "13-17";
-  }
-
-  return "";
-}
-
 export default function OnboardingPage({
   initialFirstName,
   initialLastName,
@@ -136,16 +99,9 @@ export default function OnboardingPage({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = (event: SubmitEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
-
-    const selectedAgeGroup = AGE_GROUPS.find((option) => option.value === age);
-
-    if (!selectedAgeGroup) {
-      setError("Select your age group.");
-      return;
-    }
 
     startTransition(async () => {
       const response = await fetch("/api/onboarding", {
@@ -156,7 +112,7 @@ export default function OnboardingPage({
         body: JSON.stringify({
           firstName,
           lastName,
-          age: selectedAgeGroup.ageValue,
+          age,
           currency,
           timezone,
         }),
@@ -181,7 +137,7 @@ export default function OnboardingPage({
 
   return (
     <div className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto flex min-h-screen w-full max-w-[480px] items-start px-4 pb-24 pt-8 sm:px-6 sm:pt-12">
+      <div className="mx-auto text-white flex min-h-screen w-full max-w-[480px] items-start px-4 pb-24 pt-8 sm:px-6 sm:pt-12">
         <form onSubmit={handleSubmit} className="flex w-full flex-col gap-8">
           <header className="flex flex-col gap-4">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-[#00d3f333] bg-[#00d3f31a] px-3 py-1 text-xs font-medium text-[#00d3f3]">
@@ -189,7 +145,7 @@ export default function OnboardingPage({
               Almost there
             </div>
             <div className="flex flex-col gap-2">
-              <h1 className="font-[family-name:var(--font-finwin-heading)] text-[2rem] font-semibold tracking-[-0.02em] text-white">
+              <h1 className="font-[family-name:var(--font-finwin-heading)] text-[2rem] font-semibold tracking-[-0.02em]">
                 Complete your profile
               </h1>
               <p className="text-sm text-[#6a7282]">
@@ -221,7 +177,7 @@ export default function OnboardingPage({
                     placeholder="Alex"
                     autoComplete="given-name"
                     required
-                    className="h-12 rounded-[14px] border-white/10 bg-white/4 px-4 text-[14px] text-white placeholder:text-[#4a5565]"
+                    className="h-12 rounded-[14px] border-white/10 bg-white/4 px-4 text-[14px] placeholder:text-[#4a5565]"
                   />
                 </FieldContent>
               </Field>
@@ -239,7 +195,7 @@ export default function OnboardingPage({
                     placeholder="Johnson"
                     autoComplete="family-name"
                     required
-                    className="h-12 rounded-[14px] border-white/10 bg-white/4 px-4 text-[14px] text-white placeholder:text-[#4a5565]"
+                    className="h-12 rounded-[14px] border-white/10 bg-white/4 px-4 text-[14px] placeholder:text-[#4a5565]"
                   />
                 </FieldContent>
               </Field>
@@ -247,27 +203,22 @@ export default function OnboardingPage({
 
             <Field>
               <FieldLabel htmlFor="onboarding-age" className="text-xs font-medium text-[#99a1af]">
-                Age range
+                Age
               </FieldLabel>
               <FieldContent>
-                <Select value={age} onValueChange={setAge}>
-                  <SelectTrigger
-                    id="onboarding-age"
-                    className="h-12 w-full rounded-[14px] border-white/10 bg-white/4 px-4 text-left text-[14px] text-white"
-                  >
-                    <SelectValue placeholder="Select your age group" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectGroup>
-                      <SelectLabel>Age groups</SelectLabel>
-                      {AGE_GROUPS.map((option) => (
-                        <SelectItem key={option.value} value={option.value}>
-                          {option.label}
-                        </SelectItem>
-                      ))}
-                    </SelectGroup>
-                  </SelectContent>
-                </Select>
+                <Input
+                  id="onboarding-age"
+                  name="age"
+                  type="number"
+                  min={13}
+                  max={120}
+                  inputMode="numeric"
+                  value={age}
+                  onChange={(event) => setAge(event.target.value)}
+                  placeholder="e.g. 28"
+                  required
+                  className="h-12 rounded-[14px] [&::-webkit-inner-spin-button]:appearance-none border-white/10 bg-white/4 px-4 placeholder:text-[#4a5565]"
+                />
               </FieldContent>
             </Field>
             <div className="flex items-center gap-3">
@@ -282,22 +233,24 @@ export default function OnboardingPage({
                 Preferred currency
               </FieldLabel>
               <FieldContent>
-                <div className="relative">
-                  <select
+                <Select value={currency} onValueChange={setCurrency}>
+                  <SelectTrigger
                     id="onboarding-currency"
-                    name="currency"
-                    value={currency}
-                    onChange={(event) => setCurrency(event.target.value)}
-                    className="h-12 w-full appearance-none rounded-[14px] border border-white/10 bg-white/4 px-4 pr-12 text-[14px] font-medium text-[#d1d5dc] outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="h-12 w-full rounded-[14px] border-white/10 bg-white/4 px-4 text-left text-[14px] font-medium text-[#d1d5dc]"
                   >
-                    {COMMON_CURRENCIES.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#4a5565]" />
-                </div>
+                    <SelectValue placeholder="Select your currency" />
+                  </SelectTrigger>
+                  <SelectContent>
+                  <SelectGroup className="max-h-50 overflow-y-auto">
+                    <SelectLabel>Currencies</SelectLabel>
+                      {COMMON_CURRENCIES.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
                 <FieldDescription className="pl-1 text-[11px] text-[#4a5565]">
                   {selectedCurrency.helper}
                 </FieldDescription>
@@ -309,22 +262,24 @@ export default function OnboardingPage({
                 Timezone
               </FieldLabel>
               <FieldContent>
-                <div className="relative">
-                  <select
+                <Select value={timezone} onValueChange={setTimezone}>
+                  <SelectTrigger
                     id="onboarding-timezone"
-                    name="timezone"
-                    value={timezone}
-                    onChange={(event) => setTimezone(event.target.value)}
-                    className="h-12 w-full appearance-none rounded-[14px] border border-white/10 bg-white/[0.04] px-4 pr-12 text-[14px] font-medium text-[#d1d5dc] outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="h-12 w-full rounded-[14px] border-white/10 bg-white/4 px-4 text-left text-[14px] font-medium text-[#d1d5dc]"
                   >
-                    {COMMON_TIMEZONES.map((option) => (
-                      <option key={option.value} value={option.value}>
-                        {option.label}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-[#4a5565]" />
-                </div>
+                    <SelectValue placeholder="Select your timezone" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup className="max-h-50 overflow-y-auto">
+                      <SelectLabel>Timezones</SelectLabel>
+                      {COMMON_TIMEZONES.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
                 <FieldDescription className="pl-1 text-[11px] text-[#4a5565]">
                   {selectedTimezone.helper}
                 </FieldDescription>
@@ -390,7 +345,7 @@ export const getServerSideProps: GetServerSideProps<{
       initialLastName: capitalizeNameWords(
         profile?.lastName ?? parsedName.lastName,
       ),
-      initialAge: getAgeGroupValue(profile?.age),
+      initialAge: profile?.age ? String(profile.age) : "",
       initialCurrency: profile?.currency ?? "CAD",
       initialTimezone: profile?.timezone ?? "America/Toronto",
     },
