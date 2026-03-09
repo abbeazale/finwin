@@ -16,6 +16,15 @@ import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import { useRouter } from "next/router";
 import { FormEvent, useState, useTransition } from "react";
 import { Check, ChevronDown } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectLabel,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const COMMON_CURRENCIES = [
   { value: "CAD", label: "CAD — Canadian Dollar", helper: "Amounts will be displayed in Canadian Dollar ($)" },
@@ -30,6 +39,14 @@ const COMMON_TIMEZONES = [
   { value: "America/New_York", label: "New York (ET) · UTC-5/4", helper: "America/New_York" },
   { value: "America/Los_Angeles", label: "Los Angeles (PT) · UTC-8/7", helper: "America/Los_Angeles" },
   { value: "Europe/London", label: "London (GMT/BST) · UTC+0/1", helper: "Europe/London" },
+];
+const AGE_GROUPS = [
+  { value: "18-24", label: "18-24", ageValue: "18" },
+  { value: "25-34", label: "25-34", ageValue: "25" },
+  { value: "35-44", label: "35-44", ageValue: "35" },
+  { value: "45-54", label: "45-54", ageValue: "45" },
+  { value: "55-64", label: "55-64", ageValue: "55" },
+  { value: "65+", label: "65+", ageValue: "65" },
 ];
 
 function splitDisplayName(name: string | null | undefined) {
@@ -67,6 +84,42 @@ function capitalizeNameWords(value: string | null | undefined) {
     .join(" ");
 }
 
+function getAgeGroupValue(age: number | null | undefined) {
+  if (typeof age !== "number") {
+    return "";
+  }
+
+  if (age >= 65) {
+    return "65+";
+  }
+
+  if (age >= 55) {
+    return "55-64";
+  }
+
+  if (age >= 45) {
+    return "45-54";
+  }
+
+  if (age >= 35) {
+    return "35-44";
+  }
+
+  if (age >= 25) {
+    return "25-34";
+  }
+
+  if (age >= 18) {
+    return "18-24";
+  }
+
+  if (age >= 13) {
+    return "13-17";
+  }
+
+  return "";
+}
+
 export default function OnboardingPage({
   initialFirstName,
   initialLastName,
@@ -83,9 +136,16 @@ export default function OnboardingPage({
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
+
+    const selectedAgeGroup = AGE_GROUPS.find((option) => option.value === age);
+
+    if (!selectedAgeGroup) {
+      setError("Select your age group.");
+      return;
+    }
 
     startTransition(async () => {
       const response = await fetch("/api/onboarding", {
@@ -96,7 +156,7 @@ export default function OnboardingPage({
         body: JSON.stringify({
           firstName,
           lastName,
-          age,
+          age: selectedAgeGroup.ageValue,
           currency,
           timezone,
         }),
@@ -187,25 +247,29 @@ export default function OnboardingPage({
 
             <Field>
               <FieldLabel htmlFor="onboarding-age" className="text-xs font-medium text-[#99a1af]">
-                Age
+                Age range
               </FieldLabel>
               <FieldContent>
-                <Input
-                  id="onboarding-age"
-                  name="age"
-                  type="number"
-                  min={13}
-                  max={120}
-                  inputMode="numeric"
-                  value={age}
-                  onChange={(event) => setAge(event.target.value)}
-                  placeholder="e.g. 28"
-                  required
-                  className="h-12 rounded-[14px] border-white/10 bg-white/[0.04] px-4 text-[14px] text-white placeholder:text-[#4a5565]"
-                />
+                <Select value={age} onValueChange={setAge}>
+                  <SelectTrigger
+                    id="onboarding-age"
+                    className="h-12 w-full rounded-[14px] border-white/10 bg-white/4 px-4 text-left text-[14px] text-white"
+                  >
+                    <SelectValue placeholder="Select your age group" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectGroup>
+                      <SelectLabel>Age groups</SelectLabel>
+                      {AGE_GROUPS.map((option) => (
+                        <SelectItem key={option.value} value={option.value}>
+                          {option.label}
+                        </SelectItem>
+                      ))}
+                    </SelectGroup>
+                  </SelectContent>
+                </Select>
               </FieldContent>
             </Field>
-
             <div className="flex items-center gap-3">
               <span className="text-[11px] uppercase tracking-[0.08em] text-[#4a5565]">
                 Preferences
@@ -276,7 +340,7 @@ export default function OnboardingPage({
             <Button
               type="submit"
               disabled={isPending}
-              className="mt-1 h-[46px] w-full rounded-[14px] bg-[#00d3f3] text-[14px] font-medium text-black hover:bg-[#00d3f3]/90"
+              className="mt-1 h-[46px] w-full rounded-[14px] bg-lb text-[14px] font-medium text-black hover:bg-[#00d3f3]/90"
             >
               <Check data-icon="inline-start" />
               {isPending ? "Saving..." : "Complete setup"}
@@ -326,7 +390,7 @@ export const getServerSideProps: GetServerSideProps<{
       initialLastName: capitalizeNameWords(
         profile?.lastName ?? parsedName.lastName,
       ),
-      initialAge: profile?.age ? String(profile.age) : "",
+      initialAge: getAgeGroupValue(profile?.age),
       initialCurrency: profile?.currency ?? "CAD",
       initialTimezone: profile?.timezone ?? "America/Toronto",
     },
