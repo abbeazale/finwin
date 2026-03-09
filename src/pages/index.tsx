@@ -1,17 +1,4 @@
 import Link from "next/link";
-import { DM_Sans, Sora } from "next/font/google";
-
-const heading = Sora({
-  subsets: ["latin"],
-  variable: "--font-finwin-heading",
-  weight: ["300", "400", "600", "700", "800"],
-});
-
-const body = DM_Sans({
-  subsets: ["latin"],
-  variable: "--font-finwin-body",
-  weight: ["400", "500", "700"],
-});
 
 const features = [
   {
@@ -58,7 +45,7 @@ const steps = [
 export default function Home() {
   return (
     <div
-      className={`${heading.variable} ${body.variable} relative min-h-screen overflow-x-hidden bg-[#03080f] font-[family-name:var(--font-finwin-body)] text-[#dce9f4]`}
+      className="relative min-h-screen overflow-x-hidden bg-[#03080f] font-[family-name:var(--font-finwin-body)] text-[#dce9f4]"
     >
       {/* ── Background atmosphere ── */}
       <div className="pointer-events-none fixed inset-0 z-0">

@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/index";
 import { user, userProfiles } from "@/db/schema";
+import { toRequestHeaders } from "@/lib/request-headers";
 
 type ErrorResponse = {
   error: string;
@@ -28,15 +29,7 @@ export default async function handler(
   }
 
   const session = await auth.api.getSession({
-    headers: new Headers(
-      Object.entries(req.headers).flatMap(([key, value]) => {
-        if (Array.isArray(value)) {
-          return [[key, value.join(", ")]];
-        }
-
-        return value ? [[key, value]] : [];
-      }),
-    ),
+    headers: toRequestHeaders(req.headers),
   });
 
   if (!session) {

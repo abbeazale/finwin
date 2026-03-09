@@ -3,27 +3,11 @@ import { eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { db } from "@/index";
 import { userProfiles } from "@/db/schema";
-
-function toHeaders(headers: GetServerSidePropsContext["req"]["headers"]) {
-  const requestHeaders = new Headers();
-
-  for (const [key, value] of Object.entries(headers)) {
-    if (Array.isArray(value)) {
-      requestHeaders.set(key, value.join(", "));
-      continue;
-    }
-
-    if (value !== undefined) {
-      requestHeaders.set(key, value);
-    }
-  }
-
-  return requestHeaders;
-}
+import { toRequestHeaders } from "@/lib/request-headers";
 
 export async function getPageSession(context: GetServerSidePropsContext) {
   return auth.api.getSession({
-    headers: toHeaders(context.req.headers),
+    headers: toRequestHeaders(context.req.headers),
   });
 }
 
