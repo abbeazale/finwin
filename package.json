@@ -6,7 +6,8 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "dbreset": "tsx scripts/db-reset.ts"
   },
   "dependencies": {
     "@better-auth/infra": "^0.1.8",

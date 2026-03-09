@@ -40,7 +40,7 @@ CREATE TABLE "user_profiles" (
 	"userId" text NOT NULL,
 	"firstName" varchar(255),
 	"lastName" varchar(255),
-	"age", integer,
+	"age" integer,
 	"currency" varchar(16) DEFAULT 'CAD' NOT NULL,
 	"timezone" varchar(64) DEFAULT 'America/Toronto' NOT NULL,
 	"createdAt" timestamp with time zone DEFAULT now() NOT NULL,

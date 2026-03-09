@@ -253,7 +253,7 @@ export default function Home() {
                   >
                     {feature.icon}
                   </div>
-                  <h3 className="font-[family-name:var(--font-finwin-heading)] text-[15px] font-semibold text-white">
+                  <h3 className="font-(family-name:--font-finwin-heading)-[15px] font-semibold text-white">
                     {feature.title}
                   </h3>
                   <p className="mt-2 text-[13px] leading-relaxed text-[#5e7d98]">
@@ -276,7 +276,7 @@ export default function Home() {
 
             <div className="relative grid gap-0 lg:grid-cols-3">
               {/* Connector line */}
-              <div className="pointer-events-none absolute left-0 top-8 hidden h-px w-full bg-gradient-to-r from-transparent via-white/[0.08] to-transparent lg:block" />
+              <div className="pointer-events-none absolute left-0 top-8 hidden h-px w-full bg-linear-to-r from-transparent via-white/8 to-transparent lg:block" />
 
               {steps.map((step, index) => (
                 <div
@@ -289,10 +289,10 @@ export default function Home() {
                     <div className="h-1.5 w-1.5 rounded-full bg-[#41d2ff]" />
                   </div>
 
-                  <p className="font-[family-name:var(--font-finwin-heading)] text-[11px] font-bold uppercase tracking-[0.22em] text-[#2c4a63]">
+                  <p className="font-(family-name:--font-finwin-heading) text-[11px] font-bold uppercase tracking-[0.22em] text-[#2c4a63]">
                     {step.num}
                   </p>
-                  <h3 className="font-[family-name:var(--font-finwin-heading)] text-xl font-semibold text-white">
+                  <h3 className="font-(family-name:--font-finwin-heading) text-xl font-semibold text-white">
                     {step.title}
                   </h3>
                   <p className="text-[13px] leading-relaxed text-[#5e7d98]">{step.detail}</p>
@@ -304,9 +304,9 @@ export default function Home() {
           {/* ── CTA ── */}
           <section className="relative mt-28 overflow-hidden rounded-3xl border border-white/[0.07] p-10 text-center sm:p-14">
             {/* BG gradient */}
-            <div className="absolute inset-0 bg-gradient-to-br from-[#0a1828] via-[#091120] to-[#050b14]" />
-            <div className="absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-gradient-to-r from-transparent via-[#41d2ff]/40 to-transparent" />
-            <div className="absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,_rgba(65,210,255,0.12),_transparent_65%)]" />
+            <div className="absolute inset-0 bg-linear-to-brrom-[#0a1828] via-[#091120] to-[#050b14]" />
+            <div className="absolute left-1/2 top-0 h-px w-2/3 -translate-x-1/2 bg-linear-to-r from-transparent via-[#41d2ff]/40 to-transparent" />
+            <div className="absolute -top-24 left-1/2 h-64 w-64 -translate-x-1/2 rounded-full bg-[radial-gradient(circle,rgba(65,210,255,0.12),transparent_65%)]" />
 
             <div className="relative">
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#41d2ff]/70">
@@ -326,7 +326,7 @@ export default function Home() {
                   className="group relative overflow-hidden rounded-xl bg-[#41d2ff] px-7 py-3.5 text-[13px] font-semibold text-[#021018] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_10px_40px_rgba(65,210,255,0.4)]"
                 >
                   <span className="relative z-10">Create free account</span>
-                  <div className="absolute inset-0 -translate-x-full bg-gradient-to-r from-transparent via-white/25 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
+                  <div className="absolute inset-0 -translate-x-full bg-linear-to-r from-transparent via-white/25 to-transparent transition-transform duration-500 group-hover:translate-x-full" />
                 </Link>
                 <a
                   href="https://github.com/abbeazale/finwin"
@@ -341,8 +341,8 @@ export default function Home() {
           </section>
 
           {/* ── Footer ── */}
-          <footer className="mt-16 flex items-center justify-between border-t border-white/[0.05] pt-8 text-[12px] text-[#2e4a62]">
-            <span className="font-[family-name:var(--font-finwin-heading)] font-semibold text-[#3a607f]">FinWin</span>
+          <footer className="mt-16 flex items-center justify-between border-t border-white/5 pt-8 text-[12px] text-[#2e4a62]">
+            <span className="font-(family-name:--font-finwin-heading)-semibold text-[#3a607f]">FinWin</span>
             <span>Open source · MIT License</span>
           </footer>
         </main>
