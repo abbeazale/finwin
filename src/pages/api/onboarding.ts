@@ -37,8 +37,6 @@ export default async function handler(
     typeof req.body?.firstName === "string" ? req.body.firstName.trim() : "";
   const lastName =
     typeof req.body?.lastName === "string" ? req.body.lastName.trim() : "";
-  const displayName =
-    typeof req.body?.displayName === "string" ? req.body.displayName.trim() : "";
   const currency =
     typeof req.body?.currency === "string" ? req.body.currency.trim().toUpperCase() : "";
   const timezone =
@@ -49,7 +47,7 @@ export default async function handler(
       : Number.NaN;
   const age = Number.isInteger(ageInput) ? ageInput : Number.NaN;
   const resolvedDisplayName =
-    displayName || session.user.name?.trim() || `${firstName} ${lastName}`.trim();
+    session.user.name?.trim() || `${firstName} ${lastName}`.trim();
 
   if (!firstName || !lastName) {
     return res.status(400).json({ error: "First name and last name are required." });

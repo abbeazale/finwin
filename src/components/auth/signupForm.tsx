@@ -47,7 +47,7 @@ export default function SignupForm({
         return;
       }
 
-       router.push("/onboarding");
+      router.push("/onboarding");
     });
   }
 
@@ -88,14 +88,7 @@ export default function SignupForm({
                   alt="Github"
                   width={30}
                   height={30}
-                  className="mr-2 block group-hover:hidden"
-                />
-                <Image
-                  src="/github.svg"
-                  alt="Github"
-                  width={30}
-                  height={30}
-                  className="mr-2 hidden group-hover:block"
+                  className="mr-2"
                 />
                 Github
               </Button>
@@ -156,7 +149,7 @@ export default function SignupForm({
                 required
               />
             </Field>
-           
+
             {error ? (
               <FieldDescription className="text-sm text-red-400">
                 {error}

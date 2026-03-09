@@ -27,7 +27,6 @@ export default function Dashboard({
         return;
       }
 
-      console.log("signedout")
       router.push("/login");
     });
   }

@@ -1,7 +1,6 @@
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import Link from "next/link";
 import { useRouter } from "next/router";
 import { FormEvent, useState, useTransition } from "react";
 import { signIn } from "@/lib/auth-client";
@@ -80,14 +79,7 @@ export default function LoginForm({
                   alt="Github"
                   width={30}
                   height={30}
-                  className="mr-2 block group-hover:hidden"
-                />
-                <Image
-                  src="/github.svg"
-                  alt="Github"
-                  width={30}
-                  height={30}
-                  className="mr-2 hidden group-hover:block"
+                  className="mr-2"
                 />
                 Github
               </Button>
@@ -123,15 +115,7 @@ export default function LoginForm({
               />
             </Field>
             <Field>
-              <div className="flex items-center">
-                <FieldLabel htmlFor="login-password">Password</FieldLabel>
-                <Link
-                  href="#"
-                  className="ml-auto text-sm underline-offset-4 hover:underline"
-                >
-                  Forgot your password?
-                </Link>
-              </div>
+              <FieldLabel htmlFor="login-password">Password</FieldLabel>
               <Input
                 id="login-password"
                 name="password"

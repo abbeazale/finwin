@@ -70,5 +70,10 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
     };
   }
 
-  return { props: {} };
+  return {
+    redirect: {
+      destination: "/onboarding",
+      permanent: false,
+    },
+  };
 };
