@@ -75,10 +75,10 @@ export default function SignupForm({
         </p>
         <form onSubmit={handleEmailSignup} className="mt-8">
           <FieldGroup>
-            <Field className="flex w-1/2 flex-row gap-4 xs:flex-col">
+            <Field className="grid w-full grid-cols-2 gap-3 sm:gap-4">
               <Button
                 variant="outline"
-                className="bg-slate-900 border-0.5 p-6 text-md text-white"
+                className="h-14 w-full bg-slate-900 border-0.5 px-3 text-base text-white sm:px-6"
                 type="button"
                 onClick={() => handleSocialSignup("github")}
                 disabled={isPending}
@@ -88,14 +88,14 @@ export default function SignupForm({
                   alt="Github"
                   width={30}
                   height={30}
-                  className="mr-2"
+                  className="mr-2 h-7 w-7 sm:h-[30px] sm:w-[30px]"
                 />
                 Github
               </Button>
               <Button
                 variant="outline"
                 onClick={() => handleSocialSignup("google")}
-                className="bg-slate-900 border-0.5 p-6 text-md text-white"
+                className="h-14 w-full bg-slate-900 border-0.5 px-3 text-base text-white sm:px-6"
                 type="button"
                 disabled={isPending}
               >
@@ -104,7 +104,7 @@ export default function SignupForm({
                   alt="Google"
                   width={30}
                   height={30}
-                  className="mr-2 "
+                  className="mr-2 h-7 w-7 sm:h-[30px] sm:w-[30px]"
                 />
                 Google
               </Button>
