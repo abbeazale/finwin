@@ -312,7 +312,7 @@ export default function Home() {
               <p className="mb-3 text-[11px] font-semibold uppercase tracking-[0.2em] text-[#41d2ff]/70">
                 Early access
               </p>
-              <h2 className="mx-auto max-w-2xl font-[family-name:var(--font-finwin-heading)] text-3xl font-bold leading-[1.2] tracking-[-0.025em] text-white sm:text-4xl">
+              <h2 className="mx-auto max-w-2xl font-(family-name:--font-finwin-heading) text-3xl font-bold leading-[1.2] tracking-[-0.025em] text-white sm:text-4xl">
                 Build better money habits.
                 <br />
                 <span className="text-[#6a8aaa]">Test smarter investing decisions.</span>

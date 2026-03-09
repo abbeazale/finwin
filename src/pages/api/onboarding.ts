@@ -8,6 +8,16 @@ type ErrorResponse = {
   error: string;
 };
 
+function capitalizeNameWords(value: string | null | undefined) {
+  return (value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<ErrorResponse | { ok: true }>,
@@ -33,10 +43,12 @@ export default async function handler(
     return res.status(401).json({ error: "Unauthorized." });
   }
 
-  const firstName =
-    typeof req.body?.firstName === "string" ? req.body.firstName.trim() : "";
-  const lastName =
-    typeof req.body?.lastName === "string" ? req.body.lastName.trim() : "";
+  const firstName = capitalizeNameWords(
+    typeof req.body?.firstName === "string" ? req.body.firstName : "",
+  );
+  const lastName = capitalizeNameWords(
+    typeof req.body?.lastName === "string" ? req.body.lastName : "",
+  );
   const currency =
     typeof req.body?.currency === "string" ? req.body.currency.trim().toUpperCase() : "";
   const timezone =

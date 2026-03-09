@@ -32,6 +32,41 @@ const COMMON_TIMEZONES = [
   { value: "Europe/London", label: "London (GMT/BST) · UTC+0/1", helper: "Europe/London" },
 ];
 
+function splitDisplayName(name: string | null | undefined) {
+  const normalizedName = name?.trim().replace(/\s+/g, " ") ?? "";
+
+  if (!normalizedName) {
+    return {
+      firstName: "",
+      lastName: "",
+    };
+  }
+
+  const lastSpaceIndex = normalizedName.lastIndexOf(" ");
+
+  if (lastSpaceIndex === -1) {
+    return {
+      firstName: normalizedName,
+      lastName: "",
+    };
+  }
+
+  return {
+    firstName: normalizedName.slice(0, lastSpaceIndex),
+    lastName: normalizedName.slice(lastSpaceIndex + 1),
+  };
+}
+
+function capitalizeNameWords(value: string | null | undefined) {
+  return (value ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean)
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(" ");
+}
+
 export default function OnboardingPage({
   initialFirstName,
   initialLastName,
@@ -126,7 +161,7 @@ export default function OnboardingPage({
                     placeholder="Alex"
                     autoComplete="given-name"
                     required
-                    className="h-12 rounded-[14px] border-white/10 bg-white/[0.04] px-4 text-[14px] text-white placeholder:text-[#4a5565]"
+                    className="h-12 rounded-[14px] border-white/10 bg-white/4 px-4 text-[14px] text-white placeholder:text-[#4a5565]"
                   />
                 </FieldContent>
               </Field>
@@ -144,7 +179,7 @@ export default function OnboardingPage({
                     placeholder="Johnson"
                     autoComplete="family-name"
                     required
-                    className="h-12 rounded-[14px] border-white/10 bg-white/[0.04] px-4 text-[14px] text-white placeholder:text-[#4a5565]"
+                    className="h-12 rounded-[14px] border-white/10 bg-white/4 px-4 text-[14px] text-white placeholder:text-[#4a5565]"
                   />
                 </FieldContent>
               </Field>
@@ -189,7 +224,7 @@ export default function OnboardingPage({
                     name="currency"
                     value={currency}
                     onChange={(event) => setCurrency(event.target.value)}
-                    className="h-12 w-full appearance-none rounded-[14px] border border-white/10 bg-white/[0.04] px-4 pr-12 text-[14px] font-medium text-[#d1d5dc] outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
+                    className="h-12 w-full appearance-none rounded-[14px] border border-white/10 bg-white/4 px-4 pr-12 text-[14px] font-medium text-[#d1d5dc] outline-none transition-[border-color,box-shadow] focus-visible:border-ring focus-visible:ring-[3px] focus-visible:ring-ring/50"
                   >
                     {COMMON_CURRENCIES.map((option) => (
                       <option key={option.value} value={option.value}>
@@ -272,6 +307,7 @@ export const getServerSideProps: GetServerSideProps<{
   }
 
   const profile = await getUserProfile(session.user.id);
+  const parsedName = splitDisplayName(session.user.name);
 
   if (hasCompletedOnboarding(profile)) {
     return {
@@ -284,8 +320,12 @@ export const getServerSideProps: GetServerSideProps<{
 
   return {
     props: {
-      initialFirstName: profile?.firstName ?? "",
-      initialLastName: profile?.lastName ?? "",
+      initialFirstName: capitalizeNameWords(
+        profile?.firstName ?? parsedName.firstName,
+      ),
+      initialLastName: capitalizeNameWords(
+        profile?.lastName ?? parsedName.lastName,
+      ),
       initialAge: profile?.age ? String(profile.age) : "",
       initialCurrency: profile?.currency ?? "CAD",
       initialTimezone: profile?.timezone ?? "America/Toronto",
