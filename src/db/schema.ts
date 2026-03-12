@@ -20,9 +20,9 @@ export const user = pgTable(
     createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => ({
-    emailIdx: uniqueIndex("user_email_unique").on(table.email),
-  }),
+  (table) => ([
+    uniqueIndex("user_email_unique").on(table.email),
+  ]),
 );
 
 export const session = pgTable(
@@ -39,10 +39,10 @@ export const session = pgTable(
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
   },
-  (table) => ({
-    tokenIdx: uniqueIndex("session_token_unique").on(table.token),
-    userIdIdx: index("session_user_id_idx").on(table.userId),
-  }),
+  (table) => ([
+    uniqueIndex("session_token_unique").on(table.token),
+    index("session_user_id_idx").on(table.userId),
+  ]),
 );
 
 export const account = pgTable(
@@ -64,13 +64,13 @@ export const account = pgTable(
     createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => ({
-    providerAccountIdx: uniqueIndex("account_provider_account_unique").on(
+  (table) => ([
+    uniqueIndex("account_provider_account_unique").on(
       table.providerId,
       table.accountId,
     ),
-    accountUserIdIdx: index("account_user_id_idx").on(table.userId),
-  }),
+    index("account_user_id_idx").on(table.userId),
+  ]),
 );
 
 export const verification = pgTable(
@@ -83,9 +83,9 @@ export const verification = pgTable(
     createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => ({
-    identifierIdx: index("verification_identifier_idx").on(table.identifier),
-  }),
+  (table) => ([
+    index("verification_identifier_idx").on(table.identifier),
+  ]),
 );
 
 export const userProfiles = pgTable(
@@ -103,7 +103,7 @@ export const userProfiles = pgTable(
     createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
   },
-  (table) => ({
-    userIdUnique: uniqueIndex("user_profiles_user_id_unique").on(table.userId),
-  }),
+  (table) => ([
+    uniqueIndex("user_profiles_user_id_unique").on(table.userId),
+  ]),
 );
