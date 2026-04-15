@@ -5,6 +5,8 @@ import {
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
 import { signOut } from "@/lib/auth-client";
+import { ConnectBank } from "@/components/connect-bank";
+import { RefreshTransactions } from "@/components/refresh-transactions";
 import { useRouter } from "next/router";
 import { useState, useTransition } from "react";
 import {
@@ -193,9 +195,23 @@ export default function Dashboard({
                   March 2026
                   <ChevronRight className="size-3 rotate-90" />
                 </button>
+                <ConnectBank
+                  onConnected={({ accountCount }) => {
+                    router.replace(router.asPath);
+                    setError(`Connected ${accountCount} account${accountCount === 1 ? "" : "s"}.`);
+                  }}
+                />
+                <RefreshTransactions
+                  onRefreshed={(t) => {
+                    router.replace(router.asPath);
+                    setError(
+                      `Synced: +${t.added} added, ~${t.modified} modified, -${t.removed} removed.`,
+                    );
+                  }}
+                />
                 <button
                   type="button"
-                  className="inline-flex h-9 items-center gap-2 rounded-[10px] bg-[#00d3f3] px-3 text-black"
+                  className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-white/10 bg-[#0a1628] px-3 text-[#d1d5dc]"
                 >
                   <Plus className="size-3.5" />
                   Add transaction
