@@ -5,6 +5,7 @@ import {
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
 import { signOut } from "@/lib/auth-client";
+import Link from "next/link";
 import { ConnectBank } from "@/components/connect-bank";
 import { RefreshTransactions } from "@/components/refresh-transactions";
 import { useRouter } from "next/router";
@@ -23,12 +24,17 @@ import {
   Wallet,
 } from "lucide-react";
 
-const navItems = [
+const navItems: {
+  label: string;
+  icon: typeof LayoutDashboard;
+  active: boolean;
+  href?: string;
+}[] = [
   { label: "Dashboard", icon: LayoutDashboard, active: true },
   { label: "Transactions", icon: Wallet, active: false },
   { label: "Budgets", icon: Target, active: false },
   { label: "Reports", icon: TrendingUp, active: false },
-  { label: "Settings", icon: Settings, active: false },
+  { label: "Settings", icon: Settings, active: false, href: "/settings/connections" },
 ];
 
 const kpiCards = [
@@ -140,19 +146,25 @@ export default function Dashboard({
           <nav className="flex flex-1 flex-col gap-1 p-3">
             {navItems.map((item) => {
               const Icon = item.icon;
-              return (
-                <button
-                  key={item.label}
-                  type="button"
-                  className={`flex h-10 items-center gap-3 rounded-[10px] px-3 text-left text-[13px] transition ${
-                    item.active
-                      ? "bg-[#00d3f31a] text-[#00d3f3]"
-                      : "text-[#6a7282] hover:bg-white/5 hover:text-[#d1d5dc]"
-                  }`}
-                >
+              const className = `flex h-10 items-center gap-3 rounded-[10px] px-3 text-left text-[13px] transition ${
+                item.active
+                  ? "bg-[#00d3f31a] text-[#00d3f3]"
+                  : "text-[#6a7282] hover:bg-white/5 hover:text-[#d1d5dc]"
+              }`;
+              const content = (
+                <>
                   <Icon className="size-4" />
                   <span>{item.label}</span>
                   {item.active ? <span className="ml-auto size-1.5 rounded-full bg-[#00d3f3]" /> : null}
+                </>
+              );
+              return item.href ? (
+                <Link key={item.label} href={item.href} className={className}>
+                  {content}
+                </Link>
+              ) : (
+                <button key={item.label} type="button" className={className}>
+                  {content}
                 </button>
               );
             })}

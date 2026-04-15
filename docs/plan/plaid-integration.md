@@ -52,6 +52,11 @@ Now that fields have real callers, revisit the audit from the previous session:
 - Decide on `categoryConfidence`, `authorizedDate`, `merchantName`, `notes` based on what the UI actually reads.
 - Generate drizzle migration.
 - **Swap `drizzle-orm/neon-http` → `drizzle-orm/neon-serverless` (WebSocket pool)** so multi-statement DB transactions work. Wrap Phase 1's exchange (connection + accounts insert) and Phase 2's sync (upsert + cursor advance) in `db.transaction(...)` to eliminate orphan-row and half-synced states. Update `src/index.ts` and audit any code relying on http-driver semantics.
+- **Rework unlink to "delete pipe, keep data" model.** Currently soft-revokes (`status="revoked"`). Plan:
+  1. Make `bank_accounts.connection_id` nullable; drop `ON DELETE CASCADE` from the FK.
+  2. On unlink: hard-delete the `bank_connections` row, set `bank_accounts.connection_id = NULL`, flip `bank_accounts.is_active = false`.
+  3. `is_active` earns its keep — budget/transaction queries filter by it. Re-adding the same bank creates fresh active accounts; the old ones stay as inactive history.
+  4. Remove the `status = "revoked"` handling from `/settings/connections` filter once the model changes (nothing will ever be revoked anymore).
 
 ## Risks & Mitigations
 
