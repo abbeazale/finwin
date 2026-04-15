@@ -1,0 +1,138 @@
+import { and, eq, inArray } from "drizzle-orm";
+import type { Transaction as PlaidTransaction, RemovedTransaction } from "plaid";
+import { db } from "@/index";
+import { bankAccounts, bankConnections, transactions } from "@/db/schema";
+import { plaid } from "./client";
+
+export type SyncResult = {
+  added: number;
+  modified: number;
+  removed: number;
+  cursor: string | null;
+};
+
+export async function syncConnection(connectionId: string): Promise<SyncResult> {
+  const [connection] = await db
+    .select({
+      id: bankConnections.id,
+      userId: bankConnections.userId,
+      accessToken: bankConnections.accessToken,
+      lastCursor: bankConnections.lastCursor,
+    })
+    .from(bankConnections)
+    .where(eq(bankConnections.id, connectionId))
+    .limit(1);
+
+  if (!connection) throw new Error(`bankConnection ${connectionId} not found`);
+
+  const accountRows = await db
+    .select({ id: bankAccounts.id, providerAccountId: bankAccounts.providerAccountId })
+    .from(bankAccounts)
+    .where(eq(bankAccounts.connectionId, connection.id));
+
+  const accountIdByProvider = new Map(
+    accountRows.map((a) => [a.providerAccountId, a.id]),
+  );
+
+  let cursor: string | null = connection.lastCursor;
+  const added: PlaidTransaction[] = [];
+  const modified: PlaidTransaction[] = [];
+  const removed: RemovedTransaction[] = [];
+
+  // Loop until Plaid signals no more pages.
+  // Plaid accepts `cursor` on request; omit (undefined) on first call.
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    const { data } = await plaid.transactionsSync({
+      access_token: connection.accessToken,
+      cursor: cursor ?? undefined,
+    });
+    added.push(...data.added);
+    modified.push(...data.modified);
+    removed.push(...data.removed);
+    cursor = data.next_cursor;
+    if (!data.has_more) break;
+  }
+
+  const upserts = [...added, ...modified].flatMap((tx) => {
+    const accountId = accountIdByProvider.get(tx.account_id);
+    if (!accountId) return [];
+    return [
+      {
+        userId: connection.userId,
+        accountId,
+        providerTransactionId: tx.transaction_id,
+        date: tx.date,
+        authorizedDate: tx.authorized_date ?? null,
+        name: tx.name,
+        merchantName: tx.merchant_name ?? null,
+        amount: tx.amount.toFixed(2),
+        currency: tx.iso_currency_code ?? "CAD",
+        pending: tx.pending,
+      },
+    ];
+  });
+
+  for (const row of upserts) {
+    await db
+      .insert(transactions)
+      .values(row)
+      .onConflictDoUpdate({
+        target: transactions.providerTransactionId,
+        set: {
+          date: row.date,
+          authorizedDate: row.authorizedDate,
+          name: row.name,
+          merchantName: row.merchantName,
+          amount: row.amount,
+          currency: row.currency,
+          pending: row.pending,
+        },
+      });
+  }
+
+  const removedIds = removed
+    .map((r) => r.transaction_id)
+    .filter((id): id is string => Boolean(id));
+
+  if (removedIds.length > 0) {
+    await db
+      .delete(transactions)
+      .where(
+        and(
+          eq(transactions.userId, connection.userId),
+          inArray(transactions.providerTransactionId, removedIds),
+        ),
+      );
+  }
+
+  await db
+    .update(bankConnections)
+    .set({ lastCursor: cursor, updatedAt: new Date() })
+    .where(eq(bankConnections.id, connection.id));
+
+  return {
+    added: added.length,
+    modified: modified.length,
+    removed: removedIds.length,
+    cursor,
+  };
+}
+
+export async function syncUserConnections(userId: string): Promise<SyncResult[]> {
+  const rows = await db
+    .select({ id: bankConnections.id })
+    .from(bankConnections)
+    .where(
+      and(
+        eq(bankConnections.userId, userId),
+        eq(bankConnections.status, "active"),
+      ),
+    );
+
+  const results: SyncResult[] = [];
+  for (const row of rows) {
+    results.push(await syncConnection(row.id));
+  }
+  return results;
+}

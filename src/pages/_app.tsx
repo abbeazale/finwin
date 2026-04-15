@@ -1,4 +1,4 @@
-import "@/styles/globals.css";
+import "@/app/globals.css";
 import { DM_Sans, Sora } from "next/font/google";
 import type { AppProps } from "next/app";
 
