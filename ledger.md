@@ -6,6 +6,7 @@
 - **Phase 0** done: env vars (`PLAID_ENV`, `PLAID_WEBHOOK_URL`), `.env.example`, installed `plaid` + `react-plaid-link`, created `src/server/plaid/client.ts` singleton.
 - **Phase 1** done + verified: `POST /api/plaid/link-token`, `POST /api/plaid/exchange`, `ConnectBank` component in dashboard header. End-to-end sandbox connect confirmed — `bank_connections` + `bank_accounts` rows written correctly.
 - **Phase 2** done + verified: `src/server/plaid/sync.ts` (`syncConnection` + `syncUserConnections`), `POST /api/plaid/sync` (manual trigger, per-connection or all), `RefreshTransactions` dashboard button. Initial hydration runs at tail of `/exchange`. Cursor-based sync: upsert on `providerTransactionId`, delete on `removed`, advance `lastCursor`. Sandbox sync populates `transactions` rows correctly.
+- **Phase 3** done + verified: `POST /api/plaid/webhook` with ES256 JWT verification via `src/server/plaid/webhook-verify.ts` (JWK cached by `kid`, `iat` freshness, `request_body_sha256` body check on raw body; body parser disabled on route). Routes `TRANSACTIONS` sync codes → `syncConnection`; `ITEM` codes flip `bankConnections.status`. Installed `jose`. Local delivery via ngrok → `PLAID_WEBHOOK_URL` passed to `/link/token/create`. End-to-end: sandbox reconnect triggered `exchange` + two webhook 200s as expected.
 - **TODO for Phase 5**: switch `drizzle-orm/neon-http` → `drizzle-orm/neon-serverless` (WebSocket pool) so multi-statement DB transactions work; current exchange + sync paths can leave orphan rows on partial failure.
 
 ## 2026-04-14
