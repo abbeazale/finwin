@@ -1,3 +1,4 @@
+import { TRPCError } from "@trpc/server";
 import { and, asc, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { bankAccounts, categories, categoryGroups, transactions } from "@/db/schema";
@@ -22,6 +23,11 @@ const listTransactionsInput = z.object({
     path: ["dateTo"],
   },
 );
+
+const setTransactionCategoryInput = z.object({
+  transactionId: z.string().uuid(),
+  categoryId: z.string().uuid().nullable(),
+});
 
 export const transactionsRouter = router({
   list: protectedProcedure
@@ -138,6 +144,59 @@ export const transactionsRouter = router({
         uncategorizedCount,
         accounts,
         categories: categoryRows,
+      };
+    }),
+  setCategory: protectedProcedure
+    .input(setTransactionCategoryInput)
+    .mutation(async ({ ctx, input }) => {
+      const [ownedTransaction] = await db
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(
+          and(
+            eq(transactions.id, input.transactionId),
+            eq(transactions.userId, ctx.userId),
+          ),
+        )
+        .limit(1);
+
+      if (!ownedTransaction) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Transaction not found.",
+        });
+      }
+
+      if (input.categoryId) {
+        const [category] = await db
+          .select({ id: categories.id })
+          .from(categories)
+          .where(eq(categories.id, input.categoryId))
+          .limit(1);
+
+        if (!category) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Category not found.",
+          });
+        }
+      }
+
+      await db
+        .update(transactions)
+        .set({
+          categoryId: input.categoryId,
+        })
+        .where(
+          and(
+            eq(transactions.id, input.transactionId),
+            eq(transactions.userId, ctx.userId),
+          ),
+        );
+
+      return {
+        transactionId: input.transactionId,
+        categoryId: input.categoryId,
       };
     }),
 });
