@@ -3,7 +3,7 @@ import { and, eq } from "drizzle-orm";
 import { auth } from "@/lib/auth";
 import { toRequestHeaders } from "@/lib/request-headers";
 import { db } from "@/index";
-import { bankConnections } from "@/db/schema";
+import { bankAccounts, bankConnections } from "@/db/schema";
 import { plaid } from "@/server/plaid/client";
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
@@ -44,20 +44,24 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(200).json({ ok: true });
   }
 
-  // DELETE
+  // DELETE — "delete pipe, keep data": remove the Plaid item, detach accounts from the
+  // connection, and hard-delete the connection row. Transactions stay linked to the
+  // (now-orphaned-but-preserved) accounts for historical budgets.
   try {
     await plaid.itemRemove({ access_token: connection.accessToken });
   } catch (err) {
     const plaidErr = (err as { response?: { data?: unknown } })?.response?.data;
-    // Proceed with local revoke even if Plaid-side remove fails; token is dead on our end either way.
-    console.error("plaid itemRemove failed (continuing with local revoke)", plaidErr ?? err);
+    console.error("plaid itemRemove failed (continuing with local unlink)", plaidErr ?? err);
   }
 
-  // Soft revoke: keep bank_accounts + transactions for historical budgets.
-  await db
-    .update(bankConnections)
-    .set({ status: "revoked", updatedAt: new Date() })
-    .where(eq(bankConnections.id, connection.id));
+  await db.transaction(async (tx) => {
+    await tx
+      .update(bankAccounts)
+      .set({ connectionId: null, isActive: false })
+      .where(eq(bankAccounts.connectionId, connection.id));
+
+    await tx.delete(bankConnections).where(eq(bankConnections.id, connection.id));
+  });
 
   return res.status(200).json({ ok: true });
 }

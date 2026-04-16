@@ -39,10 +39,9 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
   const modified: PlaidTransaction[] = [];
   const removed: RemovedTransaction[] = [];
 
-  // Loop until Plaid signals no more pages.
   // Plaid accepts `cursor` on request; omit (undefined) on first call.
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
+  let hasMore = true;
+  while (hasMore) {
     const { data } = await plaid.transactionsSync({
       access_token: connection.accessToken,
       cursor: cursor ?? undefined,
@@ -51,7 +50,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     modified.push(...data.modified);
     removed.push(...data.removed);
     cursor = data.next_cursor;
-    if (!data.has_more) break;
+    hasMore = data.has_more;
   }
 
   const upserts = [...added, ...modified].flatMap((tx) => {
@@ -73,43 +72,45 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     ];
   });
 
-  for (const row of upserts) {
-    await db
-      .insert(transactions)
-      .values(row)
-      .onConflictDoUpdate({
-        target: transactions.providerTransactionId,
-        set: {
-          date: row.date,
-          authorizedDate: row.authorizedDate,
-          name: row.name,
-          merchantName: row.merchantName,
-          amount: row.amount,
-          currency: row.currency,
-          pending: row.pending,
-        },
-      });
-  }
-
   const removedIds = removed
     .map((r) => r.transaction_id)
     .filter((id): id is string => Boolean(id));
 
-  if (removedIds.length > 0) {
-    await db
-      .delete(transactions)
-      .where(
-        and(
-          eq(transactions.userId, connection.userId),
-          inArray(transactions.providerTransactionId, removedIds),
-        ),
-      );
-  }
+  await db.transaction(async (tx) => {
+    for (const row of upserts) {
+      await tx
+        .insert(transactions)
+        .values(row)
+        .onConflictDoUpdate({
+          target: transactions.providerTransactionId,
+          set: {
+            date: row.date,
+            authorizedDate: row.authorizedDate,
+            name: row.name,
+            merchantName: row.merchantName,
+            amount: row.amount,
+            currency: row.currency,
+            pending: row.pending,
+          },
+        });
+    }
 
-  await db
-    .update(bankConnections)
-    .set({ lastCursor: cursor, updatedAt: new Date() })
-    .where(eq(bankConnections.id, connection.id));
+    if (removedIds.length > 0) {
+      await tx
+        .delete(transactions)
+        .where(
+          and(
+            eq(transactions.userId, connection.userId),
+            inArray(transactions.providerTransactionId, removedIds),
+          ),
+        );
+    }
+
+    await tx
+      .update(bankConnections)
+      .set({ lastCursor: cursor, updatedAt: new Date() })
+      .where(eq(bankConnections.id, connection.id));
+  });
 
   return {
     added: added.length,

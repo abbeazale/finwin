@@ -36,31 +36,35 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
     const { data: accountsRes } = await plaid.accountsGet({ access_token: accessToken });
 
-    const [connection] = await db
-      .insert(bankConnections)
-      .values({
-        userId: session.user.id,
-        provider: "plaid",
-        providerItemId: itemId,
-        accessToken,
-        status: "active",
-      })
-      .returning({ id: bankConnections.id });
-
-    if (accountsRes.accounts.length > 0) {
-      await db.insert(bankAccounts).values(
-        accountsRes.accounts.map((acct) => ({
+    const connection = await db.transaction(async (tx) => {
+      const [conn] = await tx
+        .insert(bankConnections)
+        .values({
           userId: session.user.id,
-          connectionId: connection.id,
-          providerAccountId: acct.account_id,
-          name: acct.name,
-          type: acct.type,
-          subtype: acct.subtype ?? null,
-          mask: acct.mask ?? null,
-          currency: acct.balances.iso_currency_code ?? "CAD",
-        })),
-      );
-    }
+          provider: "plaid",
+          providerItemId: itemId,
+          accessToken,
+          status: "active",
+        })
+        .returning({ id: bankConnections.id });
+
+      if (accountsRes.accounts.length > 0) {
+        await tx.insert(bankAccounts).values(
+          accountsRes.accounts.map((acct) => ({
+            userId: session.user.id,
+            connectionId: conn.id,
+            providerAccountId: acct.account_id,
+            name: acct.name,
+            type: acct.type,
+            subtype: acct.subtype ?? null,
+            mask: acct.mask ?? null,
+            currency: acct.balances.iso_currency_code ?? "CAD",
+          })),
+        );
+      }
+
+      return conn;
+    });
 
     let initialSync: { added: number; modified: number; removed: number } | null = null;
     try {

@@ -9,6 +9,7 @@ FinWin is a Next.js personal finance app focused on turning imported transaction
 - Read `ledger.md` first when resuming work.
 - Prioritize transaction clarity, budgeting, and deterministic financial logic before broader investing surfaces.
 - Keep auth, schema, and bank data contracts grounded in real integrations rather than demo-only flows.
+- Unlink model: "delete pipe, keep data" — when a connection is unlinked, `bank_accounts.connection_id` is set to NULL and `is_active` flips to false. The account row stays for historical transactions. Reconnect spawns a new active row with a new connection_id.
 - Keep `docs/plan.md` and `docs/resources.md` current when priorities, architecture, or external services change.
 - Invoke `update-docs` when a meaningful feature or milestone lands.
 - Invoke `session-handoff` before ending work or compacting context.

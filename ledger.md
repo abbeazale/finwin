@@ -1,5 +1,19 @@
 # FinWin Ledger
 
+## 2026-04-15
+
+- **Phase 5** done: schema trim + neon-serverless swap + unlink rework.
+  - Swapped `src/index.ts` and `scripts/db-reset.ts` from `drizzle-orm/neon-http` → `drizzle-orm/neon-serverless` (Pool on WebSocket). Node 25 has global `WebSocket`, no `ws` polyfill needed.
+  - Schema trim: dropped `transactions.category_confidence` and `transactions.notes` (never populated, never read). Kept `authorized_date` + `merchant_name` — populated by sync and load-bearing for the upcoming transactions list.
+  - `bank_accounts.connection_id` now nullable; FK flipped from `ON DELETE CASCADE` → `ON DELETE SET NULL`. Migration `drizzle/0001_silent_payback.sql`.
+  - Unlink rework (delete-pipe-keep-data): `DELETE /api/plaid/connections/:id` now runs `itemRemove`, then a single tx that nulls `bank_accounts.connection_id` + flips `is_active=false` for the affected accounts, then hard-deletes the `bank_connections` row. Soft-revoke / `status="revoked"` removed everywhere (UI pill, list filter, button disabled check).
+  - Multi-statement writes wrapped in `db.transaction(...)`: exchange (connection + accounts insert) and sync (upsert + remove + cursor advance). Orphan-row failure mode is gone.
+- Cleanup touching the last 4 commits:
+  - `src/app/layout.tsx`: fonts (`Sora`, `DM_Sans`) were declared but never applied — landing page silently fell back. Wired both `--font-finwin-heading` and `--font-finwin-body` on `<body>` per `migration.md` §1.
+  - `src/server/plaid/sync.ts`: replaced `while (true) { … break }` + stale `eslint-disable` with an explicit `hasMore` loop.
+- Verified clean: `bunx tsc --noEmit` and `bunx eslint src` both pass with zero errors/warnings.
+- **Next**: apply `drizzle/0001_silent_payback.sql` (either `bunx drizzle-kit migrate` against the live Neon DB, or `bun run dbreset` if sandbox data is disposable), then re-run the sandbox smoke test — connect → sync → unlink — and confirm a reconnect of the same bank spawns *new* active `bank_accounts` rows while the old ones stay as inactive history.
+
 ## 2026-04-14 (later)
 
 - Drafted Plaid integration spec + phased plan in `docs/spec/plaid-integration.md` and `docs/plan/plaid-integration.md`; cross-checked against Plaid API docs (corrected cursor param name, webhook JWT verification flow, sign convention).
