@@ -1,6 +1,7 @@
 import "@/app/globals.css";
 import { Geist, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import type { AppProps } from "next/app";
+import { TRPCProvider } from "@/lib/trpc";
 
 const display = Instrument_Serif({
   subsets: ["latin"],
@@ -23,10 +24,12 @@ const mono = JetBrains_Mono({
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-    <div
-      className={`${display.variable} ${body.variable} ${mono.variable} antialiased`}
-    >
-      <Component {...pageProps} />
-    </div>
+    <TRPCProvider>
+      <div
+        className={`${display.variable} ${body.variable} ${mono.variable} antialiased`}
+      >
+        <Component {...pageProps} />
+      </div>
+    </TRPCProvider>
   );
 }

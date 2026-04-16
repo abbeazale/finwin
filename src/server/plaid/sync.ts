@@ -1,8 +1,9 @@
 import { and, eq, inArray } from "drizzle-orm";
 import type { Transaction as PlaidTransaction, RemovedTransaction } from "plaid";
 import { db } from "@/index";
-import { bankAccounts, bankConnections, transactions } from "@/db/schema";
+import { bankAccounts, bankConnections, categories, categoryGroups, transactions } from "@/db/schema";
 import { plaid } from "./client";
+import { PLAID_CATEGORY_MAP, PLAID_PRIMARY_FALLBACK_MAP } from "@/server/trpc/category-map";
 
 export type SyncResult = {
   added: number;
@@ -10,6 +11,19 @@ export type SyncResult = {
   removed: number;
   cursor: string | null;
 };
+
+function resolveCategoryId(
+  plaidTx: PlaidTransaction,
+  categoryIdByName: Map<string, string>,
+): string | null {
+  const detailed = plaidTx.personal_finance_category?.detailed;
+  const primary = plaidTx.personal_finance_category?.primary;
+  let resolvedName: string | undefined;
+  if (detailed) resolvedName = PLAID_CATEGORY_MAP[detailed];
+  if (!resolvedName && primary) resolvedName = PLAID_PRIMARY_FALLBACK_MAP[primary];
+  if (!resolvedName) resolvedName = "Uncategorized";
+  return categoryIdByName.get(resolvedName) ?? null;
+}
 
 export async function syncConnection(connectionId: string): Promise<SyncResult> {
   const [connection] = await db
@@ -24,6 +38,14 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     .limit(1);
 
   if (!connection) throw new Error(`bankConnection ${connectionId} not found`);
+
+  const categoryRows = await db
+    .select({ id: categories.id, name: categories.name })
+    .from(categories)
+    .innerJoin(categoryGroups, eq(categories.groupId, categoryGroups.id));
+  const categoryIdByName = new Map<string, string>(
+    categoryRows.map((c) => [c.name, c.id]),
+  );
 
   const accountRows = await db
     .select({ id: bankAccounts.id, providerAccountId: bankAccounts.providerAccountId })
@@ -68,6 +90,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         amount: tx.amount.toFixed(2),
         currency: tx.iso_currency_code ?? "CAD",
         pending: tx.pending,
+        categoryId: resolveCategoryId(tx, categoryIdByName),
       },
     ];
   });

@@ -1,5 +1,38 @@
 # FinWin Ledger
 
+## 2026-04-16
+
+### Phase 2 kickoff — decisions locked + tRPC migration shipped
+
+**Decisions locked (transactions + budgeting core):**
+- Category taxonomy: 6 groups, 18 categories (Income, Essentials, Lifestyle, Financial, Transfers, Other). Curated list mapped from Plaid's `personal_finance_category` via a TS const in `src/server/trpc/category-map.ts`.
+- Auto-categorize on sync using `detailed` → category name, fallback to `primary` → category name, fallback to "Uncategorized". User-assigned categories survive re-syncs (excluded from `onConflictDoUpdate`).
+- Transfers: `defaultBudgetable=true` (external spend counts). Credit Card Payment category is `defaultBudgetable=false` to avoid double-counting when CC is also linked.
+- Pending transactions included in budget math. Pending badge shown in tx list.
+- Budgets are monthly, start 1st of month. Custom period start deferred → `docs/future.md`.
+- Uncategorized: `defaultBudgetable=false`, nudge shown in tx page when any exist.
+- Inactive accounts (post-unlink): hidden by default in tx page, "include inactive" toggle.
+- tRPC for all app data routes. Plaid webhook stays REST (raw body required for signature check).
+- Dashboard Budget Progress section wired to real data in Phase 2 once `budgets.summary` exists.
+- Pages Router for all new product pages (`src/pages/`).
+
+**tRPC migration (complete, build passing):**
+- Installed: `@trpc/server`, `@trpc/client`, `@trpc/react-query`, `@tanstack/react-query`, `zod`.
+- New infrastructure: `src/server/trpc/trpc.ts` (router + protectedProcedure), `src/server/trpc/context.ts` (better-auth session), `src/server/trpc/routers/_app.ts` + `routers/plaid.ts`, `src/pages/api/trpc/[trpc].ts`, `src/lib/trpc.ts` (React client + TRPCProvider).
+- Migrated procedures: `plaid.createLinkToken`, `plaid.exchangeToken`, `plaid.syncTransactions`, `plaid.listConnections`, `plaid.unlinkConnection`, `plaid.reactivateConnection`.
+- Deleted old REST routes: `link-token.ts`, `exchange.ts`, `sync.ts`, `connections/[id].ts`. Webhook untouched.
+- Components updated: `connect-bank.tsx`, `refresh-transactions.tsx` now use tRPC mutations.
+- `settings/connections.tsx` moved from GSSP → `trpc.plaid.listConnections.useQuery()` + client-side auth guard via `useSession`.
+- `_app.tsx` wrapped with `<TRPCProvider>`.
+
+**Category seeding:**
+- `scripts/seed-categories.ts` — idempotent, run with `bun run seed`.
+- `src/server/trpc/category-map.ts` — full `PLAID_CATEGORY_MAP` (detailed) + `PLAID_PRIMARY_FALLBACK_MAP` (primary fallback).
+- `src/server/plaid/sync.ts` updated: loads category map on each sync, assigns `categoryId` on INSERT, excluded from conflict updates.
+- **Action required**: run `bun run seed` against the live Neon DB to populate `category_groups` + `categories` before any sync will produce categorized transactions.
+
+**Next**: transactions page (`/transactions`) — list with account/date/category/pending filters + category reassignment flow.
+
 ## 2026-04-15
 
 - **Phase 5** done: schema trim + neon-serverless swap + unlink rework.

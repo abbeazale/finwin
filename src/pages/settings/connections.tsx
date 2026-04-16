@@ -1,12 +1,9 @@
-import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import Link from "next/link";
 import { useRouter } from "next/router";
-import { useState } from "react";
-import { and, desc, eq } from "drizzle-orm";
+import { useEffect, useState } from "react";
 import { ArrowLeft, Building2, Plug, Trash2 } from "lucide-react";
-import { getPageSession } from "@/lib/page-auth";
-import { db } from "@/index";
-import { bankAccounts, bankConnections, transactions } from "@/db/schema";
+import { trpc } from "@/lib/trpc";
+import { useSession } from "@/lib/auth-client";
 import { ConnectBank } from "@/components/connect-bank";
 
 type ConnectionRow = {
@@ -18,27 +15,38 @@ type ConnectionRow = {
   lastTransactionDate: string | null;
 };
 
-export default function ConnectionsSettings({
-  connections,
-}: InferGetServerSidePropsType<typeof getServerSideProps>) {
+export default function ConnectionsSettings() {
   const router = useRouter();
-  const [unlinkingId, setUnlinkingId] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  const { data: session, isPending: sessionLoading } = useSession();
+  useEffect(() => {
+    if (!sessionLoading && !session) router.push("/login");
+  }, [session, sessionLoading, router]);
+
+  const connectionsQuery = trpc.plaid.listConnections.useQuery();
+  const { data: connections = [], isLoading } = connectionsQuery;
+
+  const unlinkMutation = trpc.plaid.unlinkConnection.useMutation({
+    onSuccess: () => {
+      setMessage("Connection unlinked.");
+      void connectionsQuery.refetch();
+    },
+    onError: (e) => setMessage(e.message ?? "Unlink failed"),
+  });
 
   async function unlink(id: string) {
     if (!confirm("Unlink this bank connection? Transactions stay for history.")) return;
-    setUnlinkingId(id);
     setMessage(null);
-    try {
-      const res = await fetch(`/api/plaid/connections/${id}`, { method: "DELETE" });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Unlink failed");
-      setMessage("Connection unlinked. History preserved.");
-      router.replace(router.asPath);
-    } catch (e) {
-      setMessage(e instanceof Error ? e.message : "Unlink failed");
-    } finally {
-      setUnlinkingId(null);
-    }
+    unlinkMutation.mutate({ id });
+  }
+
+  if (isLoading || sessionLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-ink-0 text-bone-mute">
+        Loading…
+      </div>
+    );
   }
 
   return (
@@ -73,7 +81,7 @@ export default function ConnectionsSettings({
                 The plumbing between your accounts and the desk. Unlink anytime — history stays.
               </p>
             </div>
-            <ConnectBank onConnected={() => router.replace(router.asPath)} />
+            <ConnectBank onConnected={() => void connectionsQuery.refetch()} />
           </div>
 
           {/* Settings nav tabs */}
@@ -124,7 +132,7 @@ export default function ConnectionsSettings({
                 Connect a bank to start pulling transactions into the desk.
               </p>
               <div className="mt-2">
-                <ConnectBank onConnected={() => router.replace(router.asPath)} />
+                <ConnectBank onConnected={() => void connectionsQuery.refetch()} />
               </div>
             </div>
           </div>
@@ -188,17 +196,17 @@ export default function ConnectionsSettings({
                       <ConnectBank
                         connectionId={conn.id}
                         label="Reconnect"
-                        onReconnected={() => router.replace(router.asPath)}
+                        onReconnected={() => void connectionsQuery.refetch()}
                       />
                     ) : null}
                     <button
                       type="button"
                       onClick={() => unlink(conn.id)}
-                      disabled={unlinkingId === conn.id}
+                      disabled={unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id}
                       className="inline-flex h-10 items-center gap-2 rounded-[2px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 text-[11px] uppercase tracking-[0.12em] text-oxide-hi transition-colors hover:border-[rgba(194,106,72,0.5)] hover:bg-[rgba(194,106,72,0.12)] disabled:opacity-50"
                     >
                       <Trash2 className="size-3" />
-                      {unlinkingId === conn.id ? "Unlinking…" : "Unlink"}
+                      {unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id ? "Unlinking…" : "Unlink"}
                     </button>
                   </div>
                 </div>
@@ -250,55 +258,3 @@ function StatusPill({ status }: { status: string }) {
     </span>
   );
 }
-
-export const getServerSideProps: GetServerSideProps<{
-  connections: ConnectionRow[];
-}> = async (context) => {
-  const session = await getPageSession(context);
-  if (!session) {
-    return { redirect: { destination: "/login", permanent: false } };
-  }
-
-  const rows = await db
-    .select({
-      id: bankConnections.id,
-      status: bankConnections.status,
-      createdAt: bankConnections.createdAt,
-      updatedAt: bankConnections.updatedAt,
-    })
-    .from(bankConnections)
-    .where(eq(bankConnections.userId, session.user.id))
-    .orderBy(desc(bankConnections.createdAt));
-
-  const connections: ConnectionRow[] = await Promise.all(
-    rows.map(async (r) => {
-      const accts = await db
-        .select({
-          name: bankAccounts.name,
-          mask: bankAccounts.mask,
-          type: bankAccounts.type,
-        })
-        .from(bankAccounts)
-        .where(eq(bankAccounts.connectionId, r.id));
-
-      const [lastTx] = await db
-        .select({ date: transactions.date })
-        .from(transactions)
-        .innerJoin(bankAccounts, eq(transactions.accountId, bankAccounts.id))
-        .where(and(eq(bankAccounts.connectionId, r.id)))
-        .orderBy(desc(transactions.date))
-        .limit(1);
-
-      return {
-        id: r.id,
-        status: r.status,
-        createdAt: r.createdAt.toISOString(),
-        updatedAt: r.updatedAt.toISOString(),
-        accounts: accts,
-        lastTransactionDate: lastTx?.date ?? null,
-      };
-    }),
-  );
-
-  return { props: { connections } };
-};
