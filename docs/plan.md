@@ -17,7 +17,7 @@ FinWin should help users move from raw transaction noise to understandable finan
 |---|---|---|
 | 1 | Auth, schema, and account-link foundations | ✅ Done |
 | 2 | Real transaction import and normalization | ✅ Done — Plaid sync + auto-categorization via Plaid PFC map |
-| 3 | Transactions page, category reassignment, budgets page, budget-vs-actual | 🔄 In progress (Phase 2) |
+| 3 | Transactions page, category reassignment, budgets page, budget-vs-actual | 🔄 In progress (Phase 2) — read-only `/transactions` shipped |
 | 4 | Dashboard analytics wired to real data | ⏳ Phase 3 — after Phase 2 |
 | 5 | AI insights | ⏳ Phase 5 |
 | 6 | Portfolio / investing simulation | ⏳ Phase 6 |
@@ -26,11 +26,16 @@ FinWin should help users move from raw transaction noise to understandable finan
 
 Next tasks in order:
 
-1. **`/transactions` page** — list imported transactions with account, date, category, pending filters. Pending badge on unposted rows. Nudge when uncategorized count > 0.
-2. **Category reassignment** — inline or modal, `transactions.setCategory` tRPC mutation. One-at-a-time for now (merchant-rule persistence deferred).
-3. **`/budgets` page** — create/edit monthly budget per category. Only `defaultBudgetable=true` categories appear as budget targets.
-4. **Budget-vs-actual query** — `budgets.summary` tRPC query: budget + spent (pending + posted) + remaining per category for a given month.
-5. **Wire dashboard Budget Progress** — replace hardcoded `budgetRows` with `budgets.summary` data.
+1. **Category reassignment** — inline or modal, `transactions.setCategory` tRPC mutation. One-at-a-time for now (merchant-rule persistence deferred).
+2. **`/budgets` page** — create/edit monthly budget per category. Only `defaultBudgetable=true` categories appear as budget targets.
+3. **Budget-vs-actual query** — `budgets.summary` tRPC query: budget + spent (pending + posted) + remaining per category for a given month.
+4. **Wire dashboard Budget Progress** — replace hardcoded `budgetRows` with `budgets.summary` data.
+
+### Phase 2 shipped in this pass
+
+- `/transactions` page now exists in `src/pages/transactions.tsx`.
+- Read-only ledger view includes account/date/category/pending filters, inactive-account toggle, pending badge, and uncategorized nudge.
+- Server data comes from `transactions.list` in `src/server/trpc/routers/transactions.ts`.
 
 ### Key design decisions (locked)
 - Budget period: monthly, 1st of month. Custom start day → `docs/future.md`.
