@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { Plus, RotateCw } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 type ConnectBankProps = {
   /** Pass to reconnect (Plaid Link update mode) an existing connection. */
@@ -23,6 +24,10 @@ export function ConnectBank({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const createLinkToken = trpc.plaid.createLinkToken.useMutation();
+  const exchangeToken = trpc.plaid.exchangeToken.useMutation();
+  const reactivateConnection = trpc.plaid.reactivateConnection.useMutation();
+
   const handleSuccess = useCallback(
     async (public_token: string) => {
       setLoading(true);
@@ -30,23 +35,12 @@ export function ConnectBank({
       try {
         if (isUpdate && connectionId) {
           // Update mode: no public_token exchange; just flip status.
-          const res = await fetch(`/api/plaid/connections/${connectionId}`, {
-            method: "PATCH",
-            headers: { "content-type": "application/json" },
-            body: JSON.stringify({ status: "active" }),
-          });
-          if (!res.ok) throw new Error((await res.json()).error ?? "Reactivate failed");
+          await reactivateConnection.mutateAsync({ id: connectionId });
           onReconnected?.(connectionId);
           return;
         }
-        const res = await fetch("/api/plaid/exchange", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({ public_token }),
-        });
-        if (!res.ok) throw new Error((await res.json()).error ?? "Exchange failed");
-        const data = (await res.json()) as { connectionId: string; accountCount: number };
-        onConnected?.(data);
+        const data = await exchangeToken.mutateAsync({ publicToken: public_token });
+        onConnected?.({ connectionId: data.connectionId, accountCount: data.accountCount });
       } catch (e) {
         setError(e instanceof Error ? e.message : "Request failed");
       } finally {
@@ -54,7 +48,7 @@ export function ConnectBank({
         setLinkToken(null);
       }
     },
-    [isUpdate, connectionId, onConnected, onReconnected],
+    [isUpdate, connectionId, onConnected, onReconnected, reactivateConnection, exchangeToken],
   );
 
   const { open, ready } = usePlaidLink({
@@ -73,14 +67,8 @@ export function ConnectBank({
     setError(null);
     setLoading(true);
     try {
-      const res = await fetch("/api/plaid/link-token", {
-        method: "POST",
-        headers: { "content-type": "application/json" },
-        body: JSON.stringify(connectionId ? { connectionId } : {}),
-      });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Link token request failed");
-      const { link_token } = (await res.json()) as { link_token: string };
-      setLinkToken(link_token);
+      const data = await createLinkToken.mutateAsync(connectionId ? { connectionId } : {});
+      setLinkToken(data.link_token);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Link token request failed");
     } finally {
@@ -88,11 +76,7 @@ export function ConnectBank({
     }
   }
 
-  const buttonClass =
-    className ??
-    (isUpdate
-      ? "inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#fbbf2466] bg-[#fbbf2414] px-3 text-[#fbbf24] disabled:opacity-60"
-      : "inline-flex h-9 items-center gap-2 rounded-[10px] bg-[#00d3f3] px-3 text-black disabled:opacity-60");
+  const buttonClass = className ?? (isUpdate ? "btn-ghost" : "btn-brass");
 
   const Icon = isUpdate ? RotateCw : Plus;
 
@@ -102,7 +86,7 @@ export function ConnectBank({
         <Icon className="size-3.5" />
         {loading ? "Connecting…" : label ?? (isUpdate ? "Reconnect" : "Connect bank")}
       </button>
-      {error ? <span className="text-[11px] text-[#f87171]">{error}</span> : null}
+      {error ? <span className="text-[11px] text-oxide-hi">{error}</span> : null}
     </div>
   );
 }

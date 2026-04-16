@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 type RefreshResult = { added: number; modified: number; removed: number };
 
@@ -8,17 +9,11 @@ type Props = {
 };
 
 export function RefreshTransactions({ onRefreshed }: Props) {
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
-    setLoading(true);
-    setError(null);
-    try {
-      const res = await fetch("/api/plaid/sync", { method: "POST" });
-      if (!res.ok) throw new Error((await res.json()).error ?? "Sync failed");
-      const { results } = (await res.json()) as { results: RefreshResult[] };
-      const totals = results.reduce(
+  const syncTransactions = trpc.plaid.syncTransactions.useMutation({
+    onSuccess: (data) => {
+      const totals = data.results.reduce(
         (acc, r) => ({
           added: acc.added + r.added,
           modified: acc.modified + r.modified,
@@ -27,11 +22,17 @@ export function RefreshTransactions({ onRefreshed }: Props) {
         { added: 0, modified: 0, removed: 0 },
       );
       onRefreshed?.(totals);
-    } catch (e) {
-      setError(e instanceof Error ? e.message : "Sync failed");
-    } finally {
-      setLoading(false);
-    }
+    },
+    onError: (e) => {
+      setError(e.message ?? "Sync failed");
+    },
+  });
+
+  const loading = syncTransactions.isPending;
+
+  function refresh() {
+    setError(null);
+    syncTransactions.mutate({});
   }
 
   return (
@@ -40,12 +41,12 @@ export function RefreshTransactions({ onRefreshed }: Props) {
         type="button"
         onClick={refresh}
         disabled={loading}
-        className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-white/10 bg-[#0a1628] px-3 text-[#d1d5dc] disabled:opacity-60"
+        className="btn-ghost disabled:opacity-60"
       >
         <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-        {loading ? "Refreshing…" : "Refresh transactions"}
+        {loading ? "Syncing…" : "Sync"}
       </button>
-      {error ? <span className="text-[11px] text-[#f87171]">{error}</span> : null}
+      {error ? <span className="text-[11px] text-oxide-hi">{error}</span> : null}
     </div>
   );
 }

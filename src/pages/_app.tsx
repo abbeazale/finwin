@@ -1,23 +1,35 @@
 import "@/app/globals.css";
-import { DM_Sans, Sora } from "next/font/google";
+import { Geist, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import type { AppProps } from "next/app";
+import { TRPCProvider } from "@/lib/trpc";
 
-const heading = Sora({
+const display = Instrument_Serif({
   subsets: ["latin"],
-  variable: "--font-finwin-heading",
-  weight: ["600", "700", "800"],
+  variable: "--font-finwin-display",
+  weight: ["400"],
+  style: ["normal", "italic"],
 });
 
-const body = DM_Sans({
+const body = Geist({
   subsets: ["latin"],
   variable: "--font-finwin-body",
-  weight: ["400", "500", "700"],
+  weight: ["300", "400", "500", "600"],
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  variable: "--font-finwin-mono",
+  weight: ["300", "400", "500", "600"],
 });
 
 export default function App({ Component, pageProps }: AppProps) {
   return (
-      <div className={`${heading.variable} ${body.variable}`}>
+    <TRPCProvider>
+      <div
+        className={`${display.variable} ${body.variable} ${mono.variable} antialiased`}
+      >
         <Component {...pageProps} />
       </div>
+    </TRPCProvider>
   );
 }
