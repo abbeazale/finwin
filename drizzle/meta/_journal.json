@@ -8,6 +8,13 @@
       "when": 1776226749679,
       "tag": "0000_lean_forge",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1776315190787,
+      "tag": "0001_silent_payback",
+      "breakpoints": true
     }
   ]
 }

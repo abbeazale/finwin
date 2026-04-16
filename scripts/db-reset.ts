@@ -1,8 +1,8 @@
 import "dotenv/config";
 
-import { neon } from "@neondatabase/serverless";
-import { drizzle } from "drizzle-orm/neon-http";
-import { migrate } from "drizzle-orm/neon-http/migrator";
+import { Pool, neon } from "@neondatabase/serverless";
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { migrate } from "drizzle-orm/neon-serverless/migrator";
 
 const databaseUrl = process.env.DATABASE_URL;
 
@@ -15,10 +15,7 @@ if (process.env.NODE_ENV === "production") {
 }
 
 async function resetDatabase() {
-  if (!databaseUrl || typeof databaseUrl !== "string") {
-    throw new Error("DATABASE_URL is not set.");
-  }
-  const sql = neon(databaseUrl);
+  const sql = neon(databaseUrl!);
 
   console.log("Dropping public schema...");
   await sql.query("drop schema if exists public cascade;");
@@ -27,10 +24,10 @@ async function resetDatabase() {
   await sql.query("create schema public;");
 
   console.log("Applying migrations...");
-  const db = drizzle(databaseUrl);
-  await migrate(db, {
-    migrationsFolder: "./drizzle",
-  });
+  const pool = new Pool({ connectionString: databaseUrl });
+  const db = drizzle(pool);
+  await migrate(db, { migrationsFolder: "./drizzle" });
+  await pool.end();
 
   console.log("Database reset complete.");
 }

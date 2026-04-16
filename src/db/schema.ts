@@ -172,9 +172,10 @@ export const bankAccounts = pgTable(
     userId: text("user_id")
       .notNull()
       .references(() => user.id, { onDelete: "cascade" }),
-    connectionId: uuid("connection_id")
-      .notNull()
-      .references(() => bankConnections.id, { onDelete: "cascade" }),
+    connectionId: uuid("connection_id").references(
+      () => bankConnections.id,
+      { onDelete: "set null" },
+    ),
     providerAccountId: text("provider_account_id").notNull(),
     name: text("name").notNull(),
     type: text("type").notNull(), // "depository" | "credit" | "loan" | "investment"
@@ -211,8 +212,6 @@ export const transactions = pgTable(
     currency: varchar("currency", { length: 16 }).notNull().default("CAD"),
     pending: boolean("pending").notNull().default(false),
     categoryId: uuid("category_id").references(() => categories.id, { onDelete: "set null" }),
-    categoryConfidence: numeric("category_confidence", { precision: 3, scale: 2 }),
-    notes: text("notes"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
   },
   (table) => ([

@@ -2,7 +2,7 @@ import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import Link from "next/link";
 import { useRouter } from "next/router";
 import { useState } from "react";
-import { and, desc, eq, ne } from "drizzle-orm";
+import { and, desc, eq } from "drizzle-orm";
 import { ArrowLeft, Trash2 } from "lucide-react";
 import { getPageSession } from "@/lib/page-auth";
 import { db } from "@/index";
@@ -32,7 +32,7 @@ export default function ConnectionsSettings({
     try {
       const res = await fetch(`/api/plaid/connections/${id}`, { method: "DELETE" });
       if (!res.ok) throw new Error((await res.json()).error ?? "Unlink failed");
-      setMessage("Connection revoked.");
+      setMessage("Connection unlinked.");
       router.replace(router.asPath);
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Unlink failed");
@@ -116,7 +116,7 @@ export default function ConnectionsSettings({
                     <button
                       type="button"
                       onClick={() => unlink(conn.id)}
-                      disabled={unlinkingId === conn.id || conn.status === "revoked"}
+                      disabled={unlinkingId === conn.id}
                       className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#f8717140] bg-[#f8717112] px-3 text-[12px] text-[#fca5a5] disabled:opacity-50"
                     >
                       <Trash2 className="size-3.5" />
@@ -137,7 +137,6 @@ function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
     active: "text-[#34d399] bg-[#34d39914]",
     error: "text-[#fbbf24] bg-[#fbbf2414]",
-    revoked: "text-[#6a7282] bg-white/5",
   };
   const cls = map[status] ?? "text-[#6a7282] bg-white/5";
   return <span className={`rounded-full px-2 py-0.5 text-[11px] ${cls}`}>{status}</span>;
@@ -159,12 +158,7 @@ export const getServerSideProps: GetServerSideProps<{
       updatedAt: bankConnections.updatedAt,
     })
     .from(bankConnections)
-    .where(
-      and(
-        eq(bankConnections.userId, session.user.id),
-        ne(bankConnections.status, "revoked"),
-      ),
-    )
+    .where(eq(bankConnections.userId, session.user.id))
     .orderBy(desc(bankConnections.createdAt));
 
   const connections: ConnectionRow[] = await Promise.all(
