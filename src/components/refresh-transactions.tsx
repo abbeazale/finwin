@@ -40,12 +40,12 @@ export function RefreshTransactions({ onRefreshed }: Props) {
         type="button"
         onClick={refresh}
         disabled={loading}
-        className="inline-flex h-9 items-center gap-2 rounded-[10px] border border-white/10 bg-[#0a1628] px-3 text-[#d1d5dc] disabled:opacity-60"
+        className="btn-ghost disabled:opacity-60"
       >
         <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
-        {loading ? "Refreshing…" : "Refresh transactions"}
+        {loading ? "Syncing…" : "Sync"}
       </button>
-      {error ? <span className="text-[11px] text-[#f87171]">{error}</span> : null}
+      {error ? <span className="text-[11px] text-oxide-hi">{error}</span> : null}
     </div>
   );
 }

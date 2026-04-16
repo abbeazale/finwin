@@ -88,11 +88,7 @@ export function ConnectBank({
     }
   }
 
-  const buttonClass =
-    className ??
-    (isUpdate
-      ? "inline-flex h-9 items-center gap-2 rounded-[10px] border border-[#fbbf2466] bg-[#fbbf2414] px-3 text-[#fbbf24] disabled:opacity-60"
-      : "inline-flex h-9 items-center gap-2 rounded-[10px] bg-[#00d3f3] px-3 text-black disabled:opacity-60");
+  const buttonClass = className ?? (isUpdate ? "btn-ghost" : "btn-brass");
 
   const Icon = isUpdate ? RotateCw : Plus;
 
@@ -102,7 +98,7 @@ export function ConnectBank({
         <Icon className="size-3.5" />
         {loading ? "Connecting…" : label ?? (isUpdate ? "Reconnect" : "Connect bank")}
       </button>
-      {error ? <span className="text-[11px] text-[#f87171]">{error}</span> : null}
+      {error ? <span className="text-[11px] text-oxide-hi">{error}</span> : null}
     </div>
   );
 }

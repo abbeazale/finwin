@@ -1,22 +1,30 @@
 import type { Metadata } from 'next'
-import { DM_Sans, Sora } from 'next/font/google'
+import { Geist, Instrument_Serif, JetBrains_Mono } from 'next/font/google'
 import './globals.css'
 
-const heading = Sora({
+const display = Instrument_Serif({
   subsets: ['latin'],
-  variable: '--font-finwin-heading',
-  weight: ['600', '700', '800'],
+  variable: '--font-finwin-display',
+  weight: ['400'],
+  style: ['normal', 'italic'],
 })
 
-const body = DM_Sans({
+const body = Geist({
   subsets: ['latin'],
   variable: '--font-finwin-body',
-  weight: ['400', '500', '700'],
+  weight: ['300', '400', '500', '600'],
+})
+
+const mono = JetBrains_Mono({
+  subsets: ['latin'],
+  variable: '--font-finwin-mono',
+  weight: ['300', '400', '500', '600'],
 })
 
 export const metadata: Metadata = {
-  title: 'Finwind - Manage Your Finances with Ease',
-  description: 'Welcome to finwind, the best way to manage your finances.',
+  title: 'FinWin — a command center for your money',
+  description:
+    'An architectural dark-mode personal finance workspace. Import transactions, read the room, and test your moves before making them.',
 }
 
 export default function RootLayout({
@@ -26,7 +34,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en">
-      <body className={`${heading.variable} ${body.variable} antialiased`}>
+      <body
+        className={`${display.variable} ${body.variable} ${mono.variable} antialiased`}
+      >
         {children}
       </body>
     </html>

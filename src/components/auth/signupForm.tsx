@@ -1,17 +1,8 @@
 import { cn } from "@/lib/utils";
-import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import { useRouter } from "next/router";
 import { FormEvent, useState, useTransition } from "react";
 import { signIn, signUp } from "@/lib/auth-client";
-import {
-  Field,
-  FieldDescription,
-  FieldGroup,
-  FieldLabel,
-  FieldSeparator,
-} from "@/components/ui/field";
-import { Input } from "@/components/ui/input";
 
 export default function SignupForm({
   className,
@@ -27,7 +18,6 @@ export default function SignupForm({
   function handleEmailSignup(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-
     const trimmedName = name.trim();
 
     if (!trimmedName) {
@@ -41,135 +31,122 @@ export default function SignupForm({
         password,
         name: trimmedName,
       });
-
       if (signUpError) {
         setError(signUpError.message ?? "Unable to create your account.");
         return;
       }
-
       router.push("/onboarding");
     });
   }
 
   async function handleSocialSignup(provider: "google" | "github") {
     setError(null);
-
     const { error: socialError } = await signIn.social({
       provider,
       callbackURL: "/onboarding",
     });
-
     if (socialError) {
       setError(socialError.message ?? "Unable to continue with social sign-up.");
     }
   }
 
   return (
-    <div className={cn("flex flex-col gap-6", className)} {...props}>
+    <div className={cn("flex flex-col gap-7", className)} {...props}>
       <div>
-        <h1 className="justify-start text-4xl font-medium leading-10 tracking-tight">
-          Create your account!
+        <span className="label-eyebrow-brass">Induction · new member</span>
+        <h1 className="display mt-3 text-[40px] leading-[1] tracking-tight text-bone">
+          Build your desk.
         </h1>
-        <p className="mt-5 justify-start text-gray-500 text-md font-normal leading-5">
-          Start building better money habits today.
+        <p className="mt-3 text-[13px] leading-[1.7] text-bone-mute">
+          Tungsten warmup takes about two minutes.
         </p>
-        <form onSubmit={handleEmailSignup} className="mt-8">
-          <FieldGroup>
-            <Field className="grid w-full grid-cols-2 gap-3 sm:gap-4">
-              <Button
-                variant="outline"
-                className="h-14 w-full bg-slate-900 border-0.5 px-3 text-base text-white sm:px-6"
-                type="button"
-                onClick={() => handleSocialSignup("github")}
-                disabled={isPending}
-              >
-                <Image
-                  src="/gitinverted.svg"
-                  alt="Github"
-                  width={30}
-                  height={30}
-                  className="mr-2 h-7 w-7 sm:h-[30px] sm:w-[30px]"
-                />
-                Github
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => handleSocialSignup("google")}
-                className="h-14 w-full bg-slate-900 border-0.5 px-3 text-base text-white sm:px-6"
-                type="button"
-                disabled={isPending}
-              >
-                <Image
-                  src="/google.svg"
-                  alt="Google"
-                  width={30}
-                  height={30}
-                  className="mr-2 h-7 w-7 sm:h-[30px] sm:w-[30px]"
-                />
-                Google
-              </Button>
-            </Field>
-            <FieldSeparator>Or continue with email</FieldSeparator>
-            <Field>
-              <FieldLabel htmlFor="signup-name">Name</FieldLabel>
-              <Input
-                className="bg-slate-900 border-none"
-                id="signup-name"
-                name="name"
-                onChange={(event) => setName(event.target.value)}
-                value={name}
-                type="text"
-                placeholder="Alex Morgan"
-                required
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="signup-email">Email</FieldLabel>
-              <Input
-                className="bg-slate-900 border-none"
-                id="signup-email"
-                name="email"
-                onChange={(event) => setEmail(event.target.value)}
-                value={email}
-                type="email"
-                placeholder="m@example.com"
-                required
-              />
-            </Field>
-            <Field>
-              <FieldLabel htmlFor="signup-password">Password</FieldLabel>
-              <Input
-                id="signup-password"
-                name="password"
-                className="bg-slate-900 border-none"
-                type="password"
-                placeholder="Create a password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                required
-              />
-            </Field>
-
-            {error ? (
-              <FieldDescription className="text-sm text-red-400">
-                {error}
-              </FieldDescription>
-            ) : null}
-            <Field>
-              <Button
-                type="submit"
-                disabled={isPending}
-                className="h-11 relative bg-lb text-black hover:bg-lb rounded-md overflow-hidden"
-              >
-                {isPending ? "Creating account..." : "Create account"}
-              </Button>
-              <FieldDescription className="text-center">
-                Already have an account? Use the toggle above to sign in.
-              </FieldDescription>
-            </Field>
-          </FieldGroup>
-        </form>
       </div>
+
+      <form onSubmit={handleEmailSignup} className="flex flex-col gap-5">
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            type="button"
+            onClick={() => handleSocialSignup("github")}
+            disabled={isPending}
+            className="group flex h-12 items-center justify-center gap-2 rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone transition-colors hover:border-[var(--stroke-brass-hi)] hover:text-brass-hi disabled:opacity-60"
+          >
+            <Image src="/gitinverted.svg" alt="" width={20} height={20} className="opacity-80 group-hover:opacity-100" />
+            GitHub
+          </button>
+          <button
+            type="button"
+            onClick={() => handleSocialSignup("google")}
+            disabled={isPending}
+            className="group flex h-12 items-center justify-center gap-2 rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone transition-colors hover:border-[var(--stroke-brass-hi)] hover:text-brass-hi disabled:opacity-60"
+          >
+            <Image src="/google.svg" alt="" width={20} height={20} className="opacity-80 group-hover:opacity-100" />
+            Google
+          </button>
+        </div>
+
+        <div className="flex items-center gap-4">
+          <span className="h-px flex-1 bg-[var(--stroke)]" />
+          <span className="label-eyebrow">or with email</span>
+          <span className="h-px flex-1 bg-[var(--stroke)]" />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="signup-name" className="label-eyebrow">Name</label>
+          <input
+            id="signup-name"
+            name="name"
+            type="text"
+            placeholder="Alex Morgan"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+            className="input-arch"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="signup-email" className="label-eyebrow">Email</label>
+          <input
+            id="signup-email"
+            name="email"
+            type="email"
+            placeholder="desk@finwin.app"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            className="input-arch"
+          />
+        </div>
+
+        <div className="flex flex-col gap-2">
+          <label htmlFor="signup-password" className="label-eyebrow">Password</label>
+          <input
+            id="signup-password"
+            name="password"
+            type="password"
+            placeholder="Choose a key"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            required
+            className="input-arch"
+          />
+        </div>
+
+        {error ? (
+          <p className="rounded-[2px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.08)] px-3 py-2 text-[12px] text-oxide-hi">
+            {error}
+          </p>
+        ) : null}
+
+        <button
+          type="submit"
+          disabled={isPending}
+          className="btn-brass mt-2 h-12 w-full justify-center disabled:opacity-60"
+        >
+          {isPending ? "Building desk…" : "Take the desk"}
+          <span aria-hidden>→</span>
+        </button>
+      </form>
     </div>
   );
 }

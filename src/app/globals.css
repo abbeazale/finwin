@@ -4,49 +4,128 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ─────────────────────────────────────────────────────────
+   FINWIN — ARCHITECTURAL DARK MODE
+   A matte obsidian command center. Brushed brass fixtures.
+   Distant city windows. Tungsten cove lighting. Quiet.
+   ──────────────────────────────────────────────────────── */
 
 :root {
-  --background: oklch(21% 0.034 264.665);
-  --foreground: oklch(0.13 0.028 261.692);
-  --font-sans: var(--font-finwin-body), "DM Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-heading: var(--font-finwin-heading), "Sora", var(--font-sans);
-  --radius: 0.625rem;
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.13 0.028 261.692);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.13 0.028 261.692);
-  --primary: oklch(0.21 0.034 264.665);
-  --primary-foreground: oklch(0.985 0.002 247.839);
-  --secondary: oklch(0.967 0.003 264.542);
-  --secondary-foreground: oklch(0.21 0.034 264.665);
-  --muted: oklch(0.967 0.003 264.542);
-  --muted-foreground: oklch(0.551 0.027 264.364);
-  --accent: oklch(0.967 0.003 264.542);
-  --accent-foreground: oklch(0.21 0.034 264.665);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.928 0.006 264.531);
-  --input: oklch(0.928 0.006 264.531);
-  --ring: oklch(0.707 0.022 261.325);
-  --chart-1: oklch(0.646 0.222 41.116);
-  --chart-2: oklch(0.6 0.118 184.704);
-  --chart-3: oklch(0.398 0.07 227.392);
-  --chart-4: oklch(0.828 0.189 84.429);
-  --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.985 0.002 247.839);
-  --sidebar-foreground: oklch(0.13 0.028 261.692);
-  --sidebar-primary: oklch(0.21 0.034 264.665);
-  --sidebar-primary-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-accent: oklch(0.967 0.003 264.542);
-  --sidebar-accent-foreground: oklch(0.21 0.034 264.665);
-  --sidebar-border: oklch(0.928 0.006 264.531);
-  --sidebar-ring: oklch(0.707 0.022 261.325);
-  --bg: #050911;
-  --text: #edf1f5;
+  /* Surfaces — matte blacks with a warm (not blue) undertone */
+  --ink-0: #0a0a09;          /* anodized obsidian (page) */
+  --ink-1: #111110;          /* charcoal panel */
+  --ink-2: #17161310;        /* lifted panel (translucent over ink-0) */
+  --ink-2-solid: #171613;    /* solid variant of ink-2 */
+  --ink-3: #1d1c18;          /* walnut shadow */
+  --ink-4: #26231d;          /* dark walnut */
+  --ink-glass: rgba(18, 17, 15, 0.72);
+
+  /* Strokes — hairlines, some with brass leak */
+  --stroke: rgba(232, 225, 210, 0.06);
+  --stroke-2: rgba(232, 225, 210, 0.10);
+  --stroke-3: rgba(232, 225, 210, 0.16);
+  --stroke-brass: rgba(201, 164, 107, 0.14);
+  --stroke-brass-hi: rgba(201, 164, 107, 0.32);
+
+  /* Ink — warm off-whites, tungsten-lit */
+  --bone: #e8e1d2;
+  --bone-mute: #9a8f7c;
+  --bone-faint: #5c5448;
+  --bone-ghost: #3a3530;
+
+  /* Brass — brushed metal accent, the single point of warmth */
+  --brass: #c9a46b;
+  --brass-hi: #e8c791;
+  --brass-lo: #8a6e42;
+  --brass-shadow: rgba(201, 164, 107, 0.22);
+  --brass-glow: rgba(232, 199, 145, 0.55);
+
+  /* Walnut — rich wood for occasional warmth */
+  --walnut: #3b2817;
+
+  /* Data semantics — matte, not candy */
+  --sage: #7a9a7e;            /* gain */
+  --sage-hi: #9ebaa0;
+  --oxide: #c26a48;           /* loss */
+  --oxide-hi: #d88662;
+  --amber: #d49a4a;           /* caution */
+
+  /* Cityscape — distant orange window glow, used sparingly */
+  --city: #ff9a3c;
+  --city-soft: rgba(255, 154, 60, 0.18);
+
+  /* Fonts */
+  --font-display: var(--font-finwin-display), "Instrument Serif", ui-serif, Georgia, serif;
+  --font-sans: var(--font-finwin-body), "Geist", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-finwin-mono), "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* Radii — architectural, not rounded */
+  --radius: 2px;
+  --radius-sm: 1px;
+  --radius-md: 2px;
+  --radius-lg: 4px;
+  --radius-xl: 6px;
+
+  /* Shadcn compatibility */
+  --background: var(--ink-0);
+  --foreground: var(--bone);
+  --card: var(--ink-1);
+  --card-foreground: var(--bone);
+  --popover: var(--ink-1);
+  --popover-foreground: var(--bone);
+  --primary: var(--brass);
+  --primary-foreground: var(--ink-0);
+  --secondary: var(--ink-2-solid);
+  --secondary-foreground: var(--bone);
+  --muted: var(--ink-2-solid);
+  --muted-foreground: var(--bone-mute);
+  --accent: var(--ink-2-solid);
+  --accent-foreground: var(--bone);
+  --destructive: var(--oxide);
+  --border: var(--stroke);
+  --input: var(--stroke-2);
+  --ring: var(--brass-shadow);
+  --chart-1: var(--brass);
+  --chart-2: var(--sage);
+  --chart-3: var(--oxide);
+  --chart-4: var(--amber);
+  --chart-5: var(--walnut);
+  --sidebar: var(--ink-1);
+  --sidebar-foreground: var(--bone);
+  --sidebar-primary: var(--brass);
+  --sidebar-primary-foreground: var(--ink-0);
+  --sidebar-accent: var(--ink-2-solid);
+  --sidebar-accent-foreground: var(--bone);
+  --sidebar-border: var(--stroke);
+  --sidebar-ring: var(--brass-shadow);
+
+  --bg: var(--ink-0);
+  --text: var(--bone);
 }
 
 @theme inline {
-  --color-lb: #83e4ff;
-  --color-background: #050911;
+  --color-ink-0: var(--ink-0);
+  --color-ink-1: var(--ink-1);
+  --color-ink-2: var(--ink-2-solid);
+  --color-ink-3: var(--ink-3);
+  --color-ink-4: var(--ink-4);
+  --color-bone: var(--bone);
+  --color-bone-mute: var(--bone-mute);
+  --color-bone-faint: var(--bone-faint);
+  --color-bone-ghost: var(--bone-ghost);
+  --color-brass: var(--brass);
+  --color-brass-hi: var(--brass-hi);
+  --color-brass-lo: var(--brass-lo);
+  --color-walnut: var(--walnut);
+  --color-sage: var(--sage);
+  --color-sage-hi: var(--sage-hi);
+  --color-oxide: var(--oxide);
+  --color-oxide-hi: var(--oxide-hi);
+  --color-amber: var(--amber);
+  --color-city: var(--city);
+
+  --color-lb: var(--brass);
+  --color-background: var(--ink-0);
   --color-foreground: var(--foreground);
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
@@ -77,17 +156,21 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
-  --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 8px);
-  --radius-3xl: calc(var(--radius) + 12px);
-  --radius-4xl: calc(var(--radius) + 16px);
+  --radius-sm: var(--radius-sm);
+  --radius-md: var(--radius-md);
+  --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
+  --radius-2xl: 10px;
+  --radius-3xl: 14px;
+  --radius-4xl: 18px;
+
+  --font-display: var(--font-display);
+  --font-sans: var(--font-sans);
+  --font-mono: var(--font-mono);
 }
 
 @theme {
-  --color-background: #050911;
+  --color-background: var(--ink-0);
 }
 
 * {
@@ -102,78 +185,499 @@ body {
 
 body {
   font-family: var(--font-sans);
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--ink-0);
+  color: var(--bone);
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  font-variant-numeric: tabular-nums;
+  font-feature-settings: "ss01", "ss02", "cv11";
+  background-image:
+    /* subtle tungsten bloom top */
+    radial-gradient(1200px 400px at 70% -200px, rgba(232, 199, 145, 0.04), transparent 70%),
+    /* distant city glow bottom */
+    radial-gradient(900px 300px at 25% 120%, rgba(255, 154, 60, 0.04), transparent 60%);
+  background-attachment: fixed;
 }
 
-@layer utilities {
-  @keyframes fade-slide {
-    from {
-      opacity: 0;
-      transform: translateY(12px);
-    }
+/* Grain overlay — always on, very quiet */
+body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+  opacity: 0.035;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 180px 180px;
+}
 
-    to {
-      opacity: 1;
-      transform: translateY(0);
+/* Selection */
+::selection {
+  background: var(--brass-shadow);
+  color: var(--bone);
+}
+
+/* Scrollbar — industrial */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--ink-3);
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--brass-lo);
+}
+
+/* ── Reusable architectural primitives ── */
+
+/* Panel surfaces */
+.panel {
+  background: var(--ink-1);
+  border: 1px solid var(--stroke);
+  border-radius: var(--radius-md);
+}
+
+.panel-lifted {
+  background: var(--ink-2-solid);
+  border: 1px solid var(--stroke-2);
+  border-radius: var(--radius-md);
+}
+
+/* Cove lighting: hairline brass at top edge of panel */
+.cove {
+  box-shadow:
+    inset 0 1px 0 rgba(232, 199, 145, 0.08),
+    inset 0 0 0 1px var(--stroke),
+    0 1px 0 rgba(0, 0, 0, 0.5);
+}
+
+.cove-hi {
+  box-shadow:
+    inset 0 1px 0 rgba(232, 199, 145, 0.22),
+    inset 0 0 0 1px var(--stroke-brass),
+    0 0 32px -12px var(--brass-shadow);
+}
+
+/* Brushed metal surface — subtle vertical grain */
+.brushed {
+  background-image:
+    linear-gradient(180deg, rgba(232, 225, 210, 0.015) 0%, transparent 40%, rgba(0, 0, 0, 0.25) 100%),
+    repeating-linear-gradient(
+      90deg,
+      rgba(232, 225, 210, 0.012) 0px,
+      rgba(232, 225, 210, 0.012) 1px,
+      transparent 1px,
+      transparent 2px
+    );
+}
+
+/* Smoked glass */
+.smoked {
+  background: var(--ink-glass);
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+}
+
+/* Window blinds — horizontal louver stripes */
+.blinds {
+  background-image: repeating-linear-gradient(
+    0deg,
+    rgba(232, 225, 210, 0.03) 0px,
+    rgba(232, 225, 210, 0.03) 1px,
+    transparent 1px,
+    transparent 7px
+  );
+}
+
+/* Cross-hair architectural grid */
+.grid-plan {
+  background-image:
+    linear-gradient(var(--stroke) 1px, transparent 1px),
+    linear-gradient(90deg, var(--stroke) 1px, transparent 1px);
+  background-size: 64px 64px;
+}
+
+/* Section label — tracked uppercase metadata */
+.label-eyebrow {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--bone-mute);
+}
+
+.label-eyebrow-brass {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--brass);
+}
+
+/* Tabular numerals for money */
+.num {
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+}
+
+/* Serif display — used for moneypiece numerals and hero type */
+.display {
+  font-family: var(--font-display);
+  font-weight: 400;
+  letter-spacing: -0.015em;
+}
+
+/* Horizon line — pulsing city */
+.horizon {
+  position: relative;
+}
+.horizon::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    var(--brass-shadow) 20%,
+    var(--brass-hi) 50%,
+    var(--brass-shadow) 80%,
+    transparent 100%
+  );
+  opacity: 0.4;
+  animation: horizon-breathe 8s ease-in-out infinite;
+}
+
+/* Divider — hairline with brass mark */
+.rule {
+  position: relative;
+  height: 1px;
+  background: var(--stroke);
+}
+.rule::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 48px;
+  height: 1px;
+  background: var(--brass);
+}
+
+/* Brass primary button */
+.btn-brass {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 18px;
+  background: linear-gradient(180deg, var(--brass-hi) 0%, var(--brass) 45%, var(--brass-lo) 100%);
+  color: #1a1408;
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--brass-lo);
+  border-top-color: var(--brass-hi);
+  border-radius: var(--radius-md);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, 0.45),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(0, 0, 0, 0.5),
+    0 0 0 0 var(--brass-shadow);
+  transition: box-shadow 260ms ease, transform 160ms ease, filter 160ms ease;
+  overflow: hidden;
+}
+.btn-brass::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    110deg,
+    transparent 20%,
+    rgba(255, 244, 214, 0.5) 50%,
+    transparent 80%
+  );
+  transform: translateX(-120%);
+  transition: transform 700ms cubic-bezier(0.3, 0, 0.2, 1);
+  pointer-events: none;
+}
+.btn-brass:hover {
+  filter: brightness(1.04);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 240, 200, 0.55),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.25),
+    0 1px 0 rgba(0, 0, 0, 0.5),
+    0 0 28px -8px var(--brass-glow);
+}
+.btn-brass:hover::before {
+  transform: translateX(120%);
+}
+.btn-brass:active {
+  transform: translateY(0.5px);
+}
+.btn-brass:disabled {
+  filter: grayscale(0.5) brightness(0.7);
+  cursor: not-allowed;
+}
+
+/* Ghost / hairline button */
+.btn-ghost {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  height: 40px;
+  padding: 0 16px;
+  background: transparent;
+  color: var(--bone);
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border: 1px solid var(--stroke-2);
+  border-radius: var(--radius-md);
+  transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+}
+.btn-ghost:hover {
+  border-color: var(--stroke-brass-hi);
+  background: rgba(201, 164, 107, 0.04);
+  color: var(--brass-hi);
+}
+
+/* Input field — architectural dark */
+.input-arch {
+  width: 100%;
+  height: 44px;
+  padding: 0 14px;
+  background: var(--ink-1);
+  color: var(--bone);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  border: 1px solid var(--stroke-2);
+  border-radius: var(--radius-md);
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.25);
+  transition: border-color 200ms ease, box-shadow 200ms ease;
+  outline: none;
+}
+.input-arch::placeholder {
+  color: var(--bone-ghost);
+  font-weight: 300;
+}
+.input-arch:focus {
+  border-color: var(--brass-lo);
+  box-shadow:
+    inset 0 1px 0 rgba(0, 0, 0, 0.25),
+    0 0 0 3px var(--brass-shadow);
+}
+
+/* Data pill — status tag */
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  height: 20px;
+  padding: 0 8px;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  border-radius: 999px;
+}
+.pill-sage {
+  color: var(--sage-hi);
+  background: rgba(122, 154, 126, 0.10);
+  border: 1px solid rgba(122, 154, 126, 0.22);
+}
+.pill-oxide {
+  color: var(--oxide-hi);
+  background: rgba(194, 106, 72, 0.10);
+  border: 1px solid rgba(194, 106, 72, 0.22);
+}
+.pill-amber {
+  color: var(--amber);
+  background: rgba(212, 154, 74, 0.10);
+  border: 1px solid rgba(212, 154, 74, 0.22);
+}
+.pill-brass {
+  color: var(--brass-hi);
+  background: rgba(201, 164, 107, 0.10);
+  border: 1px solid var(--stroke-brass-hi);
+}
+.pill-bone {
+  color: var(--bone-mute);
+  background: rgba(232, 225, 210, 0.04);
+  border: 1px solid var(--stroke-2);
+}
+
+/* Corner bracket — architectural marker */
+.brackets {
+  position: relative;
+}
+.brackets::before,
+.brackets::after {
+  content: "";
+  position: absolute;
+  width: 8px;
+  height: 8px;
+  border: 1px solid var(--brass);
+  opacity: 0.6;
+}
+.brackets::before {
+  top: -1px;
+  left: -1px;
+  border-right: 0;
+  border-bottom: 0;
+}
+.brackets::after {
+  bottom: -1px;
+  right: -1px;
+  border-left: 0;
+  border-top: 0;
+}
+
+/* Skyline silhouette — decorative CSS skyline */
+.skyline {
+  position: relative;
+}
+.skyline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 60px;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 0%, var(--ink-0) 100%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 13px,
+      #000 13px, #000 17px,
+      transparent 17px, transparent 22px,
+      #000 22px, #000 34px,
+      transparent 34px, transparent 40px,
+      #000 40px, #000 55px,
+      transparent 55px, transparent 62px,
+      #000 62px, #000 72px,
+      transparent 72px, transparent 80px,
+      #000 80px, #000 96px,
+      transparent 96px, transparent 102px
+    );
+  mask: linear-gradient(180deg, transparent 0%, #000 35%, #000 100%);
+  opacity: 0.55;
+}
+
+/* ── Keyframes ── */
+
+@layer utilities {
+  @keyframes horizon-breathe {
+    0%, 100% {
+      opacity: 0.25;
+      filter: brightness(0.85);
+    }
+    50% {
+      opacity: 0.55;
+      filter: brightness(1.15);
     }
   }
 
-  @keyframes pulse-line {
-    0%,
-    100% {
-      filter: brightness(0.95);
-    }
+  @keyframes cove-sweep {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
 
-    50% {
-      filter: brightness(1.15);
-    }
+  @keyframes fade-slide {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
+  @keyframes pulse-dot {
+    0%, 100% { opacity: 0.4; }
+    50% { opacity: 1; }
+  }
+
+  @keyframes brass-gleam {
+    0%, 100% { opacity: 0; transform: translateX(-100%) skewX(-12deg); }
+    50% { opacity: 0.6; }
+    100% { opacity: 0; transform: translateX(200%) skewX(-12deg); }
+  }
+
+  @keyframes window-flicker {
+    0%, 92%, 100% { opacity: 0.85; }
+    94% { opacity: 0.4; }
+    96% { opacity: 0.9; }
   }
 
   .animate-fade-slide {
     animation: fade-slide 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  .animate-pulse-line {
-    animation: pulse-line 3s ease-in-out infinite;
+  .animate-fade-in {
+    animation: fade-in 600ms ease-out both;
+  }
+
+  .animate-ticker {
+    animation: ticker 60s linear infinite;
+  }
+
+  .animate-pulse-dot {
+    animation: pulse-dot 2.6s ease-in-out infinite;
+  }
+
+  .animate-brass-gleam {
+    animation: brass-gleam 4.5s ease-in-out infinite;
+  }
+
+  .animate-window-flicker {
+    animation: window-flicker 11s ease-in-out infinite;
   }
 }
 
 .dark {
-  --background: oklch(0.13 0.028 261.692);
-  --foreground: oklch(0.985 0.002 247.839);
-  --card: oklch(0.21 0.034 264.665);
-  --card-foreground: oklch(0.985 0.002 247.839);
-  --popover: oklch(0.21 0.034 264.665);
-  --popover-foreground: oklch(0.985 0.002 247.839);
-  --primary: oklch(0.928 0.006 264.531);
-  --primary-foreground: oklch(0.21 0.034 264.665);
-  --secondary: oklch(0.278 0.033 256.848);
-  --secondary-foreground: oklch(0.985 0.002 247.839);
-  --muted: oklch(0.278 0.033 256.848);
-  --muted-foreground: oklch(0.707 0.022 261.325);
-  --accent: oklch(0.278 0.033 256.848);
-  --accent-foreground: oklch(0.985 0.002 247.839);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.551 0.027 264.364);
-  --chart-1: oklch(0.488 0.243 264.376);
-  --chart-2: oklch(0.696 0.17 162.48);
-  --chart-3: oklch(0.769 0.188 70.08);
-  --chart-4: oklch(0.627 0.265 303.9);
-  --chart-5: oklch(0.645 0.246 16.439);
-  --sidebar: oklch(0.21 0.034 264.665);
-  --sidebar-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-primary: oklch(0.488 0.243 264.376);
-  --sidebar-primary-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-accent: oklch(0.278 0.033 256.848);
-  --sidebar-accent-foreground: oklch(0.985 0.002 247.839);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.551 0.027 264.364);
+  --background: var(--ink-0);
+  --foreground: var(--bone);
+  --card: var(--ink-1);
+  --card-foreground: var(--bone);
+  --popover: var(--ink-1);
+  --popover-foreground: var(--bone);
+  --primary: var(--brass);
+  --primary-foreground: var(--ink-0);
+  --secondary: var(--ink-2-solid);
+  --secondary-foreground: var(--bone);
+  --muted: var(--ink-2-solid);
+  --muted-foreground: var(--bone-mute);
+  --accent: var(--ink-2-solid);
+  --accent-foreground: var(--bone);
+  --destructive: var(--oxide);
+  --border: var(--stroke);
+  --input: var(--stroke-2);
+  --ring: var(--brass-shadow);
 }
 
 @layer base {
