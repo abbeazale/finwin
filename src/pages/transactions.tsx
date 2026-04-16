@@ -22,6 +22,7 @@ const DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
 
 export default function TransactionsPage() {
   const router = useRouter();
+  const utils = trpc.useUtils();
   const { data: session, isPending: sessionLoading } = useSession();
 
   const [accountId, setAccountId] = useState("");
@@ -30,6 +31,7 @@ export default function TransactionsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [includeInactiveAccounts, setIncludeInactiveAccounts] = useState(false);
+  const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (!sessionLoading && !session) {
@@ -54,9 +56,21 @@ export default function TransactionsPage() {
   const transactionsQuery = trpc.transactions.list.useQuery(deferredFilters, {
     enabled: Boolean(session),
   });
+  const setCategoryMutation = trpc.transactions.setCategory.useMutation({
+    onMutate: () => {
+      setCategoryMessage(null);
+    },
+    onSuccess: async () => {
+      await utils.transactions.list.invalidate();
+    },
+    onError: (error) => {
+      setCategoryMessage(error.message ?? "Unable to update category.");
+    },
+  });
 
   const { data, error, isLoading, isFetching } = transactionsQuery;
   const transactions = data?.rows ?? [];
+  const categoryGroups = groupCategories(data?.categories ?? []);
   const hasFilters =
     Boolean(accountId) ||
     categoryFilter !== "all" ||
@@ -167,6 +181,13 @@ export default function TransactionsPage() {
           <p className="mb-8 flex items-center gap-3 rounded-[2px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
             <CircleAlert className="size-3.5" />
             {error.message ?? "Unable to load transactions."}
+          </p>
+        ) : null}
+
+        {categoryMessage ? (
+          <p className="mb-8 flex items-center gap-3 rounded-[2px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
+            <CircleAlert className="size-3.5" />
+            {categoryMessage}
           </p>
         ) : null}
 
@@ -297,6 +318,9 @@ export default function TransactionsPage() {
                 const categoryLabel = transaction.categoryName
                   ? `${transaction.categoryGroupName} · ${transaction.categoryName}`
                   : "Uncategorized";
+                const isUpdatingCategory =
+                  setCategoryMutation.isPending &&
+                  setCategoryMutation.variables?.transactionId === transaction.id;
 
                 return (
                   <li
@@ -335,15 +359,28 @@ export default function TransactionsPage() {
                           {transaction.name}
                         </p>
                       ) : null}
-                      {/* Category shown inline on mobile */}
                       <p className="mt-1 truncate text-[11px] text-bone-mute md:hidden">
-                        {categoryLabel} ·{" "}
                         {formatAccountLabel(
                           transaction.accountName,
                           transaction.accountMask,
                           transaction.accountIsActive,
                         )}
                       </p>
+                      <div className="mt-2 md:hidden">
+                        <TransactionCategorySelect
+                          transactionId={transaction.id}
+                          categoryId={transaction.categoryId}
+                          categoryLabel={categoryLabel}
+                          categoryGroups={categoryGroups}
+                          disabled={isUpdatingCategory}
+                          onChange={(nextCategoryId) => {
+                            setCategoryMutation.mutate({
+                              transactionId: transaction.id,
+                              categoryId: nextCategoryId,
+                            });
+                          }}
+                        />
+                      </div>
                     </div>
 
                     {/* Account / Category */}
@@ -355,9 +392,21 @@ export default function TransactionsPage() {
                           transaction.accountIsActive,
                         )}
                       </p>
-                      <p className="mt-0.5 truncate text-[11px] text-bone-mute">
-                        {categoryLabel}
-                      </p>
+                      <div className="mt-1">
+                        <TransactionCategorySelect
+                          transactionId={transaction.id}
+                          categoryId={transaction.categoryId}
+                          categoryLabel={categoryLabel}
+                          categoryGroups={categoryGroups}
+                          disabled={isUpdatingCategory}
+                          onChange={(nextCategoryId) => {
+                            setCategoryMutation.mutate({
+                              transactionId: transaction.id,
+                              categoryId: nextCategoryId,
+                            });
+                          }}
+                        />
+                      </div>
                     </div>
 
                     {/* Amount */}
@@ -370,6 +419,11 @@ export default function TransactionsPage() {
                         {isExpense ? "−" : "+"}
                         {displayAmount}
                       </p>
+                      {isUpdatingCategory ? (
+                        <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-brass-hi">
+                          Saving…
+                        </p>
+                      ) : null}
                     </div>
                   </li>
                 );
@@ -408,6 +462,33 @@ export default function TransactionsPage() {
           background: var(--ink-2-solid);
           color: var(--brass-hi);
         }
+        :global(.tx-category-select) {
+          width: 100%;
+          min-height: 34px;
+          padding: 0 10px;
+          border: 1px solid var(--stroke);
+          border-radius: 2px;
+          background: var(--ink-0);
+          color: var(--bone);
+          font-family: var(--font-sans);
+          font-size: 11px;
+          letter-spacing: 0.08em;
+          text-transform: uppercase;
+          transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
+        }
+        :global(.tx-category-select:hover) {
+          border-color: var(--stroke-2);
+          background: var(--ink-2-solid);
+        }
+        :global(.tx-category-select:focus) {
+          outline: none;
+          border-color: rgba(201,164,107,0.55);
+          color: var(--brass-hi);
+        }
+        :global(.tx-category-select:disabled) {
+          opacity: 0.6;
+          cursor: wait;
+        }
       `}</style>
     </div>
   );
@@ -441,9 +522,85 @@ function PageStatus({ label }: { label: string }) {
   );
 }
 
+type CategoryOption = {
+  id: string;
+  name: string;
+  groupName: string;
+  defaultBudgetable: boolean;
+};
+
+type GroupedCategories = Array<{
+  groupName: string;
+  options: CategoryOption[];
+}>;
+
+function TransactionCategorySelect({
+  transactionId,
+  categoryId,
+  categoryLabel,
+  categoryGroups,
+  disabled,
+  onChange,
+}: {
+  transactionId: string;
+  categoryId: string | null;
+  categoryLabel: string;
+  categoryGroups: GroupedCategories;
+  disabled: boolean;
+  onChange: (categoryId: string | null) => void;
+}) {
+  return (
+    <label className="block">
+      <span className="sr-only">Category for transaction {transactionId.slice(0, 8)}</span>
+      <select
+        value={categoryId ?? ""}
+        disabled={disabled}
+        className="tx-category-select"
+        aria-label={`Category for ${categoryLabel}`}
+        onChange={(event) => {
+          const nextCategoryId = event.target.value || null;
+          if (nextCategoryId === categoryId) {
+            return;
+          }
+          onChange(nextCategoryId);
+        }}
+      >
+        <option value="">Uncategorized</option>
+        {categoryGroups.map((group) => (
+          <optgroup key={group.groupName} label={group.groupName}>
+            {group.options.map((option) => (
+              <option key={option.id} value={option.id}>
+                {option.name}
+              </option>
+            ))}
+          </optgroup>
+        ))}
+      </select>
+    </label>
+  );
+}
+
 function formatAccountLabel(name: string, mask: string | null, isActive: boolean) {
   const suffix = mask ? ` ··${mask}` : "";
   return `${name}${suffix}${isActive ? "" : " · inactive"}`;
+}
+
+function groupCategories(categories: CategoryOption[]) {
+  const grouped = new Map<string, CategoryOption[]>();
+
+  for (const category of categories) {
+    const existing = grouped.get(category.groupName);
+    if (existing) {
+      existing.push(category);
+      continue;
+    }
+    grouped.set(category.groupName, [category]);
+  }
+
+  return Array.from(grouped, ([groupName, options]) => ({
+    groupName,
+    options,
+  }));
 }
 
 function formatDateLabel(date: string) {
