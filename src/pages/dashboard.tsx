@@ -33,7 +33,7 @@ const navItems: {
   href?: string;
 }[] = [
   { label: "Desk", icon: LayoutDashboard, active: true },
-  { label: "Ledger", icon: Wallet, active: false },
+  { label: "Ledger", icon: Wallet, active: false, href: "/transactions" },
   { label: "Budgets", icon: Target, active: false },
   { label: "Instruments", icon: LineChart, active: false },
   { label: "Reports", icon: TrendingUp, active: false },
@@ -361,7 +361,7 @@ export default function Dashboard({
               <div className="flex flex-col rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
                 <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
                   <span className="label-eyebrow-brass">Ledger · recent</span>
-                  <Link href="#" className="label-eyebrow transition-colors hover:text-brass-hi">
+                  <Link href="/transactions" className="label-eyebrow transition-colors hover:text-brass-hi">
                     Full tape →
                   </Link>
                 </div>

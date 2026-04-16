@@ -2,6 +2,17 @@
 
 ## 2026-04-16
 
+### Phase 2 — transactions page read-only pass shipped
+
+- Added `/transactions` in `src/pages/transactions.tsx` as the first production ledger surface: user-scoped transaction list, newest-first, limited to 100 rows for now.
+- Added `transactions.list` tRPC query in `src/server/trpc/routers/transactions.ts` and wired it in `_app.ts`.
+- Filters shipped in this pass: account, category, pending status, date-from, date-to, plus "include inactive accounts".
+- Pending badge shipped on transaction rows. Inactive accounts remain hidden by default and can be included explicitly.
+- Uncategorized nudge shipped on page load with count of visible uncategorized transactions; CTA focuses the list on uncategorized rows.
+- Dashboard now links into `/transactions` from the Ledger nav item and recent-ledger card.
+- Verified clean: `bunx tsc --noEmit` and `bunx eslint src/pages/transactions.tsx src/server/trpc/routers/transactions.ts src/server/trpc/routers/_app.ts src/pages/dashboard.tsx` both pass.
+- **Next**: `transactions.setCategory` mutation + minimal per-row reassignment UI, then move to `/budgets`.
+
 ### Phase 2 kickoff — decisions locked + tRPC migration shipped
 
 **Decisions locked (transactions + budgeting core):**
