@@ -15,3 +15,9 @@ Deferred ideas worth revisiting later. Not prioritised — just a holding area s
 ## Transactions
 
 - **Posted/pending filter toggle** — transactions page currently shows both. A filter (all / posted only / pending only) is low-hanging fruit when users ask for it.
+
+## Dashboard
+
+- **Recurring-spend detection** — once the core dashboard is fully live, add a deterministic pass for recurring merchants or subscriptions instead of leaving that analysis to AI copy.
+
+- **Custom dashboard ranges** — the dashboard should stay calendar-month only for the first real analytics milestone. Revisit week, quarter, and YTD views only after the month-based metrics are trusted.

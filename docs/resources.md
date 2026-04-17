@@ -7,6 +7,7 @@
 - `src/db/schema.ts` — full Drizzle schema (transactions, budgets, categories, bank accounts/connections, auth tables)
 - `src/server/trpc/routers/_app.ts` — tRPC root router; add new routers here
 - `src/server/trpc/routers/budgets.ts` — monthly budget summary + upsert/delete mutations
+- `src/server/trpc/routers/dashboard.ts` — dashboard overview, cashflow, spending-by-category, and recent transaction queries
 - `src/server/trpc/routers/plaid.ts` — all Plaid procedures
 - `src/server/trpc/routers/transactions.ts` — transaction listing query plus category reassignment mutation for `/transactions`
 - `src/server/trpc/category-map.ts` — Plaid PFC → our category name mapping (TS const)
@@ -16,6 +17,8 @@
 - `src/pages/transactions.tsx` — production transaction ledger view with filters, uncategorized nudge, and inline category reassignment
 - `docs/spec/budgets.md` — monthly budgets product spec and query rules
 - `docs/plan/budgets.md` — phased implementation plan for the first budgets milestone
+- `docs/spec/dashboard-analytics.md` — Phase 3 dashboard analytics spec
+- `docs/plan/dashboard-analytics.md` — Phase 3 implementation plan for replacing dashboard placeholders with live data
 - `src/pages/settings/connections.tsx` — bank connection management
 - `docs/future.md` — deferred ideas and known gaps
 - `docs/plan/plaid-integration.md` — Plaid integration phased plan (complete)
