@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 
 type RefreshResult = { added: number; modified: number; removed: number };
@@ -37,15 +38,16 @@ export function RefreshTransactions({ onRefreshed }: Props) {
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button
+      <Button
         type="button"
+        variant="ghost"
         onClick={refresh}
         disabled={loading}
         className="btn-ghost disabled:opacity-60"
       >
         <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
         {loading ? "Syncing…" : "Sync"}
-      </button>
+      </Button>
       {error ? <span className="text-[11px] text-oxide-hi">{error}</span> : null}
     </div>
   );

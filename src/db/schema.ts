@@ -192,7 +192,7 @@ export const bankAccounts = pgTable(
   ]),
 );
 
-// amount sign convention: positive = expense (money out), negative = income/refund (money in)
+// amount sign convention: positive = money in, negative = money out
 export const transactions = pgTable(
   "transactions",
   {

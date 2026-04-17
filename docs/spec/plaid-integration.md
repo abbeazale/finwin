@@ -49,7 +49,11 @@ Current schema in [schema.ts](src/db/schema.ts) already models this. Fields used
 - `bankAccounts`: `connectionId`, `providerAccountId`, `name`, `type`, `subtype`, `mask`, `currency`.
 - `transactions`: `accountId`, `providerTransactionId`, `date`, `authorizedDate`, `name`, `merchantName`, `amount`, `currency`, `pending`, (later) `categoryId`.
 
-**Amount sign convention:** Plaid and our schema both use positive = money out of the account, negative = money in. Plaid's documented exceptions (credit-card payments, deposits, refunds are negative) align naturally with our convention — store Plaid's `amount` as-is.
+**Amount sign convention:** Plaid provider amounts may use positive = money out and negative = money in. FinWin canonical transaction semantics should use the opposite account-based convention:
+- positive = money in
+- negative = money out
+
+The sync layer should normalize Plaid amounts before persistence so the app reasons about balances, cashflow, and budgets using one consistent rule.
 
 ## API Surface
 

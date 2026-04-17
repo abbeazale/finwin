@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { Plus, RotateCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 
 type ConnectBankProps = {
@@ -82,10 +83,16 @@ export function ConnectBank({
 
   return (
     <div className="flex flex-col items-end gap-1">
-      <button type="button" onClick={startLink} disabled={loading} className={buttonClass}>
+      <Button
+        type="button"
+        variant="ghost"
+        onClick={startLink}
+        disabled={loading}
+        className={buttonClass}
+      >
         <Icon className="size-3.5" />
         {loading ? "Connecting…" : label ?? (isUpdate ? "Reconnect" : "Connect bank")}
-      </button>
+      </Button>
       {error ? <span className="text-[11px] text-oxide-hi">{error}</span> : null}
     </div>
   );

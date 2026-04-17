@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useRouter } from "next/router";
@@ -64,24 +65,26 @@ export default function SignupForm({
 
       <form onSubmit={handleEmailSignup} className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-3">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => handleSocialSignup("github")}
             disabled={isPending}
-            className="group flex h-12 items-center justify-center gap-2 rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone transition-colors hover:border-[var(--stroke-brass-hi)] hover:text-brass-hi disabled:opacity-60"
+            className="group h-12 rounded-[2px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
           >
             <Image src="/gitinverted.svg" alt="" width={20} height={20} className="opacity-80 group-hover:opacity-100" />
             GitHub
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
             onClick={() => handleSocialSignup("google")}
             disabled={isPending}
-            className="group flex h-12 items-center justify-center gap-2 rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone transition-colors hover:border-[var(--stroke-brass-hi)] hover:text-brass-hi disabled:opacity-60"
+            className="group h-12 rounded-[2px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
           >
             <Image src="/google.svg" alt="" width={20} height={20} className="opacity-80 group-hover:opacity-100" />
             Google
-          </button>
+          </Button>
         </div>
 
         <div className="flex items-center gap-4">
@@ -138,14 +141,15 @@ export default function SignupForm({
           </p>
         ) : null}
 
-        <button
+        <Button
           type="submit"
+          variant="ghost"
           disabled={isPending}
           className="btn-brass mt-2 h-12 w-full justify-center disabled:opacity-60"
         >
           {isPending ? "Building desk…" : "Take the desk"}
           <span aria-hidden>→</span>
-        </button>
+        </Button>
       </form>
     </div>
   );

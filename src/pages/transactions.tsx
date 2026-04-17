@@ -9,6 +9,7 @@ import {
   CircleAlert,
   Landmark,
 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 
@@ -151,9 +152,9 @@ export default function TransactionsPage() {
 
         {/* Uncategorized callout */}
         {data && data.uncategorizedCount > 0 ? (
-          <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-[2px] border border-[rgba(212,154,74,0.32)] bg-[rgba(212,154,74,0.06)] px-5 py-4">
+          <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-md border border-[rgba(212,154,74,0.32)] bg-[rgba(212,154,74,0.06)] px-5 py-4">
             <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex size-8 items-center justify-center rounded-[2px] border border-[rgba(212,154,74,0.32)] bg-[rgba(212,154,74,0.08)] text-[var(--amber)]">
+              <div className="mt-0.5 flex size-8 items-center justify-center rounded border border-[rgba(212,154,74,0.32)] bg-[rgba(212,154,74,0.08)] text-[var(--amber)]">
                 <BadgeAlert className="size-4" />
               </div>
               <div>
@@ -166,43 +167,45 @@ export default function TransactionsPage() {
                 </p>
               </div>
             </div>
-            <button
+            <Button
               type="button"
-              className="inline-flex h-10 items-center gap-2 rounded-[2px] border border-[rgba(212,154,74,0.32)] bg-[rgba(17,17,16,0.65)] px-4 text-[11px] uppercase tracking-[0.12em] text-[var(--amber)] transition-colors hover:border-[rgba(212,154,74,0.5)] hover:text-bone"
+              variant="outline"
+              className="h-10 gap-2 rounded-md border-[rgba(212,154,74,0.32)] bg-[rgba(17,17,16,0.65)] px-4 text-[11px] uppercase tracking-[0.12em] text-[var(--amber)] shadow-none hover:border-[rgba(212,154,74,0.5)] hover:bg-[rgba(17,17,16,0.65)] hover:text-bone"
               onClick={() => setCategoryFilter("uncategorized")}
             >
               Focus uncategorized
               <ArrowRight className="size-3" />
-            </button>
+            </Button>
           </div>
         ) : null}
 
         {error ? (
-          <p className="mb-8 flex items-center gap-3 rounded-[2px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
+          <p className="mb-8 flex items-center gap-3 rounded-md border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
             <CircleAlert className="size-3.5" />
             {error.message ?? "Unable to load transactions."}
           </p>
         ) : null}
 
         {categoryMessage ? (
-          <p className="mb-8 flex items-center gap-3 rounded-[2px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
+          <p className="mb-8 flex items-center gap-3 rounded-md border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
             <CircleAlert className="size-3.5" />
             {categoryMessage}
           </p>
         ) : null}
 
         {/* Filter bar */}
-        <section className="mb-8 rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
+        <section className="mb-8 overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
           <div className="flex items-center justify-between border-b border-[var(--stroke)] px-5 py-3">
             <span className="label-eyebrow-brass">Filter</span>
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={resetFilters}
               disabled={!hasFilters}
-              className="label-eyebrow transition-colors hover:text-brass-hi disabled:opacity-40"
+              className="label-eyebrow h-auto rounded-md px-2 py-1 shadow-none hover:bg-transparent hover:text-brass-hi disabled:opacity-40"
             >
               Reset →
-            </button>
+            </Button>
           </div>
 
           <div className="grid gap-px bg-[var(--stroke)] md:grid-cols-2 xl:grid-cols-5">
@@ -286,7 +289,7 @@ export default function TransactionsPage() {
         </section>
 
         {/* Tape */}
-        <section className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
+        <section className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
           {/* Column head */}
           <div className="grid grid-cols-[88px_1fr_auto] gap-4 border-b border-[var(--stroke)] px-5 py-3 md:grid-cols-[88px_1.6fr_1fr_140px]">
             <span className="label-eyebrow">Date</span>
@@ -298,7 +301,7 @@ export default function TransactionsPage() {
           {transactions.length === 0 ? (
             <div className="px-6 py-20 text-center">
               <div className="mx-auto flex max-w-md flex-col items-center gap-4">
-                <div className="flex size-12 items-center justify-center rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.06)] text-brass-hi">
+                <div className="flex size-12 items-center justify-center rounded-md border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.06)] text-brass-hi">
                   <Landmark className="size-5" />
                 </div>
                 <h2 className="display text-[28px] leading-tight text-bone">No matching tape.</h2>
@@ -313,7 +316,7 @@ export default function TransactionsPage() {
             <ul className="divide-y divide-[var(--stroke)]">
               {transactions.map((transaction) => {
                 const amount = Number(transaction.amount);
-                const isExpense = amount >= 0;
+                const isExpense = amount <= 0;
                 const displayAmount = formatMoney(Math.abs(amount), transaction.currency);
                 const categoryLabel = transaction.categoryName
                   ? `${transaction.categoryGroupName} · ${transaction.categoryName}`
@@ -441,55 +444,6 @@ export default function TransactionsPage() {
         </section>
       </div>
 
-      {/* Scoped filter-select styles */}
-      <style jsx>{`
-        :global(.filter-select) {
-          width: 100%;
-          height: 40px;
-          padding: 0 12px;
-          background: var(--ink-1);
-          color: var(--bone);
-          font-family: var(--font-sans);
-          font-size: 13px;
-          border: 0;
-          outline: none;
-          transition: background-color 180ms ease, color 180ms ease;
-        }
-        :global(.filter-select:hover) {
-          background: var(--ink-2-solid);
-        }
-        :global(.filter-select:focus) {
-          background: var(--ink-2-solid);
-          color: var(--brass-hi);
-        }
-        :global(.tx-category-select) {
-          width: 100%;
-          min-height: 34px;
-          padding: 0 10px;
-          border: 1px solid var(--stroke);
-          border-radius: 2px;
-          background: var(--ink-0);
-          color: var(--bone);
-          font-family: var(--font-sans);
-          font-size: 11px;
-          letter-spacing: 0.08em;
-          text-transform: uppercase;
-          transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
-        }
-        :global(.tx-category-select:hover) {
-          border-color: var(--stroke-2);
-          background: var(--ink-2-solid);
-        }
-        :global(.tx-category-select:focus) {
-          outline: none;
-          border-color: rgba(201,164,107,0.55);
-          color: var(--brass-hi);
-        }
-        :global(.tx-category-select:disabled) {
-          opacity: 0.6;
-          cursor: wait;
-        }
-      `}</style>
     </div>
   );
 }
