@@ -15,6 +15,7 @@ const listTransactionsInput = z.object({
   dateFrom: z.string().regex(datePattern).optional(),
   dateTo: z.string().regex(datePattern).optional(),
   includeInactiveAccounts: z.boolean().default(false),
+  sortBy: z.enum(["date_desc", "amount_asc"]).default("date_desc"),
   limit: z.number().int().min(1).max(250).default(100),
 }).refine(
   (value) => !value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo,
@@ -91,7 +92,11 @@ export const transactionsRouter = router({
           .leftJoin(categories, eq(transactions.categoryId, categories.id))
           .leftJoin(categoryGroups, eq(categories.groupId, categoryGroups.id))
           .where(and(...filteredConditions))
-          .orderBy(desc(transactions.date), desc(transactions.createdAt))
+          .orderBy(
+            ...(input.sortBy === "amount_asc"
+              ? [asc(transactions.amount), desc(transactions.date), desc(transactions.createdAt)]
+              : [desc(transactions.date), desc(transactions.createdAt)]),
+          )
           .limit(input.limit),
         db
           .select({

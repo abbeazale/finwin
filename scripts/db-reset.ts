@@ -17,6 +17,9 @@ if (process.env.NODE_ENV === "production") {
 async function resetDatabase() {
   const sql = neon(databaseUrl!);
 
+  console.log("Dropping drizzle schema...");
+  await sql.query("drop schema if exists drizzle cascade;");
+
   console.log("Dropping public schema...");
   await sql.query("drop schema if exists public cascade;");
 

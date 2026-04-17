@@ -12,6 +12,12 @@ export type SyncResult = {
   cursor: string | null;
 };
 
+function normalizeTransactionAmount(providerAmount: number) {
+  // FinWin stores canonical account semantics:
+  // positive = money in, negative = money out.
+  return (-providerAmount).toFixed(2);
+}
+
 function resolveCategoryId(
   plaidTx: PlaidTransaction,
   categoryIdByName: Map<string, string>,
@@ -87,7 +93,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         authorizedDate: tx.authorized_date ?? null,
         name: tx.name,
         merchantName: tx.merchant_name ?? null,
-        amount: tx.amount.toFixed(2),
+        amount: normalizeTransactionAmount(tx.amount),
         currency: tx.iso_currency_code ?? "CAD",
         pending: tx.pending,
         categoryId: resolveCategoryId(tx, categoryIdByName),

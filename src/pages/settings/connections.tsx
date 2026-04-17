@@ -5,15 +5,7 @@ import { ArrowLeft, Building2, Plug, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useSession } from "@/lib/auth-client";
 import { ConnectBank } from "@/components/connect-bank";
-
-type ConnectionRow = {
-  id: string;
-  status: string;
-  createdAt: string;
-  updatedAt: string;
-  accounts: { name: string; mask: string | null; type: string }[];
-  lastTransactionDate: string | null;
-};
+import { Button } from "@/components/ui/button";
 
 export default function ConnectionsSettings() {
   const router = useRouter();
@@ -92,10 +84,11 @@ export default function ConnectionsSettings() {
               { label: "Notifications", active: false },
               { label: "Security", active: false },
             ].map((t) => (
-              <button
+              <Button
                 key={t.label}
                 type="button"
-                className={`relative whitespace-nowrap px-4 py-3 text-[11px] uppercase tracking-[0.12em] transition-colors ${
+                variant="ghost"
+                className={`relative h-auto rounded-none px-4 py-3 text-[11px] uppercase tracking-[0.12em] shadow-none hover:bg-transparent ${
                   t.active ? "text-brass-hi" : "text-bone-mute hover:text-bone"
                 }`}
               >
@@ -103,7 +96,7 @@ export default function ConnectionsSettings() {
                 {t.active ? (
                   <span className="absolute inset-x-3 -bottom-px h-[2px] bg-brass" style={{ boxShadow: "0 0 8px var(--brass-glow)" }} />
                 ) : null}
-              </button>
+              </Button>
             ))}
           </div>
         </div>
@@ -199,15 +192,16 @@ export default function ConnectionsSettings() {
                         onReconnected={() => void connectionsQuery.refetch()}
                       />
                     ) : null}
-                    <button
+                    <Button
                       type="button"
+                      variant="outline"
                       onClick={() => unlink(conn.id)}
                       disabled={unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id}
-                      className="inline-flex h-10 items-center gap-2 rounded-[2px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 text-[11px] uppercase tracking-[0.12em] text-oxide-hi transition-colors hover:border-[rgba(194,106,72,0.5)] hover:bg-[rgba(194,106,72,0.12)] disabled:opacity-50"
+                      className="h-10 gap-2 rounded-[2px] border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 text-[11px] uppercase tracking-[0.12em] text-oxide-hi shadow-none hover:border-[rgba(194,106,72,0.5)] hover:bg-[rgba(194,106,72,0.12)] hover:text-oxide-hi disabled:opacity-50"
                     >
                       <Trash2 className="size-3" />
                       {unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id ? "Unlinking…" : "Unlink"}
-                    </button>
+                    </Button>
                   </div>
                 </div>
 

@@ -1,3 +1,4 @@
+import { Button } from "@/components/ui/button";
 import {
   Select,
   SelectContent,
@@ -267,14 +268,15 @@ export default function OnboardingPage({
               <p className="text-[11px] text-bone-faint">
                 You can revise these later in settings.
               </p>
-              <button
+              <Button
                 type="submit"
+                variant="ghost"
                 disabled={isPending}
                 className="btn-brass h-12 justify-center disabled:opacity-60"
               >
                 {isPending ? "Warming the tungsten…" : "Complete setup"}
                 <span aria-hidden>→</span>
-              </button>
+              </Button>
             </div>
           </form>
         </main>

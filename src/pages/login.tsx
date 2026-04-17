@@ -1,5 +1,6 @@
 import LoginForm from "@/components/auth/loginForm";
 import SignupComponent from "@/components/auth/signupForm";
+import { Button } from "@/components/ui/button";
 import { useState } from "react";
 import Link from "next/link";
 import type { GetServerSideProps } from "next";
@@ -98,24 +99,26 @@ export default function Login() {
                 aria-hidden="true"
                 style={{ boxShadow: "inset 0 1px 0 rgba(255,244,214,0.45), 0 0 20px -6px var(--brass-glow)" }}
               />
-              <button
+              <Button
                 type="button"
-                className={`relative z-10 h-10 flex-1 font-[family-name:var(--font-sans)] text-[11px] uppercase tracking-[0.16em] transition-colors duration-300 ${
+                variant="ghost"
+                className={`relative z-10 h-10 flex-1 rounded-[2px] font-[family-name:var(--font-sans)] text-[11px] uppercase tracking-[0.16em] shadow-none transition-colors duration-300 hover:bg-transparent ${
                   activePage === "signin" ? "text-[#1a1408]" : "text-bone-mute hover:text-bone"
                 }`}
                 onClick={() => setActivePage("signin")}
               >
                 Sign in
-              </button>
-              <button
+              </Button>
+              <Button
                 type="button"
-                className={`relative z-10 h-10 flex-1 font-[family-name:var(--font-sans)] text-[11px] uppercase tracking-[0.16em] transition-colors duration-300 ${
+                variant="ghost"
+                className={`relative z-10 h-10 flex-1 rounded-[2px] font-[family-name:var(--font-sans)] text-[11px] uppercase tracking-[0.16em] shadow-none transition-colors duration-300 hover:bg-transparent ${
                   activePage === "signup" ? "text-[#1a1408]" : "text-bone-mute hover:text-bone"
                 }`}
                 onClick={() => setActivePage("signup")}
               >
                 Create account
-              </button>
+              </Button>
             </div>
 
             {/* Form panel */}

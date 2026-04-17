@@ -5,9 +5,11 @@ import {
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
 import { signOut } from "@/lib/auth-client";
+import { trpc } from "@/lib/trpc";
 import Link from "next/link";
-import { ConnectBank } from "@/components/connect-bank";
-import { RefreshTransactions } from "@/components/refresh-transactions";
+import { Button } from "@/components/ui/button";
+import { DashboardSidebar } from "@/components/dashboard/sidebar";
+import { DashboardHeader } from "@/components/dashboard/header";
 import { useRouter } from "next/router";
 import { useState, useTransition } from "react";
 import {
@@ -15,30 +17,11 @@ import {
   ArrowUp,
   CircleDollarSign,
   Clock3,
-  Command,
-  LayoutDashboard,
-  LineChart,
   Plus,
-  Settings,
   Sparkles,
   Target,
-  TrendingUp,
   Wallet,
 } from "lucide-react";
-
-const navItems: {
-  label: string;
-  icon: typeof LayoutDashboard;
-  active: boolean;
-  href?: string;
-}[] = [
-  { label: "Desk", icon: LayoutDashboard, active: true },
-  { label: "Ledger", icon: Wallet, active: false, href: "/transactions" },
-  { label: "Budgets", icon: Target, active: false },
-  { label: "Instruments", icon: LineChart, active: false },
-  { label: "Reports", icon: TrendingUp, active: false },
-  { label: "Settings", icon: Settings, active: false, href: "/settings/connections" },
-];
 
 const kpiCards = [
   {
@@ -70,14 +53,6 @@ const kpiCards = [
   },
 ];
 
-const budgetRows = [
-  { category: "Groceries", spent: 420, budget: 500, status: "On track", tone: "sage" },
-  { category: "Restaurants", spent: 285, budget: 300, status: "Near limit", tone: "amber" },
-  { category: "Entertainment", spent: 125, budget: 150, status: "On track", tone: "sage" },
-  { category: "Transportation", spent: 310, budget: 250, status: "Over", tone: "oxide" },
-  { category: "Shopping", spent: 220, budget: 200, status: "Over", tone: "oxide" },
-] as const;
-
 const watchlist = [
   { symbol: "AAPL", price: "198.15", change: "+0.34%", positive: true },
   { symbol: "MSFT", price: "412.30", change: "+1.12%", positive: true },
@@ -105,10 +80,21 @@ export default function Dashboard({
   firstName,
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
   const router = useRouter();
+  const currentMonth = getCurrentMonthStart();
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const [insightIndex, setInsightIndex] = useState(0);
   const initials = firstName.slice(0, 2).toUpperCase();
+  const budgetsQuery = trpc.budgets.summary.useQuery({ month: currentMonth });
+  const dashboardBudgetRows = (budgetsQuery.data?.groups ?? [])
+    .flatMap((group) => group.rows)
+    .filter((row) => Number(row.actualAmount) > 0 || row.budgetAmount !== null)
+    .sort((left, right) => {
+      const leftMax = Math.max(Number(left.actualAmount), Number(left.budgetAmount ?? 0));
+      const rightMax = Math.max(Number(right.actualAmount), Number(right.budgetAmount ?? 0));
+      return rightMax - leftMax;
+    })
+    .slice(0, 5);
 
   async function logout() {
     setError(null);
@@ -131,101 +117,28 @@ export default function Dashboard({
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1480px]">
-        {/* ── Sidebar ── */}
-        <aside className="hidden w-[240px] shrink-0 flex-col border-r border-[var(--stroke)] bg-[var(--ink-1)] lg:flex">
-          <div className="flex items-baseline justify-between border-b border-[var(--stroke)] px-6 py-5">
-            <Link href="/" className="display text-[26px] leading-none text-bone">
-              Fin<span className="italic text-brass">Win</span>
-            </Link>
-            <span className="label-eyebrow">v0.1</span>
-          </div>
+        <DashboardSidebar
+          firstName={firstName}
+          initials={initials}
+          isPending={isPending}
+          onLogout={logout}
+        />
 
-          <nav className="flex flex-1 flex-col gap-0.5 p-3">
-            <div className="px-3 pb-2 pt-1">
-              <span className="label-eyebrow">Desk</span>
-            </div>
-            {navItems.map((item) => {
-              const Icon = item.icon;
-              const className = `group relative flex h-10 items-center gap-3 rounded-[2px] px-3 text-left text-[12px] uppercase tracking-[0.08em] transition-all ${
-                item.active
-                  ? "bg-[rgba(201,164,107,0.08)] text-brass-hi"
-                  : "text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
-              }`;
-              const content = (
-                <>
-                  {item.active ? (
-                    <span className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 bg-brass" />
-                  ) : null}
-                  <Icon className="size-3.5" />
-                  <span>{item.label}</span>
-                  {item.active ? (
-                    <span className="ml-auto size-1.5 rounded-full bg-brass animate-pulse-dot" />
-                  ) : null}
-                </>
-              );
-              return item.href ? (
-                <Link key={item.label} href={item.href} className={className}>
-                  {content}
-                </Link>
-              ) : (
-                <button key={item.label} type="button" className={className}>
-                  {content}
-                </button>
-              );
-            })}
-          </nav>
-
-          <div className="border-t border-[var(--stroke)] p-3">
-            <div className="flex items-center gap-3 rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-0)] px-3 py-3">
-              <div className="flex size-8 items-center justify-center rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.08)] text-[10px] text-brass-hi">
-                {initials}
-              </div>
-              <div className="min-w-0 flex-1">
-                <p className="truncate text-[12px] text-bone">{firstName}</p>
-                <p className="truncate text-[10px] text-bone-faint">On the desk</p>
-              </div>
-              <button
-                type="button"
-                className="label-eyebrow transition-colors hover:text-oxide-hi"
-                onClick={logout}
-                disabled={isPending}
-              >
-                {isPending ? "…" : "exit"}
-              </button>
-            </div>
-          </div>
-        </aside>
-
-        {/* ── Main ── */}
         <main className="flex-1 overflow-hidden">
-          {/* Top bar */}
-          <div className="sticky top-0 z-20 flex items-center justify-between border-b border-[var(--stroke)] bg-[var(--ink-0)]/80 px-6 py-3 smoked">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
-                <span className="label-eyebrow-brass">Live · market open</span>
-              </div>
-              <span className="label-eyebrow hidden lg:inline">NYSE 09:41 · PST 06:41</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <button type="button" className="btn-ghost hidden h-9 md:inline-flex" aria-label="Command palette">
-                <Command className="size-3.5" />
-                <span className="num text-[10px] text-bone-mute">⌘ K</span>
-              </button>
-              <RefreshTransactions
-                onRefreshed={(t) => {
-                  router.replace(router.asPath);
-                  setError(`Sync: +${t.added} · ~${t.modified} · -${t.removed}`);
-                }}
-              />
-              <ConnectBank
-                onConnected={({ accountCount }) => {
-                  router.replace(router.asPath);
-                  setError(`Linked ${accountCount} account${accountCount === 1 ? "" : "s"}.`);
-                }}
-              />
-            </div>
-          </div>
+          <DashboardHeader
+            firstName={firstName}
+            initials={initials}
+            isPending={isPending}
+            onLogout={logout}
+            onRefreshed={(t) => {
+              router.replace(router.asPath);
+              setError(`Sync: +${t.added} · ~${t.modified} · -${t.removed}`);
+            }}
+            onConnected={({ accountCount }) => {
+              router.replace(router.asPath);
+              setError(`Linked ${accountCount} account${accountCount === 1 ? "" : "s"}.`);
+            }}
+          />
 
           {/* Content */}
           <div className="px-6 py-8 lg:px-10 lg:py-10">
@@ -243,17 +156,19 @@ export default function Dashboard({
               </div>
               <div className="flex items-center gap-2 rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)] p-1">
                 {["W", "M", "Q", "YTD"].map((p, i) => (
-                  <button
+                  <Button
                     key={p}
                     type="button"
-                    className={`h-8 px-3 text-[11px] uppercase tracking-[0.12em] transition-colors ${
+                    variant="ghost"
+                    size="sm"
+                    className={`h-8 rounded-[2px] px-3 text-[11px] uppercase tracking-[0.12em] shadow-none hover:bg-transparent ${
                       i === 1
                         ? "bg-[rgba(201,164,107,0.12)] text-brass-hi"
                         : "text-bone-mute hover:text-bone"
                     }`}
                   >
                     {p}
-                  </button>
+                  </Button>
                 ))}
               </div>
             </header>
@@ -398,67 +313,105 @@ export default function Dashboard({
               <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
                 <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
                   <div>
-                    <span className="label-eyebrow-brass">Budget envelopes · April</span>
+                    <span className="label-eyebrow-brass">
+                      Budget envelopes · {formatBudgetMonth(currentMonth)}
+                    </span>
                     <p className="mt-1 text-[12px] text-bone-mute">
-                      <span className="text-oxide-hi">2 over</span> ·{" "}
-                      <span className="text-amber">1 near limit</span> · 2 on track
+                      {budgetsQuery.data ? (
+                        <>
+                          <span className="text-oxide-hi">
+                            {budgetsQuery.data.totals.overBudgetCount} over
+                          </span>{" "}
+                          ·{" "}
+                          <span className="text-amber">
+                            {budgetsQuery.data.totals.unbudgetedCount} unbudgeted
+                          </span>{" "}
+                          ·{" "}
+                          <span className="text-brass-hi">
+                            {dashboardBudgetRows.length} active rows
+                          </span>
+                        </>
+                      ) : budgetsQuery.isLoading ? (
+                        "Loading live budget pressure…"
+                      ) : (
+                        "No budget activity yet."
+                      )}
                     </p>
                   </div>
-                  <button type="button" className="btn-ghost h-9">
+                  <Link href="/budgets" className="btn-ghost h-9">
                     <CircleDollarSign className="size-3.5" />
                     Adjust
-                  </button>
+                  </Link>
                 </div>
-                <div className="divide-y divide-[var(--stroke)]">
-                  {budgetRows.map((row) => {
-                    const percent = Math.min((row.spent / row.budget) * 100, 150);
-                    const overflow = percent > 100;
-                    const barColor =
-                      row.tone === "sage"
-                        ? "var(--sage)"
-                        : row.tone === "amber"
-                          ? "var(--amber)"
-                          : "var(--oxide)";
-                    const pillClass =
-                      row.tone === "sage"
-                        ? "pill-sage"
-                        : row.tone === "amber"
-                          ? "pill-amber"
-                          : "pill-oxide";
-                    return (
-                      <div key={row.category} className="px-6 py-4">
-                        <div className="mb-2.5 flex items-center justify-between gap-4">
-                          <div className="flex items-baseline gap-3">
-                            <span className="text-[13px] text-bone">{row.category}</span>
-                            <span className="num text-[11px] text-bone-faint">
-                              ${row.spent} <span className="text-bone-ghost">/ ${row.budget}</span>
-                            </span>
+                {budgetsQuery.isLoading ? (
+                  <div className="px-6 py-5">
+                    <span className="label-eyebrow">Loading budget rows…</span>
+                  </div>
+                ) : dashboardBudgetRows.length > 0 ? (
+                  <div className="divide-y divide-[var(--stroke)]">
+                    {dashboardBudgetRows.map((row) => {
+                      const budget = Number(row.budgetAmount ?? 0);
+                      const actual = Number(row.actualAmount);
+                      const percent = budget > 0 ? Math.min((actual / budget) * 100, 150) : 0;
+                      const overflow = budget > 0 && actual > budget;
+                      const barColor =
+                        row.status === "over"
+                          ? "var(--oxide)"
+                          : row.status === "near_limit" || row.status === "unbudgeted"
+                            ? "var(--amber)"
+                            : "var(--sage)";
+                      const pillClass =
+                        row.status === "over"
+                          ? "pill-oxide"
+                          : row.status === "near_limit" || row.status === "unbudgeted"
+                            ? "pill-amber"
+                            : "pill-sage";
+                      const statusLabel = formatBudgetStatus(row.status);
+
+                      return (
+                        <div key={row.categoryId} className="px-6 py-4">
+                          <div className="mb-2.5 flex items-center justify-between gap-4">
+                            <div className="flex items-baseline gap-3">
+                              <span className="text-[13px] text-bone">{row.categoryName}</span>
+                              <span className="num text-[11px] text-bone-faint">
+                                {formatDashboardMoney(actual)}{" "}
+                                <span className="text-bone-ghost">
+                                  / {budget > 0 ? formatDashboardMoney(budget) : "No target"}
+                                </span>
+                              </span>
+                            </div>
+                            <span className={`pill ${pillClass}`}>{statusLabel}</span>
                           </div>
-                          <span className={`pill ${pillClass}`}>{row.status}</span>
-                        </div>
-                        <div className="relative h-1 overflow-hidden rounded-[1px] bg-[var(--ink-0)]">
-                          <div
-                            className="absolute inset-y-0 left-0 transition-all duration-700"
-                            style={{
-                              width: `${Math.min(percent, 100)}%`,
-                              background: `linear-gradient(90deg, ${barColor}, ${barColor} 60%)`,
-                              boxShadow: `0 0 8px -2px ${barColor}`,
-                            }}
-                          />
-                          {overflow ? (
+                          <div className="relative h-1 overflow-hidden rounded-[1px] bg-[var(--ink-0)]">
                             <div
-                              className="absolute inset-y-0 right-0 w-0.5"
+                              className="absolute inset-y-0 left-0 transition-all duration-700"
                               style={{
-                                background: "var(--oxide-hi)",
-                                boxShadow: "0 0 8px var(--oxide-hi)",
+                                width: `${Math.min(percent, 100)}%`,
+                                background: `linear-gradient(90deg, ${barColor}, ${barColor} 60%)`,
+                                boxShadow: `0 0 8px -2px ${barColor}`,
                               }}
                             />
-                          ) : null}
+                            {overflow ? (
+                              <div
+                                className="absolute inset-y-0 right-0 w-0.5"
+                                style={{
+                                  background: "var(--oxide-hi)",
+                                  boxShadow: "0 0 8px var(--oxide-hi)",
+                                }}
+                              />
+                            ) : null}
+                          </div>
                         </div>
-                      </div>
-                    );
-                  })}
-                </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="px-6 py-6">
+                    <p className="text-[13px] text-bone-mute">
+                      No budget rows yet. Set monthly targets from the budgets desk.
+                    </p>
+                  </div>
+                )}
               </div>
 
               {/* Watchlist */}
@@ -491,20 +444,21 @@ export default function Dashboard({
                   ))}
                 </ul>
                 <div className="border-t border-[var(--stroke)] p-3">
-                  <button type="button" className="btn-ghost h-10 w-full justify-center">
+                  <Button type="button" variant="ghost" className="btn-ghost h-10 w-full justify-center shadow-none">
                     Enter simulated portfolio
                     <span aria-hidden>→</span>
-                  </button>
+                  </Button>
                 </div>
               </div>
             </section>
 
             {/* Insight + command hint */}
             <section className="mt-10 grid gap-10 xl:grid-cols-[2fr_1fr]">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
                 onClick={() => setInsightIndex((p) => (p + 1) % insights.length)}
-                className="group relative overflow-hidden rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[var(--ink-1)] p-8 text-left brackets cove-hi"
+                className="group relative h-auto w-full overflow-hidden rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[var(--ink-1)] p-8 text-left shadow-none hover:bg-[var(--ink-1)] brackets cove-hi"
               >
                 <div
                   className="absolute inset-0 opacity-40"
@@ -531,7 +485,7 @@ export default function Dashboard({
                   <span className="label-eyebrow">Deterministic floor · AI overlay</span>
                   <span className="label-eyebrow transition-colors group-hover:text-brass-hi">Tap for next →</span>
                 </div>
-              </button>
+              </Button>
 
               <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] p-8 cove">
                 <span className="label-eyebrow-brass">Quick hands</span>
@@ -543,16 +497,17 @@ export default function Dashboard({
                     { icon: Wallet, label: "Review ledger", kbd: "L" },
                   ].map((a) => (
                     <li key={a.label}>
-                      <button
+                      <Button
                         type="button"
-                        className="group flex w-full items-center justify-between rounded-[2px] border border-transparent px-3 py-2 text-left transition-colors hover:border-[var(--stroke-2)] hover:bg-[var(--ink-2-solid)]"
+                        variant="ghost"
+                        className="group h-auto w-full justify-between rounded-[2px] border border-transparent px-3 py-2 text-left shadow-none hover:border-[var(--stroke-2)] hover:bg-[var(--ink-2-solid)]"
                       >
                         <span className="flex items-center gap-3 text-[13px] text-bone">
                           <a.icon className="size-3.5 text-bone-mute group-hover:text-brass-hi" />
                           {a.label}
                         </span>
                         <span className="font-[family-name:var(--font-mono)] text-[10px] text-bone-faint">⌘{a.kbd}</span>
-                      </button>
+                      </Button>
                     </li>
                   ))}
                 </ul>
@@ -578,6 +533,42 @@ function LegendDot({ label, color }: { label: string; color: string }) {
       <span className="label-eyebrow">{label}</span>
     </span>
   );
+}
+
+function getCurrentMonthStart() {
+  const now = new Date();
+  return `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}-01`;
+}
+
+function formatBudgetMonth(value: string) {
+  const [year, month] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "long",
+  }).format(new Date(year, month - 1, 1));
+}
+
+function formatBudgetStatus(status: string) {
+  switch (status) {
+    case "on_track":
+      return "On track";
+    case "near_limit":
+      return "Near limit";
+    case "over":
+      return "Over";
+    case "unbudgeted":
+      return "Unbudgeted";
+    default:
+      return "No budget";
+  }
+}
+
+function formatDashboardMoney(value: number) {
+  return new Intl.NumberFormat("en-CA", {
+    style: "currency",
+    currency: "CAD",
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 0,
+  }).format(value);
 }
 
 export const getServerSideProps: GetServerSideProps<{

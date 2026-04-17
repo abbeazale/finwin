@@ -2,6 +2,37 @@
 
 ## 2026-04-16
 
+### Phase 2 complete — budgets verified
+
+- Closed the budgets polish loop after branch review:
+  - removed the `AddCategorySection` lint blocker
+  - aligned budget detail queries with inactive-account history
+  - fixed "Top spends this month" to use server-side amount ordering instead of a newest-rows slice
+- Manually verified the first budgets milestone against synced data:
+  - create / edit / delete monthly budgets
+  - unbudgeted rows
+  - pending handling
+  - inactive-account historical spend
+- Phase 2 is now complete: `/transactions` category reassignment, `/budgets`, and dashboard budget progress all work against the same live transaction and budget data model.
+- **Next**: move to Phase 3 and replace the remaining placeholder dashboard analytics with real transaction-backed queries.
+
+### Phase 2 — budgets first pass wired
+
+- Added `src/server/trpc/routers/budgets.ts` with `budgets.summary`, `budgets.upsertMonthlyBudget`, and `budgets.deleteMonthlyBudget`.
+- Wired the router into `src/server/trpc/routers/_app.ts`.
+- Added `/budgets` in `src/pages/budgets.tsx` as the first budgeting desk: month switching, grouped category rows, inline monthly target editing, and a supporting Recharts bar chart through the shadcn `chart` component.
+- Dashboard Budget Progress in `src/pages/dashboard.tsx` now reads from live `budgets.summary` data instead of hardcoded placeholder rows.
+- Added shadcn UI pieces for the budgeting surface: `chart`, `badge`, `progress`, `skeleton`.
+- Fixed the disposable Neon reset path while doing the sign-convention work: `scripts/db-reset.ts` now drops the `drizzle` schema too, so `bun run dbreset` actually reapplies migrations before `bun run seed`.
+- Verified clean: `bunx tsc --noEmit` and `bunx eslint src/server/trpc/routers/budgets.ts src/server/trpc/routers/_app.ts src/pages/budgets.tsx src/pages/dashboard.tsx` both pass.
+
+### Canonical transaction semantics locked
+
+- FinWin now treats `transactions.amount` as canonical account movement: positive = money in, negative = money out.
+- Plaid provider amounts must be normalized on sync before persistence; the inversion belongs in `src/server/plaid/sync.ts`, not in downstream query math.
+- This keeps budgets, cashflow, balances, and future holdings work on one coherent sign convention while the DB is still disposable.
+- **Next**: refresh disposable transaction data after the sync normalization change, then build `/budgets` against the canonical storage rule.
+
 ### Phase 2 — transactions page read-only pass shipped
 
 - Added `/transactions` in `src/pages/transactions.tsx` as the first production ledger surface: user-scoped transaction list, newest-first, limited to 100 rows for now.
@@ -75,7 +106,7 @@
 - Expanded `src/db/schema.ts` with 6 financial tables: `category_groups`, `categories`, `bank_connections`, `bank_accounts`, `transactions`, `budgets`.
 - Auth tables (`user`, `session`, `account`, `verification`) remain untouched — owned by Better Auth. `user_profiles` stays as the app's user data table (1:1 with `user`).
 - New financial tables use `uuid` PKs; FKs to `user` use `text` to match Better Auth's PK type.
-- `transactions.amount` sign convention: positive = expense (money out), negative = income/refund (money in). Spent-so-far is always derived from transactions, never stored on `budgets`.
+- `transactions.amount` sign convention: positive = money in, negative = money out. Spent-so-far is always derived from transactions, never stored on `budgets`.
 - `income_events` deferred — not needed until investing/forecasting surface.
 - `access_token` on `bank_connections` is plain text for now; encryption deferred.
 - Applied to Neon via `bun run dbreset`. DB is clean and ready.
