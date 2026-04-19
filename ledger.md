@@ -2,6 +2,40 @@
 
 ## 2026-04-16
 
+### Plaid token encryption implementation pass shipped
+
+- Replaced plaintext `bank_connections.access_token` usage with encrypted-only storage:
+  - `access_token_encrypted`
+  - `access_token_key_version`
+- Added `src/server/plaid/crypto.ts` with server-side `AES-256-GCM` encrypt/decrypt helpers backed by versioned env keys.
+- Updated Plaid token consumers to decrypt only at call time:
+  - `plaid.createLinkToken` update mode
+  - `plaid.exchangeToken` persistence path
+  - `syncConnection`
+  - `plaid.unlinkConnection`
+- Added env placeholders:
+  - `PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION`
+  - `PLAID_TOKEN_ENCRYPTION_KEYS`
+- Added migration `drizzle/0002_plaid_token_encryption.sql`.
+- Validated the disposable rollout path the user requested:
+  - `bun run dbreset`
+  - `bun run seed`
+- Build verification complete:
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/server/plaid/crypto.ts src/server/plaid/sync.ts src/server/trpc/routers/plaid.ts src/db/schema.ts`
+- **Next**: put real encryption keys in env, create a fresh account, connect Plaid again, and verify link → sync → unlink on the rebuilt DB.
+
+### Plaid token encryption spec drafted
+
+- Drafted `docs/spec/plaid-token-encryption.md` to close the current plaintext `bank_connections.access_token` gap before real-bank rollout.
+- Locked the implementation direction to application-layer `AES-256-GCM` encryption with:
+  - versioned env-provided keys
+  - encrypted payload stored in Postgres
+  - server-side decrypt-only-at-call-site behavior
+  - staged migration from plaintext to encrypted columns
+- Explicitly scoped this as a narrow Plaid-token hardening pass, not a full app-wide secrets platform.
+- **Next**: implement the schema change, crypto helper, read/write path cutover, and backfill flow.
+
 ### Phase 3 implementation pass shipped
 
 - Added `src/server/trpc/routers/dashboard.ts` and wired it into `_app.ts`.

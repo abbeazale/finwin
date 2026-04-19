@@ -15,6 +15,13 @@
       "when": 1776315190787,
       "tag": "0001_silent_payback",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1776401622121,
+      "tag": "0002_plaid_token_encryption",
+      "breakpoints": true
     }
   ]
 }

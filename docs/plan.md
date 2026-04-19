@@ -10,6 +10,7 @@ FinWin should help users move from raw transaction noise to understandable finan
 - Plaid integration is complete — accounts link, transactions sync with auto-categorization, connections managed via `/settings/connections`.
 - All app data routes use tRPC. Plaid webhook stays as a plain REST route.
 - Phase 3 (Dashboard analytics wired to real data) is the active milestone.
+- Active hardening pass before real-bank rollout: stored Plaid access tokens now move to encrypted-only storage with a disposable-db reset path for rollout/testing.
 
 ## Milestone Status
 
@@ -69,6 +70,18 @@ Next tasks in order:
 - Budgeting implementation plan: `docs/plan/budgets.md`
 - Dashboard analytics spec: `docs/spec/dashboard-analytics.md`
 - Dashboard analytics implementation plan: `docs/plan/dashboard-analytics.md`
+- Plaid token encryption spec: `docs/spec/plaid-token-encryption.md`
+
+### Security hardening notes
+
+- Plaid token storage now targets encrypted-only DB columns:
+  - `access_token_encrypted`
+  - `access_token_key_version`
+- Current rollout assumption is disposable data:
+  - `bun run dbreset`
+  - `bun run seed`
+  - create a fresh account and reconnect Plaid
+- This avoids preserving plaintext-token rows while the product is still in pre-rollout mode.
 
 ### Key design decisions (locked)
 - Budget period: monthly, 1st of month. Custom start day → `docs/future.md`.

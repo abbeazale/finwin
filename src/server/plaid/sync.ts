@@ -3,6 +3,7 @@ import type { Transaction as PlaidTransaction, RemovedTransaction } from "plaid"
 import { db } from "@/index";
 import { bankAccounts, bankConnections, categories, categoryGroups, transactions } from "@/db/schema";
 import { plaid } from "./client";
+import { decryptPlaidAccessToken } from "./crypto";
 import { PLAID_CATEGORY_MAP, PLAID_PRIMARY_FALLBACK_MAP } from "@/server/trpc/category-map";
 
 export type SyncResult = {
@@ -36,7 +37,8 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     .select({
       id: bankConnections.id,
       userId: bankConnections.userId,
-      accessToken: bankConnections.accessToken,
+      accessTokenEncrypted: bankConnections.accessTokenEncrypted,
+      accessTokenKeyVersion: bankConnections.accessTokenKeyVersion,
       lastCursor: bankConnections.lastCursor,
     })
     .from(bankConnections)
@@ -44,6 +46,10 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     .limit(1);
 
   if (!connection) throw new Error(`bankConnection ${connectionId} not found`);
+  const accessToken = decryptPlaidAccessToken(
+    connection.accessTokenEncrypted,
+    connection.accessTokenKeyVersion,
+  );
 
   const categoryRows = await db
     .select({ id: categories.id, name: categories.name })
@@ -71,7 +77,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
   let hasMore = true;
   while (hasMore) {
     const { data } = await plaid.transactionsSync({
-      access_token: connection.accessToken,
+      access_token: accessToken,
       cursor: cursor ?? undefined,
     });
     added.push(...data.added);
