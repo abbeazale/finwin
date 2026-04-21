@@ -14,78 +14,51 @@ import { useRouter } from "next/router";
 import { useState, useTransition } from "react";
 import {
   ArrowDown,
+  ArrowLeft,
+  ArrowRight,
   ArrowUp,
   CircleDollarSign,
-  Clock3,
-  Plus,
-  Sparkles,
+  Settings,
   Target,
   Wallet,
 } from "lucide-react";
+import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
+import {
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 
-const kpiCards = [
-  {
-    label: "Inflow · M",
-    value: "5,240.00",
-    unit: "USD",
-    delta: "+8%",
-    deltaLabel: "vs last month",
-    positive: true,
-    points: "4,17 12,16 20,18 28,14 36,13 44,7 52,16 60,6 68,8 76,4",
-  },
-  {
-    label: "Outflow · M",
-    value: "3,872.50",
-    unit: "USD",
-    delta: "+3%",
-    deltaLabel: "vs last month",
-    positive: false,
-    points: "4,8 12,7 20,9 28,12 36,14 44,12 52,10 60,8 68,7 76,10",
-  },
-  {
-    label: "Net · M",
-    value: "1,367.50",
-    unit: "USD",
-    delta: "+22%",
-    deltaLabel: "vs last month",
-    positive: true,
-    points: "4,15 12,13 20,14 28,10 36,11 44,8 52,9 60,6 68,5 76,3",
-  },
-];
+const cashflowChartConfig = {
+  inflow: { label: "Inflow", color: "var(--chart-2)" },
+  outflow: { label: "Outflow", color: "var(--chart-5)" },
+} satisfies ChartConfig;
 
-const watchlist = [
-  { symbol: "AAPL", price: "198.15", change: "+0.34%", positive: true },
-  { symbol: "MSFT", price: "412.30", change: "+1.12%", positive: true },
-  { symbol: "NVDA", price: "875.20", change: "+2.87%", positive: true },
-  { symbol: "BTC", price: "71,842.00", change: "-0.53%", positive: false },
-];
-
-const insights = [
-  "Restaurant spend is 18% above the trailing three-month median. A $80/mo trim restores your 20% savings rate.",
-  "Transportation is your largest variable expense this month — up $120 from March.",
-  "Reallocating $80/mo to the sim portfolio would model a $12K delta over 10y at 7% real.",
-];
-
-const ledger = [
-  { d: "2026-04-16", m: "Whole Foods Market", a: "-42.18", c: "Groceries" },
-  { d: "2026-04-16", m: "Payroll · Stripe Inc", a: "+3,240.00", c: "Income" },
-  { d: "2026-04-15", m: "Blue Bottle Coffee", a: "-6.25", c: "Restaurants" },
-  { d: "2026-04-15", m: "Rent · Apt 4C", a: "-1,875.00", c: "Housing" },
-  { d: "2026-04-14", m: "Dividend · VTI", a: "+38.40", c: "Investment" },
-  { d: "2026-04-14", m: "Shell · 12th Ave", a: "-48.90", c: "Transport" },
-  { d: "2026-04-13", m: "Spotify Premium", a: "-11.99", c: "Subscription" },
-] as const;
+type DashboardProps = {
+  firstName: string;
+  currency: string;
+  initialMonth: string;
+};
 
 export default function Dashboard({
   firstName,
+  currency,
+  initialMonth,
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
   const router = useRouter();
-  const currentMonth = getCurrentMonthStart();
-  const [error, setError] = useState<string | null>(null);
+  const utils = trpc.useUtils();
+  const [month, setMonth] = useState(initialMonth);
+  const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
-  const [insightIndex, setInsightIndex] = useState(0);
   const initials = firstName.slice(0, 2).toUpperCase();
-  const budgetsQuery = trpc.budgets.summary.useQuery({ month: currentMonth });
+
+  const overviewQuery = trpc.dashboard.overview.useQuery({ month });
+  const cashflowQuery = trpc.dashboard.cashflow.useQuery({ month });
+  const spendingQuery = trpc.dashboard.spendingByCategory.useQuery({ month });
+  const recentTransactionsQuery = trpc.dashboard.recentTransactions.useQuery({ month });
+  const budgetsQuery = trpc.budgets.summary.useQuery({ month });
+
   const dashboardBudgetRows = (budgetsQuery.data?.groups ?? [])
     .flatMap((group) => group.rows)
     .filter((row) => Number(row.actualAmount) > 0 || row.budgetAmount !== null)
@@ -96,12 +69,67 @@ export default function Dashboard({
     })
     .slice(0, 5);
 
+  const overview = overviewQuery.data;
+  const spendingRows = spendingQuery.data?.rows ?? [];
+  const recentRows = recentTransactionsQuery.data?.rows ?? [];
+  const topSpendRow = spendingRows[0] ?? null;
+  const savingsRate = overview?.totals.savingsRate ?? null;
+  const queryError =
+    overviewQuery.error?.message ??
+    cashflowQuery.error?.message ??
+    spendingQuery.error?.message ??
+    recentTransactionsQuery.error?.message ??
+    budgetsQuery.error?.message ??
+    null;
+  const bannerMessage = pageMessage ?? queryError;
+
+  const overviewCards = [
+    {
+      key: "inflow",
+      label: "Inflow · M",
+      value: Number(overview?.totals.inflow ?? 0),
+      delta: overview?.deltas.inflow ?? null,
+      positiveTone: getMetricTone("inflow", overview?.deltas.inflow ?? null),
+    },
+    {
+      key: "outflow",
+      label: "Outflow · M",
+      value: Number(overview?.totals.outflow ?? 0),
+      delta: overview?.deltas.outflow ?? null,
+      positiveTone: getMetricTone("outflow", overview?.deltas.outflow ?? null),
+    },
+    {
+      key: "net",
+      label: "Net · M",
+      value: Number(overview?.totals.netCashflow ?? 0),
+      delta: overview?.deltas.netCashflow ?? null,
+      positiveTone: getMetricTone("netCashflow", overview?.deltas.netCashflow ?? null),
+    },
+  ];
+
+  const cashflowChartData = (cashflowQuery.data?.days ?? []).map((day) => ({
+    date: day.date,
+    inflow: Number(day.inflowAmount),
+    outflow: Number(day.outflowAmount),
+  }));
+  const hasCashflow = cashflowChartData.some((day) => day.inflow > 0 || day.outflow > 0);
+
+  async function invalidateDashboard() {
+    await Promise.all([
+      utils.dashboard.overview.invalidate(),
+      utils.dashboard.cashflow.invalidate(),
+      utils.dashboard.spendingByCategory.invalidate(),
+      utils.dashboard.recentTransactions.invalidate(),
+      utils.budgets.summary.invalidate(),
+    ]);
+  }
+
   async function logout() {
-    setError(null);
+    setPageMessage(null);
     startTransition(async () => {
       const { error: signOutError } = await signOut();
       if (signOutError) {
-        setError(signOutError.message ?? "Unable to log out.");
+        setPageMessage(signOutError.message ?? "Unable to log out.");
         return;
       }
       router.push("/login");
@@ -110,10 +138,15 @@ export default function Dashboard({
 
   return (
     <div className="relative min-h-screen bg-ink-0 text-bone">
-      {/* Ambient atmosphere */}
       <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute -top-40 right-[8%] h-[34rem] w-[34rem] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(232,199,145,0.05), transparent 65%)" }} />
-        <div className="absolute -bottom-48 left-0 h-[32rem] w-[50rem] blur-3xl" style={{ background: "radial-gradient(ellipse, rgba(255,154,60,0.04), transparent 60%)" }} />
+        <div
+          className="absolute -top-40 right-[8%] h-[34rem] w-[34rem] rounded-full blur-3xl"
+          style={{ background: "radial-gradient(circle, rgba(232,199,145,0.05), transparent 65%)" }}
+        />
+        <div
+          className="absolute -bottom-48 left-0 h-[32rem] w-[50rem] blur-3xl"
+          style={{ background: "radial-gradient(ellipse, rgba(255,154,60,0.04), transparent 60%)" }}
+        />
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1480px]">
@@ -130,149 +163,189 @@ export default function Dashboard({
             initials={initials}
             isPending={isPending}
             onLogout={logout}
-            onRefreshed={(t) => {
-              router.replace(router.asPath);
-              setError(`Sync: +${t.added} · ~${t.modified} · -${t.removed}`);
+            onRefreshed={async (result) => {
+              await invalidateDashboard();
+              setPageMessage(`Sync: +${result.added} · ~${result.modified} · -${result.removed}`);
             }}
-            onConnected={({ accountCount }) => {
-              router.replace(router.asPath);
-              setError(`Linked ${accountCount} account${accountCount === 1 ? "" : "s"}.`);
+            onConnected={async ({ accountCount }) => {
+              await invalidateDashboard();
+              setPageMessage(`Linked ${accountCount} account${accountCount === 1 ? "" : "s"}.`);
             }}
           />
 
-          {/* Content */}
           <div className="px-6 py-8 lg:px-10 lg:py-10">
-            {/* Greeting + period picker */}
             <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
               <div>
                 <div className="mb-3 flex items-center gap-3">
-                  <span className="label-eyebrow">Good evening, {firstName}</span>
+                  <span className="label-eyebrow">Desk · {formatMonthHeading(month)}</span>
                   <span className="label-eyebrow">·</span>
-                  <span className="label-eyebrow">Thu · 2026-04-16</span>
+                  <span className="label-eyebrow">
+                    {overview?.comparisonAvailable
+                      ? `vs ${formatMonthHeading(overview.comparisonMonth)}`
+                      : "Live month view"}
+                  </span>
                 </div>
                 <h1 className="display text-[clamp(2.4rem,4vw,3.4rem)] leading-[1] text-bone">
-                  The desk is <span className="italic text-brass-hi">ready.</span>
+                  Ledger in <span className="italic text-brass-hi">focus.</span>
                 </h1>
+                <p className="mt-3 max-w-2xl text-[13px] text-bone-mute">
+                  Real cashflow, recent activity, and budget pressure for {firstName}&rsquo;s current operating month.
+                </p>
               </div>
-              <div className="flex items-center gap-2 rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)] p-1">
-                {["W", "M", "Q", "YTD"].map((p, i) => (
-                  <Button
-                    key={p}
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    className={`h-8 rounded-[2px] px-3 text-[11px] uppercase tracking-[0.12em] shadow-none hover:bg-transparent ${
-                      i === 1
-                        ? "bg-[rgba(201,164,107,0.12)] text-brass-hi"
-                        : "text-bone-mute hover:text-bone"
-                    }`}
-                  >
-                    {p}
-                  </Button>
-                ))}
+
+              <div className="flex items-center gap-3 rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)] px-3 py-2">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
+                  onClick={() => setMonth((current) => shiftMonth(current, -1))}
+                >
+                  <ArrowLeft className="size-3.5" />
+                  <span className="sr-only">Previous month</span>
+                </Button>
+                <div className="min-w-[10rem] text-center">
+                  <div className="label-eyebrow-brass">Operating month</div>
+                  <div className="mt-1 text-[13px] text-bone">{formatMonthHeading(month)}</div>
+                </div>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="size-8 rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
+                  onClick={() => setMonth((current) => shiftMonth(current, 1))}
+                >
+                  <ArrowRight className="size-3.5" />
+                  <span className="sr-only">Next month</span>
+                </Button>
               </div>
             </header>
 
-            {error ? (
+            {bannerMessage ? (
               <p className="mb-6 flex items-center gap-3 rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-2.5 text-[12px] text-brass-hi">
                 <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
-                {error}
+                {bannerMessage}
               </p>
             ) : null}
 
-            {/* KPI strip */}
             <section className="grid gap-px bg-[var(--stroke)] lg:grid-cols-3">
-              {kpiCards.map((card, i) => (
-                <div
-                  key={card.label}
-                  className="group relative bg-ink-0 p-6 transition-colors hover:bg-[var(--ink-1)]"
-                >
-                  <div className="absolute left-0 top-0 h-px w-0 bg-brass transition-all duration-500 group-hover:w-full" />
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className="label-eyebrow">{card.label}</span>
-                      <div className="mt-3 flex items-baseline gap-2">
-                        <span className="display text-[44px] leading-none text-bone">${card.value}</span>
-                        <span className="num text-[11px] text-bone-faint">{card.unit}</span>
+              {overviewCards.map((card, index) => {
+                const trendText = formatDelta(card.delta);
+                const isLoading = overviewQuery.isLoading;
+                const deltaLabel = overview?.comparisonAvailable
+                  ? `vs ${formatMonthHeading(overview.comparisonMonth)}`
+                  : "No prior month yet";
+
+                return (
+                  <div
+                    key={card.key}
+                    className="group relative bg-ink-0 p-6 transition-colors hover:bg-[var(--ink-1)]"
+                  >
+                    <div className="absolute left-0 top-0 h-px w-0 bg-brass transition-all duration-500 group-hover:w-full" />
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <span className="label-eyebrow">{card.label}</span>
+                        <div className="mt-3 flex items-baseline gap-2">
+                          <span className="display text-[44px] leading-none text-bone">
+                            {isLoading ? "…" : formatMoney(card.value, currency, 2)}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] px-3 py-2 text-right">
+                        <div className="label-eyebrow-brass">Change</div>
+                        <div className="mt-1 flex items-center justify-end gap-2 text-[12px]">
+                          {card.positiveTone === "neutral" || card.delta === null ? null : card.positiveTone === "good" ? (
+                            <ArrowUp className="size-3 text-sage-hi" />
+                          ) : (
+                            <ArrowDown className="size-3 text-oxide-hi" />
+                          )}
+                          <span
+                            className={
+                              card.positiveTone === "good"
+                                ? "text-sage-hi"
+                                : card.positiveTone === "bad"
+                                  ? "text-oxide-hi"
+                                  : "text-bone-faint"
+                            }
+                          >
+                            {trendText}
+                          </span>
+                        </div>
                       </div>
                     </div>
-                    <svg className="h-10 w-24" viewBox="0 0 80 22" fill="none" aria-hidden>
-                      <polyline
-                        points={card.points}
-                        stroke={card.positive ? "var(--sage-hi)" : "var(--oxide-hi)"}
-                        strokeWidth="1.2"
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                      />
-                    </svg>
+                    <div className="mt-6 flex items-center gap-3 border-t border-[var(--stroke)] pt-3">
+                      <span
+                        className={`pill ${
+                          card.positiveTone === "good"
+                            ? "pill-sage"
+                            : card.positiveTone === "bad"
+                              ? "pill-oxide"
+                              : "pill-bone"
+                        }`}
+                      >
+                        {trendText}
+                      </span>
+                      <span className="label-eyebrow">{deltaLabel}</span>
+                      {index === 2 ? (
+                        <span className="label-eyebrow ml-auto text-brass-hi">
+                          {card.value >= 0 ? "Net positive" : "Net negative"}
+                        </span>
+                      ) : null}
+                    </div>
                   </div>
-                  <div className="mt-6 flex items-center gap-3 border-t border-[var(--stroke)] pt-3">
-                    <span className={`pill ${card.positive ? "pill-sage" : "pill-oxide"}`}>
-                      {card.positive ? <ArrowUp className="size-2.5" /> : <ArrowDown className="size-2.5" />}
-                      {card.delta}
-                    </span>
-                    <span className="label-eyebrow">{card.deltaLabel}</span>
-                    {i === 2 ? (
-                      <span className="label-eyebrow ml-auto text-brass-hi">Net positive</span>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </section>
 
-            {/* 2-col: cashflow chart + ledger */}
             <section className="mt-10 grid gap-10 xl:grid-cols-[1.3fr_1fr]">
-              {/* Cashflow chart */}
               <div className="flex flex-col rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
                 <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
                   <div>
-                    <span className="label-eyebrow-brass">Cashflow · 7d</span>
-                    <p className="mt-1 text-[13px] text-bone">Net +$1,367.50 this period</p>
+                    <span className="label-eyebrow-brass">Cashflow · {formatMonthHeading(month)}</span>
+                    <p className="mt-1 text-[13px] text-bone">
+                      {overview
+                        ? `${formatSignedMoney(Number(overview.totals.netCashflow), currency)} net this month`
+                        : "Loading live month cashflow…"}
+                    </p>
                   </div>
                   <div className="flex items-center gap-5">
-                    <LegendDot label="Inflow" color="var(--sage-hi)" />
-                    <LegendDot label="Outflow" color="var(--oxide-hi)" />
+                    <LegendDot label="Inflow" color="var(--chart-2)" />
+                    <LegendDot label="Outflow" color="var(--chart-5)" />
                   </div>
                 </div>
-                <div className="px-6 py-8">
-                  <div className="flex h-[240px] items-end gap-5">
-                    {[
-                      { day: "Mon", inflow: 10, outflow: 34 },
-                      { day: "Tue", inflow: 22, outflow: 18 },
-                      { day: "Wed", inflow: 48, outflow: 28 },
-                      { day: "Thu", inflow: 18, outflow: 60 },
-                      { day: "Fri", inflow: 78, outflow: 22 },
-                      { day: "Sat", inflow: 12, outflow: 40 },
-                      { day: "Sun", inflow: 6, outflow: 16 },
-                    ].map((d) => (
-                      <div key={d.day} className="flex flex-1 flex-col items-center justify-end gap-3">
-                        <div className="flex h-[180px] w-full items-end justify-center gap-1.5">
-                          <div
-                            className="w-3 rounded-t-[1px]"
-                            style={{
-                              height: `${d.inflow}%`,
-                              background: "linear-gradient(180deg, var(--sage-hi), var(--sage))",
-                              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)",
-                            }}
-                          />
-                          <div
-                            className="w-3 rounded-t-[1px]"
-                            style={{
-                              height: `${d.outflow}%`,
-                              background: "linear-gradient(180deg, var(--oxide-hi), var(--oxide))",
-                              boxShadow: "inset 0 1px 0 rgba(255,255,255,0.15)",
-                            }}
-                          />
-                        </div>
-                        <span className="label-eyebrow">{d.day}</span>
-                      </div>
-                    ))}
-                  </div>
+                <div className="px-6 py-6">
+                  {cashflowQuery.isLoading ? (
+                    <div className="flex min-h-[260px] items-center justify-center rounded-[2px] border border-dashed border-[var(--stroke)] bg-[var(--ink-0)] px-6 text-center text-[13px] text-bone-mute">
+                      Loading daily inflow and outflow…
+                    </div>
+                  ) : hasCashflow ? (
+                    <ChartContainer config={cashflowChartConfig} className="min-h-[260px] w-full">
+                      <BarChart accessibilityLayer data={cashflowChartData} margin={{ left: 4, right: 4 }}>
+                        <CartesianGrid vertical={false} />
+                        <XAxis
+                          dataKey="date"
+                          tickLine={false}
+                          axisLine={false}
+                          minTickGap={22}
+                          tickMargin={10}
+                          tickFormatter={(value) => value.slice(8)}
+                        />
+                        <ChartTooltip
+                          content={<ChartTooltipContent labelFormatter={formatTooltipLabel} />}
+                        />
+                        <Bar dataKey="inflow" radius={3} fill="var(--color-inflow)" />
+                        <Bar dataKey="outflow" radius={3} fill="var(--color-outflow)" />
+                      </BarChart>
+                    </ChartContainer>
+                  ) : (
+                    <div className="flex min-h-[260px] items-center justify-center rounded-[2px] border border-dashed border-[var(--stroke)] bg-[var(--ink-0)] px-6 text-center text-[13px] text-bone-mute">
+                      No qualifying cashflow rows for this month yet.
+                    </div>
+                  )}
                 </div>
                 <div className="horizon h-px" />
               </div>
 
-              {/* Ledger */}
               <div className="flex flex-col rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
                 <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
                   <span className="label-eyebrow-brass">Ledger · recent</span>
@@ -280,41 +353,54 @@ export default function Dashboard({
                     Full tape →
                   </Link>
                 </div>
-                <ul className="divide-y divide-[var(--stroke)]">
-                  {ledger.map((row) => {
-                    const positive = row.a.startsWith("+");
-                    return (
-                      <li
-                        key={row.d + row.m}
-                        className="group grid grid-cols-[80px_1fr_auto] items-center gap-3 px-6 py-3 transition-colors hover:bg-[var(--ink-2-solid)]"
-                      >
-                        <span className="num text-[10px] text-bone-faint">{row.d.slice(5)}</span>
-                        <div className="min-w-0">
-                          <p className="truncate text-[13px] text-bone">{row.m}</p>
-                          <span className="label-eyebrow">{row.c}</span>
-                        </div>
-                        <span
-                          className={`num text-[13px] ${
-                            positive ? "text-sage-hi" : "text-oxide-hi"
-                          }`}
+                {recentTransactionsQuery.isLoading ? (
+                  <div className="px-6 py-6 text-[13px] text-bone-mute">Loading recent transactions…</div>
+                ) : recentRows.length > 0 ? (
+                  <ul className="divide-y divide-[var(--stroke)]">
+                    {recentRows.map((row) => {
+                      const amount = Number(row.amount);
+                      const positive = amount > 0;
+                      return (
+                        <li
+                          key={row.id}
+                          className="group grid grid-cols-[80px_1fr_auto] items-center gap-3 px-6 py-3 transition-colors hover:bg-[var(--ink-2-solid)]"
                         >
-                          {row.a}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                          <span className="num text-[10px] text-bone-faint">{formatShortDate(row.date)}</span>
+                          <div className="min-w-0">
+                            <p className="truncate text-[13px] text-bone">
+                              {row.merchantName ?? row.name}
+                            </p>
+                            <div className="mt-1 flex flex-wrap items-center gap-2">
+                              <span className="label-eyebrow">{row.categoryName}</span>
+                              {row.pending ? <span className="pill pill-amber">Pending</span> : null}
+                              {!row.accountIsActive ? <span className="pill pill-bone">History</span> : null}
+                            </div>
+                          </div>
+                          <span
+                            className={`num text-[13px] ${
+                              positive ? "text-sage-hi" : "text-oxide-hi"
+                            }`}
+                          >
+                            {formatSignedMoney(amount, row.currency)}
+                          </span>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                ) : (
+                  <div className="px-6 py-6 text-[13px] text-bone-mute">
+                    No recent ledger rows for {formatMonthHeading(month)}.
+                  </div>
+                )}
               </div>
             </section>
 
-            {/* Budget + Watchlist */}
             <section className="mt-10 grid gap-10 xl:grid-cols-[1.3fr_1fr]">
-              {/* Budgets */}
               <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
                 <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
                   <div>
                     <span className="label-eyebrow-brass">
-                      Budget envelopes · {formatBudgetMonth(currentMonth)}
+                      Budget envelopes · {formatMonthHeading(month)}
                     </span>
                     <p className="mt-1 text-[12px] text-bone-mute">
                       {budgetsQuery.data ? (
@@ -374,9 +460,9 @@ export default function Dashboard({
                             <div className="flex items-baseline gap-3">
                               <span className="text-[13px] text-bone">{row.categoryName}</span>
                               <span className="num text-[11px] text-bone-faint">
-                                {formatDashboardMoney(actual)}{" "}
+                                {formatMoney(actual, currency, 0)}{" "}
                                 <span className="text-bone-ghost">
-                                  / {budget > 0 ? formatDashboardMoney(budget) : "No target"}
+                                  / {budget > 0 ? formatMoney(budget, currency, 0) : "No target"}
                                 </span>
                               </span>
                             </div>
@@ -414,52 +500,62 @@ export default function Dashboard({
                 )}
               </div>
 
-              {/* Watchlist */}
               <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
                 <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
-                  <span className="label-eyebrow-brass">Watchlist</span>
-                  <div className="flex items-center gap-2">
-                    <Clock3 className="size-3 text-bone-faint" />
-                    <span className="label-eyebrow">DELAYED 15M</span>
+                  <div>
+                    <span className="label-eyebrow-brass">Spend lanes</span>
+                    <p className="mt-1 text-[12px] text-bone-faint">
+                      {spendingQuery.data
+                        ? `${formatMoney(Number(spendingQuery.data.totals.totalTrackedSpend), currency, 0)} across ${spendingQuery.data.totals.categoryCount} categories`
+                        : "Loading category pressure…"}
+                    </p>
                   </div>
+                  <Link href="/transactions" className="label-eyebrow transition-colors hover:text-brass-hi">
+                    Reclassify →
+                  </Link>
                 </div>
-                <ul className="divide-y divide-[var(--stroke)]">
-                  {watchlist.map((asset) => (
-                    <li
-                      key={asset.symbol}
-                      className="group grid grid-cols-[auto_1fr_auto] items-center gap-4 px-6 py-4 transition-colors hover:bg-[var(--ink-2-solid)]"
-                    >
-                      <span className="font-[family-name:var(--font-mono)] text-[12px] tracking-[0.06em] text-bone">
-                        {asset.symbol}
-                      </span>
-                      <span className="num text-[13px] text-bone-mute">${asset.price}</span>
-                      <span
-                        className={`num text-[12px] ${
-                          asset.positive ? "text-sage-hi" : "text-oxide-hi"
-                        }`}
-                      >
-                        {asset.change}
-                      </span>
-                    </li>
-                  ))}
-                </ul>
-                <div className="border-t border-[var(--stroke)] p-3">
-                  <Button type="button" variant="ghost" className="btn-ghost h-10 w-full justify-center shadow-none">
-                    Enter simulated portfolio
-                    <span aria-hidden>→</span>
-                  </Button>
-                </div>
+                {spendingQuery.isLoading ? (
+                  <div className="px-6 py-6 text-[13px] text-bone-mute">Loading category spending…</div>
+                ) : spendingRows.length > 0 ? (
+                  <div className="divide-y divide-[var(--stroke)]">
+                    {spendingRows.map((row) => {
+                      const share = row.shareOfTotal ?? 0;
+                      return (
+                        <div key={`${row.categoryId ?? "uncategorized"}-${row.categoryName}`} className="px-6 py-4">
+                          <div className="mb-2 flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <p className="truncate text-[13px] text-bone">{row.categoryName}</p>
+                              <span className="label-eyebrow">{row.groupName}</span>
+                            </div>
+                            <span className="num text-[12px] text-bone">
+                              {formatMoney(Number(row.spendAmount), currency, 0)}
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-3">
+                            <div className="relative h-1.5 flex-1 overflow-hidden rounded-[1px] bg-[var(--ink-0)]">
+                              <div
+                                className="absolute inset-y-0 left-0 rounded-[1px] bg-brass"
+                                style={{ width: `${Math.max(share * 100, 6)}%` }}
+                              />
+                            </div>
+                            <span className="num text-[10px] text-bone-faint">
+                              {share > 0 ? `${Math.round(share * 100)}%` : "0%"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="px-6 py-6 text-[13px] text-bone-mute">
+                    No category spend pressure for {formatMonthHeading(month)}.
+                  </div>
+                )}
               </div>
             </section>
 
-            {/* Insight + command hint */}
             <section className="mt-10 grid gap-10 xl:grid-cols-[2fr_1fr]">
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => setInsightIndex((p) => (p + 1) % insights.length)}
-                className="group relative h-auto w-full overflow-hidden rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[var(--ink-1)] p-8 text-left shadow-none hover:bg-[var(--ink-1)] brackets cove-hi"
-              >
+              <div className="relative overflow-hidden rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[var(--ink-1)] p-8 cove-hi">
                 <div
                   className="absolute inset-0 opacity-40"
                   style={{
@@ -470,43 +566,63 @@ export default function Dashboard({
                 <div className="relative flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span className="flex size-9 items-center justify-center rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.08)] text-brass-hi">
-                      <Sparkles className="size-3.5" />
+                      <CircleDollarSign className="size-3.5" />
                     </span>
-                    <span className="label-eyebrow-brass">Intelligence · live read</span>
+                    <span className="label-eyebrow-brass">Desk signal · deterministic read</span>
                   </div>
-                  <span className="num text-[10px] text-bone-faint">
-                    {String(insightIndex + 1).padStart(2, "0")} / {String(insights.length).padStart(2, "0")}
+                  <span className="label-eyebrow">
+                    {savingsRate === null
+                      ? "No savings rate yet"
+                      : `${formatPercent(savingsRate)} saved`}
                   </span>
                 </div>
-                <p className="relative mt-6 max-w-2xl font-[family-name:var(--font-display)] text-[22px] leading-[1.4] tracking-tight text-bone">
-                  “{insights[insightIndex]}”
+                <p className="relative mt-6 max-w-3xl font-[family-name:var(--font-display)] text-[22px] leading-[1.4] tracking-tight text-bone">
+                  {getSignalCopy({
+                    month,
+                    currency,
+                    overview,
+                    topSpendRow,
+                    budgetsQueryData: budgetsQuery.data ?? null,
+                  })}
                 </p>
-                <div className="relative mt-6 flex items-center justify-between border-t border-[var(--stroke)] pt-4">
-                  <span className="label-eyebrow">Deterministic floor · AI overlay</span>
-                  <span className="label-eyebrow transition-colors group-hover:text-brass-hi">Tap for next →</span>
+                <div className="relative mt-6 flex flex-wrap items-center gap-3 border-t border-[var(--stroke)] pt-4">
+                  <span className="pill pill-bone">
+                    {overview?.comparisonAvailable
+                      ? `${formatDelta(overview.deltas.netCashflow)} net shift`
+                      : "First comparable month pending"}
+                  </span>
+                  <span className="pill pill-bone">
+                    {budgetsQuery.data
+                      ? `${budgetsQuery.data.totals.overBudgetCount} over · ${budgetsQuery.data.totals.unbudgetedCount} unbudgeted`
+                      : "Budget pressure loading"}
+                  </span>
                 </div>
-              </Button>
+              </div>
 
               <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] p-8 cove">
                 <span className="label-eyebrow-brass">Quick hands</span>
                 <ul className="mt-6 flex flex-col gap-2">
                   {[
-                    { icon: Plus, label: "Log transaction", kbd: "N" },
-                    { icon: Target, label: "Adjust envelope", kbd: "B" },
-                    { icon: Sparkles, label: "Open simulator", kbd: "S" },
-                    { icon: Wallet, label: "Review ledger", kbd: "L" },
-                  ].map((a) => (
-                    <li key={a.label}>
+                    { icon: Wallet, label: "Review ledger", href: "/transactions", key: "L" },
+                    { icon: Target, label: "Adjust envelope", href: "/budgets", key: "B" },
+                    { icon: Settings, label: "Manage connections", href: "/settings/connections", key: "C" },
+                  ].map((action) => (
+                    <li key={action.label}>
                       <Button
+                        asChild
                         type="button"
                         variant="ghost"
                         className="group h-auto w-full justify-between rounded-[2px] border border-transparent px-3 py-2 text-left shadow-none hover:border-[var(--stroke-2)] hover:bg-[var(--ink-2-solid)]"
                       >
-                        <span className="flex items-center gap-3 text-[13px] text-bone">
-                          <a.icon className="size-3.5 text-bone-mute group-hover:text-brass-hi" />
-                          {a.label}
-                        </span>
-                        <span className="font-[family-name:var(--font-mono)] text-[10px] text-bone-faint">⌘{a.kbd}</span>
+                        <Link href={action.href}>
+                          <span className="flex items-center gap-3 text-[13px] text-bone">
+                            <action.icon className="size-3.5 text-bone-mute group-hover:text-brass-hi" />
+                            {action.label}
+                          </span>
+                          <span className="font-[family-name:var(--font-mono)] text-[10px] text-bone-faint">
+                            ⌘{action.key}
+                          </span>
+                        </Link>
                       </Button>
                     </li>
                   ))}
@@ -514,10 +630,9 @@ export default function Dashboard({
               </div>
             </section>
 
-            {/* Footer sign-off */}
             <footer className="mt-14 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--stroke)] pt-6">
-              <span className="label-eyebrow">System · Plaid cursor @ 14:02 UTC</span>
-              <span className="label-eyebrow">End of tape — {new Date().getFullYear()}</span>
+              <span className="label-eyebrow">Month · {formatMonthHeading(month)}</span>
+              <span className="label-eyebrow">Live ledger · Plaid-backed</span>
             </footer>
           </div>
         </main>
@@ -535,16 +650,39 @@ function LegendDot({ label, color }: { label: string; color: string }) {
   );
 }
 
-function getCurrentMonthStart() {
-  const now = new Date();
-  return `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}-01`;
-}
-
-function formatBudgetMonth(value: string) {
+function formatMonthHeading(value: string) {
   const [year, month] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("en-CA", {
     month: "long",
+    year: "numeric",
   }).format(new Date(year, month - 1, 1));
+}
+
+function formatShortDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(year, month - 1, day));
+}
+
+function formatTooltipDate(value: string) {
+  const [year, month, day] = value.split("-").map(Number);
+  return new Intl.DateTimeFormat("en-CA", {
+    month: "short",
+    day: "numeric",
+  }).format(new Date(year, month - 1, day));
+}
+
+function formatTooltipLabel(value: React.ReactNode) {
+  return typeof value === "string" ? formatTooltipDate(value) : value;
+}
+
+function shiftMonth(value: string, offset: number) {
+  const [year, month] = value.split("-").map(Number);
+  const shifted = new Date(Date.UTC(year, month - 1 + offset, 1));
+
+  return `${shifted.getUTCFullYear()}-${`${shifted.getUTCMonth() + 1}`.padStart(2, "0")}-01`;
 }
 
 function formatBudgetStatus(status: string) {
@@ -562,18 +700,122 @@ function formatBudgetStatus(status: string) {
   }
 }
 
-function formatDashboardMoney(value: number) {
-  return new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: "CAD",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(value);
+function formatMoney(amount: number, currency: string, maximumFractionDigits = 2) {
+  try {
+    return new Intl.NumberFormat("en-CA", {
+      style: "currency",
+      currency,
+      minimumFractionDigits: maximumFractionDigits === 0 ? 0 : 2,
+      maximumFractionDigits,
+    }).format(amount);
+  } catch {
+    return `${currency} ${amount.toFixed(maximumFractionDigits)}`;
+  }
 }
 
-export const getServerSideProps: GetServerSideProps<{
-  firstName: string;
-}> = async (context) => {
+function formatSignedMoney(amount: number, currency: string) {
+  const absValue = formatMoney(Math.abs(amount), currency, 0);
+  return `${amount >= 0 ? "+" : "-"}${absValue}`;
+}
+
+function formatPercent(value: number) {
+  return `${Math.round(value * 100)}%`;
+}
+
+function formatDelta(value: number | null) {
+  if (value === null) {
+    return "No baseline";
+  }
+
+  const direction = value > 0 ? "+" : value < 0 ? "-" : "±";
+  const percent = Math.abs(value) * 100;
+  const digits = percent >= 10 ? 0 : 1;
+  return `${direction}${percent.toFixed(digits)}%`;
+}
+
+function getMetricTone(
+  metric: "inflow" | "outflow" | "netCashflow",
+  delta: number | null,
+) {
+  if (delta === null || delta === 0) {
+    return "neutral";
+  }
+
+  if (metric === "outflow") {
+    return delta < 0 ? "good" : "bad";
+  }
+
+  return delta > 0 ? "good" : "bad";
+}
+
+function getSignalCopy({
+  month,
+  currency,
+  overview,
+  topSpendRow,
+  budgetsQueryData,
+}: {
+  month: string;
+  currency: string;
+  overview:
+    | {
+        totals: {
+          inflow: string;
+          outflow: string;
+          netCashflow: string;
+          savingsRate: number | null;
+        };
+      }
+    | undefined;
+  topSpendRow:
+    | {
+        categoryName: string;
+        spendAmount: string;
+      }
+    | null;
+  budgetsQueryData:
+    | {
+        totals: {
+          overBudgetCount: number;
+          unbudgetedCount: number;
+        };
+      }
+    | null;
+}) {
+  if (!overview) {
+    return "Pulling the live month read from imported transactions and budget pressure.";
+  }
+
+  const net = Number(overview.totals.netCashflow);
+  const headline =
+    net >= 0
+      ? `${formatMonthHeading(month)} is running ${formatMoney(net, currency, 0)} ahead of spend so far.`
+      : `${formatMonthHeading(month)} is running ${formatMoney(Math.abs(net), currency, 0)} behind inflow so far.`;
+
+  const topLane = topSpendRow
+    ? `${topSpendRow.categoryName} is the largest spend lane at ${formatMoney(Number(topSpendRow.spendAmount), currency, 0)}.`
+    : "No spend lane is dominating the month yet.";
+
+  const budgetSignal = budgetsQueryData
+    ? `${budgetsQueryData.totals.overBudgetCount} categories are over target and ${budgetsQueryData.totals.unbudgetedCount} still need a plan.`
+    : "Budget pressure is still loading.";
+
+  return `${headline} ${topLane} ${budgetSignal}`;
+}
+
+function getMonthStartForTimeZone(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value ?? "1970";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+
+  return `${year}-${month}-01`;
+}
+
+export const getServerSideProps: GetServerSideProps<DashboardProps> = async (context) => {
   const session = await getPageSession(context);
 
   if (!session) {
@@ -586,9 +828,13 @@ export const getServerSideProps: GetServerSideProps<{
     return { redirect: { destination: "/onboarding", permanent: false } };
   }
 
+  const timeZone = profile?.timezone ?? "America/Toronto";
+
   return {
     props: {
       firstName: profile?.firstName ?? "there",
+      currency: profile?.currency ?? "CAD",
+      initialMonth: getMonthStartForTimeZone(new Date(), timeZone),
     },
   };
 };

@@ -10,6 +10,7 @@ FinWin should help users move from raw transaction noise to understandable finan
 - Plaid integration is complete — accounts link, transactions sync with auto-categorization, connections managed via `/settings/connections`.
 - All app data routes use tRPC. Plaid webhook stays as a plain REST route.
 - Phase 3 (Dashboard analytics wired to real data) is the active milestone.
+- Active hardening pass before real-bank rollout: stored Plaid access tokens now move to encrypted-only storage with a disposable-db reset path for rollout/testing.
 
 ## Milestone Status
 
@@ -26,9 +27,9 @@ FinWin should help users move from raw transaction noise to understandable finan
 
 Next tasks in order:
 
-1. **Replace dashboard placeholders** — wire the KPI strip, cashflow panel, and recent ledger card to real transaction-backed queries instead of static demo values.
+1. **Live verification pass** — sanity-check the new dashboard metrics against synced data, especially transfer exclusion, refunds, and inactive-account history.
 2. **Keep financial math centralized** — continue reusing `budgets.summary` and shared transaction queries rather than duplicating dashboard calculations.
-3. **Trim provisional surfaces** — keep watchlist / simulator affordances clearly secondary until the portfolio milestone exists behind real data.
+3. **Trim any remaining provisional copy** — keep portfolio and AI affordances out of the dashboard until those milestones exist behind real data.
 
 ### Phase 2 completion notes
 
@@ -41,10 +42,46 @@ Next tasks in order:
 - Dashboard Budget Progress now reads from live `budgets.summary` data instead of hardcoded rows.
 - Manual verification is complete for create/edit/delete budgets, unbudgeted rows, pending handling, and inactive-account historical spend.
 
+### Phase 3 implementation notes
+
+- Added `dashboardRouter` in `src/server/trpc/routers/dashboard.ts` with:
+  - `dashboard.overview`
+  - `dashboard.cashflow`
+  - `dashboard.spendingByCategory`
+  - `dashboard.recentTransactions`
+- `/dashboard` now reads live transaction-backed data for:
+  - overview KPI strip
+  - daily cashflow chart
+  - recent ledger card
+  - spending-by-category panel
+- Dashboard KPI strip remains intentionally limited to 3 cards:
+  - inflow
+  - outflow
+  - net cashflow
+- `Savings rate` remains available as a derived metric for secondary copy, not a primary card.
+- Watchlist and rotating AI insight placeholders were removed from the dashboard.
+- Build verification complete:
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/pages/dashboard.tsx src/server/trpc/routers/dashboard.ts src/server/trpc/routers/_app.ts`
+
 ### Current spec reference
 
 - Budgeting spec: `docs/spec/budgets.md`
 - Budgeting implementation plan: `docs/plan/budgets.md`
+- Dashboard analytics spec: `docs/spec/dashboard-analytics.md`
+- Dashboard analytics implementation plan: `docs/plan/dashboard-analytics.md`
+- Plaid token encryption spec: `docs/spec/plaid-token-encryption.md`
+
+### Security hardening notes
+
+- Plaid token storage now targets encrypted-only DB columns:
+  - `access_token_encrypted`
+  - `access_token_key_version`
+- Current rollout assumption is disposable data:
+  - `bun run dbreset`
+  - `bun run seed`
+  - create a fresh account and reconnect Plaid
+- This avoids preserving plaintext-token rows while the product is still in pre-rollout mode.
 
 ### Key design decisions (locked)
 - Budget period: monthly, 1st of month. Custom start day → `docs/future.md`.
@@ -66,3 +103,5 @@ See `docs/future.md` for the full list. Notable ones:
 - Custom budget period start day (settings)
 - Merchant-rule persistence on category reassignment
 - Posted/pending filter toggle on transactions page
+- Recurring-spend detection on dashboard
+- Custom dashboard ranges beyond calendar-month view

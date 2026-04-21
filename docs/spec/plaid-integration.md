@@ -68,7 +68,7 @@ All routes (except webhook) require an authenticated session.
 
 ## Security
 
-- `accessToken` stored as plaintext initially; revisit with pgcrypto/KMS once multiple connections exist.
+- Plaid `access_token` should not be stored in plaintext. FinWin now targets application-layer encrypted token storage with a versioned env-managed keyring; see `docs/spec/plaid-token-encryption.md`.
 - Webhook verified via `Plaid-Verification` header (ES256 JWT). Process: decode JWT header → fetch JWK via `/webhook_verification_key/get` with the `kid` → verify signature → assert `alg="ES256"` → reject if `iat` older than 5 minutes → compare `request_body_sha256` claim against SHA-256 of the raw request body. Use a vetted JWT/JWK lib; do not roll your own.
 - `PLAID_CLIENT_ID`, `PLAID_SECRET`, `PLAID_ENV` in env; sandbox → development → production progression.
 - Never return `accessToken` to the client.
@@ -81,6 +81,6 @@ All routes (except webhook) require an authenticated session.
 
 ## Open Questions
 
-- Do we encrypt `accessToken` now or later?
+- When FinWin stops treating the database as disposable, what is the backfill/rotation path for already-linked tokens?
 - On unlink, do we hard-delete transactions or keep them for historical budgets?
 - Sync trigger: webhook-only, or also a cron fallback?

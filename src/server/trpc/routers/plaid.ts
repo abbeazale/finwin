@@ -5,6 +5,10 @@ import { z } from "zod";
 import { db } from "@/index";
 import { bankAccounts, bankConnections, transactions } from "@/db/schema";
 import { plaid } from "@/server/plaid/client";
+import {
+  decryptPlaidAccessToken,
+  encryptPlaidAccessToken,
+} from "@/server/plaid/crypto";
 import { syncConnection, syncUserConnections } from "@/server/plaid/sync";
 import { protectedProcedure, router } from "../trpc";
 
@@ -24,7 +28,10 @@ export const plaidRouter = router({
       let updateAccessToken: string | undefined;
       if (input.connectionId) {
         const [conn] = await db
-          .select({ accessToken: bankConnections.accessToken })
+          .select({
+            accessTokenEncrypted: bankConnections.accessTokenEncrypted,
+            accessTokenKeyVersion: bankConnections.accessTokenKeyVersion,
+          })
           .from(bankConnections)
           .where(
             and(
@@ -34,7 +41,10 @@ export const plaidRouter = router({
           )
           .limit(1);
         if (!conn) throw new TRPCError({ code: "NOT_FOUND", message: "Connection not found." });
-        updateAccessToken = conn.accessToken;
+        updateAccessToken = decryptPlaidAccessToken(
+          conn.accessTokenEncrypted,
+          conn.accessTokenKeyVersion,
+        );
       }
 
       try {
@@ -64,6 +74,7 @@ export const plaidRouter = router({
         });
         const accessToken = exchange.access_token;
         const itemId = exchange.item_id;
+        const encryptedToken = encryptPlaidAccessToken(accessToken);
 
         const { data: accountsRes } = await plaid.accountsGet({ access_token: accessToken });
 
@@ -74,7 +85,8 @@ export const plaidRouter = router({
               userId: ctx.userId,
               provider: "plaid",
               providerItemId: itemId,
-              accessToken,
+              accessTokenEncrypted: encryptedToken.encrypted,
+              accessTokenKeyVersion: encryptedToken.keyVersion,
               status: "active",
             })
             .returning({ id: bankConnections.id });
@@ -201,7 +213,8 @@ export const plaidRouter = router({
       const [connection] = await db
         .select({
           id: bankConnections.id,
-          accessToken: bankConnections.accessToken,
+          accessTokenEncrypted: bankConnections.accessTokenEncrypted,
+          accessTokenKeyVersion: bankConnections.accessTokenKeyVersion,
         })
         .from(bankConnections)
         .where(and(eq(bankConnections.id, input.id), eq(bankConnections.userId, ctx.userId)))
@@ -210,7 +223,11 @@ export const plaidRouter = router({
       if (!connection) throw new TRPCError({ code: "NOT_FOUND", message: "Connection not found." });
 
       try {
-        await plaid.itemRemove({ access_token: connection.accessToken });
+        const accessToken = decryptPlaidAccessToken(
+          connection.accessTokenEncrypted,
+          connection.accessTokenKeyVersion,
+        );
+        await plaid.itemRemove({ access_token: accessToken });
       } catch (err) {
         const plaidErr = (err as { response?: { data?: unknown } })?.response?.data;
         console.error("plaid itemRemove failed (continuing with local unlink)", plaidErr ?? err);

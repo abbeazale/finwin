@@ -153,7 +153,8 @@ export const bankConnections = pgTable(
       .references(() => user.id, { onDelete: "cascade" }),
     provider: text("provider").notNull(), // "plaid"
     providerItemId: text("provider_item_id").notNull(),
-    accessToken: text("access_token").notNull(),
+    accessTokenEncrypted: text("access_token_encrypted").notNull(),
+    accessTokenKeyVersion: text("access_token_key_version").notNull(),
     status: text("status").notNull(), // "active" | "error" | "revoked"
     lastCursor: text("last_cursor"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),

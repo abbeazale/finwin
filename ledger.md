@@ -2,6 +2,61 @@
 
 ## 2026-04-16
 
+### Plaid token encryption implementation pass shipped
+
+- Replaced plaintext `bank_connections.access_token` usage with encrypted-only storage:
+  - `access_token_encrypted`
+  - `access_token_key_version`
+- Added `src/server/plaid/crypto.ts` with server-side `AES-256-GCM` encrypt/decrypt helpers backed by versioned env keys.
+- Updated Plaid token consumers to decrypt only at call time:
+  - `plaid.createLinkToken` update mode
+  - `plaid.exchangeToken` persistence path
+  - `syncConnection`
+  - `plaid.unlinkConnection`
+- Added env placeholders:
+  - `PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION`
+  - `PLAID_TOKEN_ENCRYPTION_KEYS`
+- Added migration `drizzle/0002_plaid_token_encryption.sql`.
+- Validated the disposable rollout path the user requested:
+  - `bun run dbreset`
+  - `bun run seed`
+- Build verification complete:
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/server/plaid/crypto.ts src/server/plaid/sync.ts src/server/trpc/routers/plaid.ts src/db/schema.ts`
+- **Next**: put real encryption keys in env, create a fresh account, connect Plaid again, and verify link → sync → unlink on the rebuilt DB.
+
+### Plaid token encryption spec drafted
+
+- Drafted `docs/spec/plaid-token-encryption.md` to close the current plaintext `bank_connections.access_token` gap before real-bank rollout.
+- Locked the implementation direction to application-layer `AES-256-GCM` encryption with:
+  - versioned env-provided keys
+  - encrypted payload stored in Postgres
+  - server-side decrypt-only-at-call-site behavior
+  - staged migration from plaintext to encrypted columns
+- Explicitly scoped this as a narrow Plaid-token hardening pass, not a full app-wide secrets platform.
+- **Next**: implement the schema change, crypto helper, read/write path cutover, and backfill flow.
+
+### Phase 3 implementation pass shipped
+
+- Added `src/server/trpc/routers/dashboard.ts` and wired it into `_app.ts`.
+- New dashboard queries shipped:
+  - `dashboard.overview`
+  - `dashboard.cashflow`
+  - `dashboard.spendingByCategory`
+  - `dashboard.recentTransactions`
+- Replaced remaining `/dashboard` placeholders with live data:
+  - KPI strip now reads real inflow / outflow / net cashflow
+  - cashflow panel uses real daily month data
+  - recent ledger card uses real transactions
+  - watchlist replaced with real spending-by-category pressure
+  - rotating AI insight card replaced with deterministic summary copy
+- Kept the overview strip at 3 cards by product decision; `savingsRate` stays derived but secondary.
+- Dashboard month switching is now real calendar-month navigation instead of the fake `W / M / Q / YTD` picker.
+- Build verification complete:
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/pages/dashboard.tsx src/server/trpc/routers/dashboard.ts src/server/trpc/routers/_app.ts`
+- **Next**: do the live-data verification pass against synced transactions, focusing on transfer exclusion, refund treatment, and inactive-account month totals.
+
 ### Phase 2 complete — budgets verified
 
 - Closed the budgets polish loop after branch review:
@@ -15,6 +70,24 @@
   - inactive-account historical spend
 - Phase 2 is now complete: `/transactions` category reassignment, `/budgets`, and dashboard budget progress all work against the same live transaction and budget data model.
 - **Next**: move to Phase 3 and replace the remaining placeholder dashboard analytics with real transaction-backed queries.
+
+### Phase 3 spec drafted — dashboard analytics
+
+- Drafted `docs/spec/dashboard-analytics.md` and `docs/plan/dashboard-analytics.md` as the Phase 3 source of truth.
+- Locked the first dashboard analytics milestone to a real month-scoped surface:
+  - live overview cards
+  - live cashflow chart
+  - live recent ledger
+  - live spending-by-category panel
+  - continued `budgets.summary` reuse for Budget Progress
+- Locked metric rules before implementation:
+  - canonical transaction signs only, no provider-side reinversion
+  - pending included
+  - inactive-account history included
+  - `Transfer` and `Credit Card Payment` excluded from overview/cashflow to avoid internal-movement distortion
+  - refunds reduce category spend through net category totals
+- Follow-up product decision: keep the dashboard KPI strip at 3 cards (`Inflow`, `Outflow`, `Net cashflow`). `Savings rate` stays as a derived metric in the query contract, but not as a primary card in Phase 3.
+- Explicitly deferred recurring-spend detection, custom date ranges, AI insight copy, and watchlist / portfolio dashboard surfaces until later phases.
 
 ### Phase 2 — budgets first pass wired
 
