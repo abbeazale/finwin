@@ -9,12 +9,14 @@ import {
   decryptPlaidAccessToken,
   encryptPlaidAccessToken,
 } from "@/server/plaid/crypto";
-import { syncConnection, syncUserConnections } from "@/server/plaid/sync";
+import { syncConnection } from "@/server/plaid/sync";
 import { protectedProcedure, router } from "../trpc";
 
 export type ConnectionRow = {
   id: string;
   status: string;
+  syncErrorCode: string | null;
+  lastSyncedAt: string | null;
   createdAt: string;
   updatedAt: string;
   accounts: { name: string; mask: string | null; type: string }[];
@@ -149,10 +151,27 @@ export const plaidRouter = router({
           if (!owned) throw new TRPCError({ code: "NOT_FOUND", message: "Connection not found." });
 
           const result = await syncConnection(input.connectionId);
-          return { results: [result] };
+          return {
+            results: [{ connectionId: input.connectionId, ...result }],
+          };
         }
 
-        const results = await syncUserConnections(ctx.userId);
+        const connectionRows = await db
+          .select({ id: bankConnections.id })
+          .from(bankConnections)
+          .where(
+            and(
+              eq(bankConnections.userId, ctx.userId),
+              eq(bankConnections.status, "active"),
+            ),
+          );
+
+        const results = await Promise.all(
+          connectionRows.map(async (row) => {
+            const result = await syncConnection(row.id);
+            return { connectionId: row.id, ...result };
+          }),
+        );
         return { results };
       } catch (err: unknown) {
         if (err instanceof TRPCError) throw err;
@@ -167,6 +186,8 @@ export const plaidRouter = router({
       .select({
         id: bankConnections.id,
         status: bankConnections.status,
+        syncErrorCode: bankConnections.syncErrorCode,
+        lastSyncedAt: bankConnections.lastSyncedAt,
         createdAt: bankConnections.createdAt,
         updatedAt: bankConnections.updatedAt,
       })
@@ -196,6 +217,8 @@ export const plaidRouter = router({
         return {
           id: r.id,
           status: r.status,
+          syncErrorCode: r.syncErrorCode,
+          lastSyncedAt: r.lastSyncedAt?.toISOString() ?? null,
           createdAt: r.createdAt.toISOString(),
           updatedAt: r.updatedAt.toISOString(),
           accounts: accts,
@@ -258,7 +281,7 @@ export const plaidRouter = router({
 
       await db
         .update(bankConnections)
-        .set({ status: "active", updatedAt: new Date() })
+        .set({ status: "active", syncErrorCode: null, updatedAt: new Date() })
         .where(eq(bankConnections.id, connection.id));
 
       return { ok: true };

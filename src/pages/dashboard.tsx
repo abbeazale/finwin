@@ -50,6 +50,7 @@ export default function Dashboard({
   const utils = trpc.useUtils();
   const [month, setMonth] = useState(initialMonth);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
+  const [connectionErrorBanner, setConnectionErrorBanner] = useState(false);
   const [isPending, startTransition] = useTransition();
   const initials = firstName.slice(0, 2).toUpperCase();
 
@@ -165,7 +166,13 @@ export default function Dashboard({
             onLogout={logout}
             onRefreshed={async (result) => {
               await invalidateDashboard();
-              setPageMessage(`Sync: +${result.added} · ~${result.modified} · -${result.removed}`);
+              if (result.hasConnectionErrors) {
+                setConnectionErrorBanner(true);
+                setPageMessage(null);
+              } else {
+                setConnectionErrorBanner(false);
+                setPageMessage(`Sync: +${result.added} · ~${result.modified} · -${result.removed}`);
+              }
             }}
             onConnected={async ({ accountCount }) => {
               await invalidateDashboard();
@@ -221,7 +228,15 @@ export default function Dashboard({
               </div>
             </header>
 
-            {bannerMessage ? (
+            {connectionErrorBanner ? (
+              <p className="mb-6 flex items-center gap-3 rounded-[2px] border border-[rgba(232,140,72,0.4)] bg-[rgba(232,140,72,0.05)] px-4 py-2.5 text-[12px] text-amber">
+                <span className="h-1.5 w-1.5 rounded-full bg-amber animate-pulse-dot" />
+                One or more connections need attention —{" "}
+                <Link href="/settings/connections" className="underline underline-offset-2 hover:text-bone">
+                  visit Connections to re-link.
+                </Link>
+              </p>
+            ) : bannerMessage ? (
               <p className="mb-6 flex items-center gap-3 rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-2.5 text-[12px] text-brass-hi">
                 <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
                 {bannerMessage}

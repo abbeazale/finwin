@@ -6,12 +6,31 @@ import { plaid } from "./client";
 import { decryptPlaidAccessToken } from "./crypto";
 import { PLAID_CATEGORY_MAP, PLAID_PRIMARY_FALLBACK_MAP } from "@/server/trpc/category-map";
 
+export type SyncErrorReason = "login_required" | "locked" | "cursor_reset" | "unknown" | null;
+
 export type SyncResult = {
   added: number;
   modified: number;
   removed: number;
   cursor: string | null;
+  errorReason: SyncErrorReason;
 };
+
+// Plaid error codes that require the user to re-authenticate via Link update mode.
+const USER_ACTION_ERROR_CODES = new Set([
+  "ITEM_LOGIN_REQUIRED",
+  "ITEM_LOCKED",
+  "INSUFFICIENT_CREDENTIALS",
+  "USER_SETUP_REQUIRED",
+  "MFA_NOT_SUPPORTED",
+  "INVALID_MFA",
+  "NO_ACCOUNTS",
+]);
+
+// Plaid error codes that indicate a stale or invalid cursor.
+const CURSOR_RESET_ERROR_CODES = new Set([
+  "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION",
+]);
 
 function normalizeTransactionAmount(providerAmount: number) {
   // FinWin stores canonical account semantics:
@@ -30,6 +49,21 @@ function resolveCategoryId(
   if (!resolvedName && primary) resolvedName = PLAID_PRIMARY_FALLBACK_MAP[primary];
   if (!resolvedName) resolvedName = "Uncategorized";
   return categoryIdByName.get(resolvedName) ?? null;
+}
+
+function extractPlaidErrorCode(err: unknown): string | null {
+  const data = (err as { response?: { data?: { error_code?: string } } })?.response?.data;
+  return data?.error_code ?? null;
+}
+
+function classifyErrorReason(errorCode: string): SyncErrorReason {
+  if (errorCode === "ITEM_LOGIN_REQUIRED" || errorCode === "INSUFFICIENT_CREDENTIALS") {
+    return "login_required";
+  }
+  if (errorCode === "ITEM_LOCKED") {
+    return "locked";
+  }
+  return "unknown";
 }
 
 export async function syncConnection(connectionId: string): Promise<SyncResult> {
@@ -73,18 +107,64 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
   const modified: PlaidTransaction[] = [];
   const removed: RemovedTransaction[] = [];
 
-  // Plaid accepts `cursor` on request; omit (undefined) on first call.
-  let hasMore = true;
-  while (hasMore) {
-    const { data } = await plaid.transactionsSync({
-      access_token: accessToken,
-      cursor: cursor ?? undefined,
-    });
-    added.push(...data.added);
-    modified.push(...data.modified);
-    removed.push(...data.removed);
-    cursor = data.next_cursor;
-    hasMore = data.has_more;
+  // Run the sync loop. On a cursor-related error, reset the cursor and retry once from scratch.
+  let didCursorReset = false;
+  for (let attempt = 0; attempt < 2; attempt++) {
+    let loopError: unknown = null;
+    added.length = 0;
+    modified.length = 0;
+    removed.length = 0;
+
+    try {
+      let hasMore = true;
+      while (hasMore) {
+        const { data } = await plaid.transactionsSync({
+          access_token: accessToken,
+          cursor: cursor ?? undefined,
+        });
+        added.push(...data.added);
+        modified.push(...data.modified);
+        removed.push(...data.removed);
+        cursor = data.next_cursor;
+        hasMore = data.has_more;
+      }
+      loopError = null;
+    } catch (err) {
+      loopError = err;
+      const errorCode = extractPlaidErrorCode(err);
+
+      if (errorCode && CURSOR_RESET_ERROR_CODES.has(errorCode) && attempt === 0) {
+        // Stale cursor — null it out and retry from scratch.
+        cursor = null;
+        didCursorReset = true;
+        continue;
+      }
+
+      if (errorCode && USER_ACTION_ERROR_CODES.has(errorCode)) {
+        // User needs to re-authenticate; mark the connection as errored.
+        const reason = classifyErrorReason(errorCode);
+        await db
+          .update(bankConnections)
+          .set({ status: "error", syncErrorCode: errorCode, updatedAt: new Date() })
+          .where(eq(bankConnections.id, connectionId));
+        return { added: 0, modified: 0, removed: 0, cursor: connection.lastCursor, errorReason: reason };
+      }
+
+      if (errorCode === "PRODUCT_NOT_READY") {
+        // Transactions product not yet ready; not an error state.
+        return { added: 0, modified: 0, removed: 0, cursor: connection.lastCursor, errorReason: null };
+      }
+
+      // Unknown Plaid or network error — mark as errored so the user knows.
+      const code = errorCode ?? "UNKNOWN";
+      await db
+        .update(bankConnections)
+        .set({ status: "error", syncErrorCode: code, updatedAt: new Date() })
+        .where(eq(bankConnections.id, connectionId));
+      throw loopError;
+    }
+
+    if (loopError === null) break;
   }
 
   const upserts = [...added, ...modified].flatMap((tx) => {
@@ -141,9 +221,16 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         );
     }
 
+    const now = new Date();
     await tx
       .update(bankConnections)
-      .set({ lastCursor: cursor, updatedAt: new Date() })
+      .set({
+        status: "active",
+        syncErrorCode: null,
+        lastCursor: cursor,
+        lastSyncedAt: now,
+        updatedAt: now,
+      })
       .where(eq(bankConnections.id, connection.id));
   });
 
@@ -152,6 +239,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     modified: modified.length,
     removed: removedIds.length,
     cursor,
+    errorReason: didCursorReset ? "cursor_reset" : null,
   };
 }
 
