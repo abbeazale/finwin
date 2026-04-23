@@ -1,6 +1,8 @@
 import "@/app/globals.css";
 import { Geist, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import type { AppProps } from "next/app";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { TRPCProvider } from "@/lib/trpc";
 
 const display = Instrument_Serif({
@@ -30,6 +32,8 @@ export default function App({ Component, pageProps }: AppProps) {
       >
         <Component {...pageProps} />
       </div>
+      <Analytics />
+      <SpeedInsights />
     </TRPCProvider>
   );
 }
