@@ -1,5 +1,21 @@
 # FinWin Ledger
 
+## 2026-04-21
+
+### Plaid connect JSON parse failure fixed
+
+- Reproduced the `Unexpected token '<', "<!DOCTYPE "... is not valid JSON` error on `plaid.createLinkToken`.
+- Root cause: the tRPC API route imported Plaid crypto at module load, and malformed `PLAID_TOKEN_ENCRYPTION_KEYS` caused Next.js to return an HTML 500 error page before tRPC could serialize JSON.
+- Normalized local Plaid token encryption env shape to versioned JSON (`current version` + key map).
+- Made `src/server/plaid/crypto.ts` load encryption keys lazily so invalid encryption config fails inside Plaid token use paths instead of breaking the entire tRPC route import.
+- Converted `src/lib/trpc.ts` to `src/lib/trpc.tsx` to satisfy React provider children typing and lint rules.
+- Updated `.env.example` to show the required versioned encryption-key shape.
+- Verified:
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/server/plaid/crypto.ts src/lib/trpc.tsx src/components/connect-bank.tsx 'src/pages/api/trpc/[trpc].ts'`
+  - `POST /api/trpc/plaid.createLinkToken?batch=1` now returns JSON instead of an HTML error page.
+- Dev server is running at `http://localhost:3000`.
+
 ## 2026-04-16
 
 ### Plaid token encryption implementation pass shipped

@@ -137,77 +137,100 @@ export default function ConnectionsSettings() {
               <span className="label-eyebrow hidden lg:inline">Last sync</span>
               <span className="label-eyebrow text-right">Action</span>
             </div>
-            {connections.map((conn) => (
-              <article
-                key={conn.id}
-                className="group relative rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] p-5 transition-colors hover:border-[var(--stroke-2)] cove"
-              >
-                <div className="grid gap-5 lg:grid-cols-[auto_1fr_auto_auto] lg:items-center lg:gap-6">
-                  <div className="flex size-10 items-center justify-center rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-0)] text-brass-hi">
-                    <Building2 className="size-4" />
-                  </div>
-
-                  <div className="min-w-0">
-                    <div className="mb-2 flex flex-wrap items-center gap-3">
-                      <span className="text-[14px] text-bone">
-                        {conn.accounts.length} account{conn.accounts.length === 1 ? "" : "s"}
-                      </span>
-                      <StatusPill status={conn.status} />
-                      <span className="num text-[10px] text-bone-faint">
-                        #{conn.id.slice(0, 8)}
-                      </span>
+            {connections.map((conn) => {
+              const isError = conn.status === "error";
+              return (
+                <article
+                  key={conn.id}
+                  className={`group relative rounded-[2px] border bg-[var(--ink-1)] p-5 transition-colors cove ${
+                    isError
+                      ? "border-[rgba(232,140,72,0.35)] hover:border-[rgba(232,140,72,0.55)]"
+                      : "border-[var(--stroke)] hover:border-[var(--stroke-2)]"
+                  }`}
+                >
+                  {isError ? (
+                    <div className="pointer-events-none absolute inset-0 rounded-[2px]" style={{ background: "radial-gradient(ellipse at top left, rgba(232,140,72,0.04), transparent 60%)" }} />
+                  ) : null}
+                  <div className="relative grid gap-5 lg:grid-cols-[auto_1fr_auto_auto] lg:items-center lg:gap-6">
+                    <div className={`flex size-10 items-center justify-center rounded-[2px] border bg-[var(--ink-0)] ${isError ? "border-[rgba(232,140,72,0.4)] text-amber" : "border-[var(--stroke-2)] text-brass-hi"}`}>
+                      <Building2 className="size-4" />
                     </div>
-                    <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-bone-mute">
-                      {conn.accounts.map((a, i) => (
-                        <li key={i} className="flex items-center gap-2">
-                          <span className="text-bone">{a.name}</span>
-                          {a.mask ? (
-                            <span className="num text-bone-faint">··{a.mask}</span>
-                          ) : null}
-                          <span className="label-eyebrow">{a.type}</span>
-                        </li>
-                      ))}
-                    </ul>
+
+                    <div className="min-w-0">
+                      <div className="mb-2 flex flex-wrap items-center gap-3">
+                        <span className="text-[14px] text-bone">
+                          {conn.accounts.length} account{conn.accounts.length === 1 ? "" : "s"}
+                        </span>
+                        <StatusPill status={conn.status} />
+                        {isError && conn.syncErrorCode ? (
+                          <span className="label-eyebrow text-amber">
+                            {formatSyncErrorCode(conn.syncErrorCode)}
+                          </span>
+                        ) : null}
+                        <span className="num text-[10px] text-bone-faint">
+                          #{conn.id.slice(0, 8)}
+                        </span>
+                      </div>
+                      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-bone-mute">
+                        {conn.accounts.map((a, i) => (
+                          <li key={i} className="flex items-center gap-2">
+                            <span className="text-bone">{a.name}</span>
+                            {a.mask ? (
+                              <span className="num text-bone-faint">··{a.mask}</span>
+                            ) : null}
+                            <span className="label-eyebrow">{a.type}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+
+                    <div className="hidden flex-col items-end gap-0.5 lg:flex">
+                      {conn.lastSyncedAt ? (
+                        <>
+                          <span className="num text-[11px] text-bone">
+                            {new Date(conn.lastSyncedAt).toLocaleDateString()}
+                          </span>
+                          <span className="label-eyebrow">
+                            {new Date(conn.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="label-eyebrow text-bone-faint">Never synced</span>
+                      )}
+                      {conn.lastTransactionDate ? (
+                        <span className="label-eyebrow">
+                          LAST TX · {conn.lastTransactionDate.slice(5)}
+                        </span>
+                      ) : null}
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      {isError ? (
+                        <ConnectBank
+                          connectionId={conn.id}
+                          label="Reconnect"
+                          onReconnected={() => void connectionsQuery.refetch()}
+                        />
+                      ) : null}
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => unlink(conn.id)}
+                        disabled={unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id}
+                        className="h-10 gap-2 rounded-[2px] border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 text-[11px] uppercase tracking-[0.12em] text-oxide-hi shadow-none hover:border-[rgba(194,106,72,0.5)] hover:bg-[rgba(194,106,72,0.12)] hover:text-oxide-hi disabled:opacity-50"
+                      >
+                        <Trash2 className="size-3" />
+                        {unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id ? "Unlinking…" : "Unlink"}
+                      </Button>
+                    </div>
                   </div>
 
-                  <div className="hidden flex-col items-end gap-0.5 lg:flex">
-                    <span className="num text-[11px] text-bone">
-                      {new Date(conn.updatedAt).toLocaleDateString()}
-                    </span>
-                    <span className="label-eyebrow">
-                      {new Date(conn.updatedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                    </span>
-                    {conn.lastTransactionDate ? (
-                      <span className="label-eyebrow">
-                        LAST TX · {conn.lastTransactionDate.slice(5)}
-                      </span>
-                    ) : null}
-                  </div>
-
-                  <div className="flex flex-wrap items-center gap-2">
-                    {conn.status === "error" ? (
-                      <ConnectBank
-                        connectionId={conn.id}
-                        label="Reconnect"
-                        onReconnected={() => void connectionsQuery.refetch()}
-                      />
-                    ) : null}
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() => unlink(conn.id)}
-                      disabled={unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id}
-                      className="h-10 gap-2 rounded-[2px] border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 text-[11px] uppercase tracking-[0.12em] text-oxide-hi shadow-none hover:border-[rgba(194,106,72,0.5)] hover:bg-[rgba(194,106,72,0.12)] hover:text-oxide-hi disabled:opacity-50"
-                    >
-                      <Trash2 className="size-3" />
-                      {unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id ? "Unlinking…" : "Unlink"}
-                    </Button>
-                  </div>
-                </div>
-
-                <div className="pointer-events-none absolute left-0 top-0 h-px w-0 bg-brass transition-all duration-500 group-hover:w-full" />
-              </article>
-            ))}
+                  {!isError ? (
+                    <div className="pointer-events-none absolute left-0 top-0 h-px w-0 bg-brass transition-all duration-500 group-hover:w-full" />
+                  ) : null}
+                </article>
+              );
+            })}
           </div>
         )}
 
@@ -240,7 +263,6 @@ function StatusPill({ status }: { status: string }) {
   const map: Record<string, string> = {
     active: "pill pill-sage",
     error: "pill pill-amber",
-    revoked: "pill pill-oxide",
   };
   const cls = map[status] ?? "pill pill-bone";
   return (
@@ -251,4 +273,19 @@ function StatusPill({ status }: { status: string }) {
       {status}
     </span>
   );
+}
+
+function formatSyncErrorCode(code: string): string {
+  switch (code) {
+    case "ITEM_LOGIN_REQUIRED":
+      return "Login expired";
+    case "ITEM_LOCKED":
+      return "Account locked";
+    case "INSUFFICIENT_CREDENTIALS":
+      return "Credentials invalid";
+    case "USER_SETUP_REQUIRED":
+      return "Setup required";
+    default:
+      return "Sync error";
+  }
 }

@@ -15,9 +15,10 @@ type KeyConfig = {
   keys: Map<string, Buffer>;
 };
 
-const keyConfig = loadKeyConfig();
+let keyConfigCache: KeyConfig | null = null;
 
 export function encryptPlaidAccessToken(plaintext: string): EncryptionResult {
+  const keyConfig = getKeyConfig();
   const key = getKeyForVersion(keyConfig.currentKeyVersion);
   const iv = randomBytes(IV_LENGTH_BYTES);
   const cipher = createCipheriv(ALGORITHM, key, iv);
@@ -36,6 +37,7 @@ export function encryptPlaidAccessToken(plaintext: string): EncryptionResult {
 }
 
 export function decryptPlaidAccessToken(encrypted: string, keyVersion: string) {
+  getKeyConfig();
   const key = getKeyForVersion(keyVersion);
   const parts = encrypted.split(":");
 
@@ -53,6 +55,11 @@ export function decryptPlaidAccessToken(encrypted: string, keyVersion: string) {
   ]);
 
   return plaintext.toString("utf8");
+}
+
+function getKeyConfig(): KeyConfig {
+  keyConfigCache ??= loadKeyConfig();
+  return keyConfigCache;
 }
 
 function loadKeyConfig(): KeyConfig {
@@ -105,6 +112,7 @@ function loadKeyConfig(): KeyConfig {
 }
 
 function getKeyForVersion(version: string) {
+  const keyConfig = getKeyConfig();
   const key = keyConfig.keys.get(version);
 
   if (!key) {

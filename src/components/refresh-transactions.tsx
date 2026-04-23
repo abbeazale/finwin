@@ -3,7 +3,12 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 
-type RefreshResult = { added: number; modified: number; removed: number };
+type RefreshResult = {
+  added: number;
+  modified: number;
+  removed: number;
+  hasConnectionErrors: boolean;
+};
 
 type Props = {
   onRefreshed?: (totals: RefreshResult) => void;
@@ -19,8 +24,9 @@ export function RefreshTransactions({ onRefreshed }: Props) {
           added: acc.added + r.added,
           modified: acc.modified + r.modified,
           removed: acc.removed + r.removed,
+          hasConnectionErrors: acc.hasConnectionErrors || r.errorReason !== null,
         }),
-        { added: 0, modified: 0, removed: 0 },
+        { added: 0, modified: 0, removed: 0, hasConnectionErrors: false },
       );
       onRefreshed?.(totals);
     },

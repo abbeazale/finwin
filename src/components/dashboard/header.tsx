@@ -18,7 +18,7 @@ type DashboardHeaderProps = {
   initials: string;
   isPending: boolean;
   onLogout: () => void;
-  onRefreshed: (t: { added: number; modified: number; removed: number }) => void;
+  onRefreshed: (t: { added: number; modified: number; removed: number; hasConnectionErrors: boolean }) => void;
   onConnected: (result: { accountCount: number }) => void;
 };
 

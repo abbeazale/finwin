@@ -155,8 +155,10 @@ export const bankConnections = pgTable(
     providerItemId: text("provider_item_id").notNull(),
     accessTokenEncrypted: text("access_token_encrypted").notNull(),
     accessTokenKeyVersion: text("access_token_key_version").notNull(),
-    status: text("status").notNull(), // "active" | "error" | "revoked"
+    status: text("status").notNull(), // "active" | "error"
     lastCursor: text("last_cursor"),
+    lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
+    syncErrorCode: text("sync_error_code"),
     createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
   },
