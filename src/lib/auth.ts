@@ -25,6 +25,10 @@ export const auth = betterAuth({
     process.env.AUTH_SECRET ??
     process.env.BETTER_AUTH_API_KEY,
   baseURL: process.env.BETTER_AUTH_URL,
+  trustedOrigins: [
+    "https://finwin.abbeazale.tech",
+    "https://finwin-vert.vercel.app",
+  ],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema,
