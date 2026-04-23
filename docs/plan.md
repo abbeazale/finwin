@@ -7,6 +7,7 @@ FinWin should help users move from raw transaction noise to understandable finan
 ## Current Direction
 
 - Next.js (Pages Router), Better Auth, Drizzle + Neon, tRPC v11, TanStack Query v5.
+- Better Auth now supports email/password, GitHub, Google, passkey sign-in, and TOTP two-factor enrollment.
 - Plaid integration is complete — accounts link, transactions sync with auto-categorization, connections managed via `/settings/connections`.
 - All app data routes use tRPC. Plaid webhook stays as a plain REST route.
 - Phase 3 (Dashboard analytics wired to real data) is the active milestone.
@@ -74,6 +75,11 @@ Next tasks in order:
 
 ### Security hardening notes
 
+- Auth MFA baseline is in place:
+  - passkeys use Better Auth's `@better-auth/passkey` plugin
+  - WebAuthn user verification is required so passkey sign-in can stand alone
+  - TOTP two-factor is available as the second factor for password sign-in
+  - `/settings/security` is the first enrollment surface
 - Plaid token storage now targets encrypted-only DB columns:
   - `access_token_encrypted`
   - `access_token_key_version`

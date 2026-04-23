@@ -79,23 +79,35 @@ export default function ConnectionsSettings() {
           {/* Settings nav tabs */}
           <div className="flex items-center gap-px overflow-x-auto border-b border-[var(--stroke)]">
             {[
-              { label: "Connections", active: true },
-              { label: "Profile", active: false },
-              { label: "Notifications", active: false },
-              { label: "Security", active: false },
+              { label: "Connections", active: true, href: "/settings/connections" },
+              { label: "Profile", active: false, href: null },
+              { label: "Notifications", active: false, href: null },
+              { label: "Security", active: false, href: "/settings/security" },
             ].map((t) => (
               <Button
                 key={t.label}
+                asChild={Boolean(t.href)}
                 type="button"
                 variant="ghost"
                 className={`relative h-auto rounded-none px-4 py-3 text-[11px] uppercase tracking-[0.12em] shadow-none hover:bg-transparent ${
                   t.active ? "text-brass-hi" : "text-bone-mute hover:text-bone"
                 }`}
               >
-                {t.label}
-                {t.active ? (
-                  <span className="absolute inset-x-3 -bottom-px h-[2px] bg-brass" style={{ boxShadow: "0 0 8px var(--brass-glow)" }} />
-                ) : null}
+                {t.href ? (
+                  <Link href={t.href}>
+                    {t.label}
+                    {t.active ? (
+                      <span className="absolute inset-x-3 -bottom-px h-[2px] bg-brass" style={{ boxShadow: "0 0 8px var(--brass-glow)" }} />
+                    ) : null}
+                  </Link>
+                ) : (
+                  <>
+                    {t.label}
+                    {t.active ? (
+                      <span className="absolute inset-x-3 -bottom-px h-[2px] bg-brass" style={{ boxShadow: "0 0 8px var(--brass-glow)" }} />
+                    ) : null}
+                  </>
+                )}
               </Button>
             ))}
           </div>

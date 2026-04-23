@@ -22,6 +22,20 @@
       "when": 1776401622121,
       "tag": "0002_plaid_token_encryption",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1776489100000,
+      "tag": "0003_plaid_sync_hardening",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1776489200000,
+      "tag": "0004_auth_mfa",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,30 @@
 # FinWin Ledger
 
+## 2026-04-22
+
+### Better Auth passkey + TOTP MFA baseline shipped
+
+- Upgraded Better Auth from `1.5.4` to `1.6.7` and installed `@better-auth/passkey`.
+- Added Better Auth plugins:
+  - `passkey` with FinWin RP metadata and `userVerification: "required"` so passkey sign-in can stand alone
+  - `twoFactor` with issuer `FinWin` and passwordless-account management allowed for social/passkey users
+  - existing Better Auth dashboard plugin kept in place
+- Added MFA schema support:
+  - `user.twoFactorEnabled`
+  - `passkey` table
+  - `twoFactor` table
+  - migration `drizzle/0004_auth_mfa.sql`
+- Updated Drizzle migration journal to include existing `0003_plaid_sync_hardening` and new `0004_auth_mfa`.
+- Added client plugin wiring in `src/lib/auth-client.ts`.
+- Added passkey sign-in to the login form, including WebAuthn conditional UI autocomplete attributes.
+- Added `/settings/security` as the first enrollment surface for passkeys and TOTP setup.
+- Added `/two-factor` for TOTP and backup-code verification after password sign-in.
+- Product policy locked: passkey sign-in is sufficient by itself; TOTP is the additional challenge for password sign-in and backup access.
+- Verified:
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/lib/auth.ts src/lib/auth-client.ts src/db/schema.ts src/components/auth/loginForm.tsx src/pages/settings/connections.tsx src/pages/settings/security.tsx`
+- **Next**: apply the new migration, then browser-test passkey enrollment/sign-in on the real app origin.
+
 ## 2026-04-21
 
 ### Plaid connect JSON parse failure fixed
