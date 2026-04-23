@@ -16,6 +16,8 @@
 - `src/pages/dashboard.tsx` — main dashboard; Budget Progress now reads from `budgets.summary`
 - `src/pages/budgets.tsx` — monthly budgets desk built with shadcn cards/fields and Recharts via shadcn chart
 - `src/pages/transactions.tsx` — production transaction ledger view with filters, uncategorized nudge, and inline category reassignment
+- `src/pages/settings/security.tsx` — passkey enrollment and TOTP setup surface
+- `src/pages/two-factor.tsx` — TOTP / backup-code challenge page for password sign-in when 2FA is enabled
 - `docs/spec/budgets.md` — monthly budgets product spec and query rules
 - `docs/plan/budgets.md` — phased implementation plan for the first budgets milestone
 - `docs/spec/dashboard-analytics.md` — Phase 3 dashboard analytics spec
@@ -38,7 +40,8 @@
 
 ## Integrations
 
-- Better Auth — email/password + GitHub + Google social login
+- Better Auth — email/password + GitHub + Google social login, passkeys, and TOTP two-factor
+- Better Auth Passkey — `@better-auth/passkey` plugin with WebAuthn user verification required
 - Neon / Postgres — serverless WebSocket pool (`drizzle-orm/neon-serverless`)
 - Drizzle ORM and drizzle-kit
 - Plaid — account linking, cursor-based transaction sync, webhook verification (ES256 JWT)
@@ -53,7 +56,7 @@
 - tRPC API → `src/pages/api/trpc/[trpc].ts`
 - Plaid webhook → `src/pages/api/plaid/webhook.ts` (REST, raw body required)
 - App data mutations/queries → add procedures to `src/server/trpc/routers/`
-- Current product pages include `/dashboard`, `/transactions`, `/budgets`, and `/settings/connections`
+- Current product pages include `/dashboard`, `/transactions`, `/budgets`, `/settings/connections`, `/settings/security`, and `/two-factor`
 
 ## Notes
 

@@ -2,8 +2,27 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 import { useRouter } from "next/router";
-import { FormEvent, useState, useTransition } from "react";
-import { signIn } from "@/lib/auth-client";
+import { FormEvent, useEffect, useRef, useState, useTransition } from "react";
+import { KeyRound } from "lucide-react";
+import { authClient, signIn } from "@/lib/auth-client";
+
+function isBenignPasskeyError(message: string | undefined) {
+  if (!message) return false;
+  const lower = message.toLowerCase();
+  return (
+    lower.includes("abort") ||
+    lower.includes("cancel") ||
+    lower.includes("not allowed")
+  );
+}
+
+function passkeyErrorMessage(message: string | undefined) {
+  if (!message) return "Unable to sign in with passkey.";
+  if (message.toLowerCase().includes("not allowed")) {
+    return "No matching passkey on this device. Register one from Security settings.";
+  }
+  return message;
+}
 
 export default function LoginForm({
   className,
@@ -14,15 +33,71 @@ export default function LoginForm({
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const autofillAbortRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    if (
+      typeof PublicKeyCredential === "undefined" ||
+      !PublicKeyCredential.isConditionalMediationAvailable
+    ) {
+      return;
+    }
+
+    const controller = new AbortController();
+    autofillAbortRef.current = controller;
+
+    void PublicKeyCredential.isConditionalMediationAvailable().then((available) => {
+      if (!available || controller.signal.aborted) return;
+
+      void authClient.signIn.passkey({
+        autoFill: true,
+        fetchOptions: {
+          signal: controller.signal,
+          onSuccess() {
+            void router.push("/dashboard");
+          },
+        },
+      });
+    });
+
+    return () => {
+      controller.abort();
+      if (autofillAbortRef.current === controller) {
+        autofillAbortRef.current = null;
+      }
+    };
+  }, [router]);
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
 
     startTransition(async () => {
-      const { error: signInError } = await signIn.email({ email, password });
+      const { data, error: signInError } = await signIn.email({ email, password });
       if (signInError) {
         setError(signInError.message ?? "Unable to sign in.");
+        return;
+      }
+      if ((data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+        return;
+      }
+      await router.push("/dashboard");
+    });
+  }
+
+  function handlePasskeySignIn() {
+    setError(null);
+    autofillAbortRef.current?.abort();
+    autofillAbortRef.current = null;
+
+    startTransition(async () => {
+      const { error: passkeyError } = await authClient.signIn.passkey();
+      if (passkeyError) {
+        if (isBenignPasskeyError(passkeyError.message)) {
+          setError(passkeyErrorMessage(passkeyError.message));
+          return;
+        }
+        setError(passkeyError.message ?? "Unable to sign in with passkey.");
         return;
       }
       await router.push("/dashboard");
@@ -76,6 +151,17 @@ export default function LoginForm({
           </Button>
         </div>
 
+        <Button
+          type="button"
+          variant="outline"
+          onClick={handlePasskeySignIn}
+          disabled={isPending}
+          className="group h-12 rounded-[2px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
+        >
+          <KeyRound className="size-4 opacity-80 group-hover:opacity-100" />
+          Passkey
+        </Button>
+
         <div className="flex items-center gap-4">
           <span className="h-px flex-1 bg-[var(--stroke)]" />
           <span className="label-eyebrow">or with email</span>
@@ -91,6 +177,7 @@ export default function LoginForm({
             placeholder="desk@finwin.app"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username webauthn"
             required
             className="input-arch"
           />
@@ -108,6 +195,7 @@ export default function LoginForm({
             placeholder="••••••••"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
             required
             className="input-arch"
           />

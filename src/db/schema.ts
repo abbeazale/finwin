@@ -20,6 +20,7 @@ export const user = pgTable(
     email: text("email").notNull(),
     emailVerified: boolean("emailVerified").notNull().default(false),
     image: text("image"),
+    twoFactorEnabled: boolean("twoFactorEnabled").notNull().default(false),
     createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updatedAt", { withTimezone: true }).notNull().defaultNow(),
   },
@@ -88,6 +89,46 @@ export const verification = pgTable(
   },
   (table) => ([
     index("verification_identifier_idx").on(table.identifier),
+  ]),
+);
+
+export const passkey = pgTable(
+  "passkey",
+  {
+    id: text("id").primaryKey(),
+    name: text("name"),
+    publicKey: text("publicKey").notNull(),
+    userId: text("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    credentialID: text("credentialID").notNull(),
+    counter: integer("counter").notNull(),
+    deviceType: text("deviceType").notNull(),
+    backedUp: boolean("backedUp").notNull(),
+    transports: text("transports"),
+    createdAt: timestamp("createdAt", { withTimezone: true }).notNull().defaultNow(),
+    aaguid: text("aaguid"),
+  },
+  (table) => ([
+    index("passkey_user_id_idx").on(table.userId),
+    uniqueIndex("passkey_credential_id_unique").on(table.credentialID),
+  ]),
+);
+
+export const twoFactor = pgTable(
+  "twoFactor",
+  {
+    id: text("id").primaryKey(),
+    secret: text("secret").notNull(),
+    backupCodes: text("backupCodes").notNull(),
+    userId: text("userId")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    verified: boolean("verified").notNull().default(true),
+  },
+  (table) => ([
+    index("two_factor_secret_idx").on(table.secret),
+    index("two_factor_user_id_idx").on(table.userId),
   ]),
 );
 

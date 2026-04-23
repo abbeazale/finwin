@@ -1,8 +1,22 @@
 import { betterAuth } from "better-auth";
 import { drizzleAdapter } from "better-auth/adapters/drizzle";
+import { twoFactor } from "better-auth/plugins";
+import { passkey } from "@better-auth/passkey";
 import { db } from "@/index";
 import * as schema from "@/db/schema";
-import { dash } from "@better-auth/infra"; 
+import { dash } from "@better-auth/infra";
+
+const authBaseURL = process.env.BETTER_AUTH_URL?.replace(/\/$/, "");
+
+function getAuthHost() {
+  if (!authBaseURL) return undefined;
+
+  try {
+    return new URL(authBaseURL).hostname;
+  } catch {
+    return undefined;
+  }
+}
 
 export const auth = betterAuth({
   appName: "FinWin",
@@ -15,7 +29,22 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
-  plugins: [dash({apiKey: process.env.BETTER_AUTH_API_KEY as string})],
+  plugins: [
+    dash({ apiKey: process.env.BETTER_AUTH_API_KEY as string }),
+    passkey({
+      rpName: "FinWin",
+      rpID: getAuthHost(),
+      origin: authBaseURL,
+      authenticatorSelection: {
+        residentKey: "preferred",
+        userVerification: "required",
+      },
+    }),
+    twoFactor({
+      issuer: "FinWin",
+      allowPasswordless: true,
+    }),
+  ],
   emailAndPassword: {
     enabled: true,
   },
