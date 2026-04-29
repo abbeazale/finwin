@@ -1,6 +1,6 @@
 import { createHash } from "node:crypto";
 import { importJWK, jwtVerify, decodeProtectedHeader, type JWK } from "jose";
-import { plaid } from "./client";
+import { getPlaid } from "./client";
 
 const jwkCache = new Map<string, CryptoKey>();
 
@@ -8,7 +8,7 @@ async function getVerificationKey(kid: string): Promise<CryptoKey> {
   const cached = jwkCache.get(kid);
   if (cached) return cached;
 
-  const { data } = await plaid.webhookVerificationKeyGet({ key_id: kid });
+  const { data } = await getPlaid().webhookVerificationKeyGet({ key_id: kid });
   const jwk = data.key as unknown as JWK;
   const key = (await importJWK(jwk, "ES256")) as CryptoKey;
   jwkCache.set(kid, key);

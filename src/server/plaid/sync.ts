@@ -2,7 +2,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import type { Transaction as PlaidTransaction, RemovedTransaction } from "plaid";
 import { db } from "@/index";
 import { bankAccounts, bankConnections, categories, categoryGroups, transactions } from "@/db/schema";
-import { plaid } from "./client";
+import { getPlaid } from "./client";
 import { decryptPlaidAccessToken } from "./crypto";
 import { PLAID_CATEGORY_MAP, PLAID_PRIMARY_FALLBACK_MAP } from "@/server/trpc/category-map";
 
@@ -118,7 +118,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     try {
       let hasMore = true;
       while (hasMore) {
-        const { data } = await plaid.transactionsSync({
+        const { data } = await getPlaid().transactionsSync({
           access_token: accessToken,
           cursor: cursor ?? undefined,
         });

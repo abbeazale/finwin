@@ -4,7 +4,7 @@ import { CountryCode, Products } from "plaid";
 import { z } from "zod";
 import { db } from "@/index";
 import { bankAccounts, bankConnections, transactions } from "@/db/schema";
-import { plaid } from "@/server/plaid/client";
+import { getPlaid } from "@/server/plaid/client";
 import {
   decryptPlaidAccessToken,
   encryptPlaidAccessToken,
@@ -50,7 +50,7 @@ export const plaidRouter = router({
       }
 
       try {
-        const { data } = await plaid.linkTokenCreate({
+        const { data } = await getPlaid().linkTokenCreate({
           user: { client_user_id: ctx.userId },
           client_name: "FinWin",
           products: updateAccessToken ? [] : [Products.Transactions],
@@ -71,14 +71,14 @@ export const plaidRouter = router({
     .input(z.object({ publicToken: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
-        const { data: exchange } = await plaid.itemPublicTokenExchange({
+        const { data: exchange } = await getPlaid().itemPublicTokenExchange({
           public_token: input.publicToken,
         });
         const accessToken = exchange.access_token;
         const itemId = exchange.item_id;
         const encryptedToken = encryptPlaidAccessToken(accessToken);
 
-        const { data: accountsRes } = await plaid.accountsGet({ access_token: accessToken });
+        const { data: accountsRes } = await getPlaid().accountsGet({ access_token: accessToken });
 
         const connection = await db.transaction(async (tx) => {
           const [conn] = await tx
@@ -250,7 +250,7 @@ export const plaidRouter = router({
           connection.accessTokenEncrypted,
           connection.accessTokenKeyVersion,
         );
-        await plaid.itemRemove({ access_token: accessToken });
+        await getPlaid().itemRemove({ access_token: accessToken });
       } catch (err) {
         const plaidErr = (err as { response?: { data?: unknown } })?.response?.data;
         console.error("plaid itemRemove failed (continuing with local unlink)", plaidErr ?? err);
