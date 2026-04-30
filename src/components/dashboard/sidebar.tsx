@@ -10,31 +10,53 @@ import {
 import { Button } from "@/components/ui/button";
 
 
-const navItems: {
+export const dashboardNavItems: {
   label: string;
   icon: typeof LayoutDashboard;
-  active: boolean;
   href?: string;
+  disabled?: boolean;
 }[] = [
-  { label: "Desk", icon: LayoutDashboard, active: true },
-  { label: "Transactions", icon: Wallet, active: false, href: "/transactions" },
-  { label: "Budgets", icon: Target, active: false, href: "/budgets" },
-  { label: "Investments", icon: LineChart, active: false },
-  { label: "Analytics", icon: TrendingUp, active: false },
-  { label: "Settings", icon: Settings, active: false, href: "/settings/connections" },
+  { label: "Desk", icon: LayoutDashboard, href: "/dashboard" },
+  { label: "Transactions", icon: Wallet, href: "/transactions" },
+  { label: "Budgets", icon: Target, href: "/budgets" },
+  { label: "Investments", icon: LineChart, disabled: true },
+  { label: "Analytics", icon: TrendingUp, disabled: true },
+  { label: "Settings", icon: Settings, href: "/settings/connections" },
 ];
 
 type DashboardSidebarProps = {
   firstName: string;
   initials: string;
   isPending: boolean;
+  currentPath: string;
   onLogout: () => void;
+};
+
+export function isDashboardNavItemActive(
+  item: (typeof dashboardNavItems)[number],
+  currentPath: string,
+) {
+  if (!item.href) {
+    return false;
+  }
+
+  if (item.href === "/dashboard") {
+    return currentPath === item.href;
+  }
+
+  return currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+}
+
+type DashboardNavItemProps = {
+  item: (typeof dashboardNavItems)[number];
+  currentPath: string;
 };
 
 export function DashboardSidebar({
   firstName,
   initials,
   isPending,
+  currentPath,
   onLogout,
 }: DashboardSidebarProps) {
   return (
@@ -50,35 +72,13 @@ export function DashboardSidebar({
         <div className="px-3 pb-2 pt-1">
           <span className="label-eyebrow">Desk</span>
         </div>
-        {navItems.map((item) => {
-          const Icon = item.icon;
-          const className = `group relative flex h-10 items-center gap-3 rounded-[2px] px-3 text-left text-[12px] uppercase tracking-[0.08em] transition-all ${
-            item.active
-              ? "bg-[rgba(201,164,107,0.08)] text-brass-hi"
-              : "text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
-          }`;
-          const content = (
-            <>
-              {item.active ? (
-                <span className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 bg-brass" />
-              ) : null}
-              <Icon className="size-3.5" />
-              <span>{item.label}</span>
-              {item.active ? (
-                <span className="ml-auto size-1.5 rounded-full bg-brass animate-pulse-dot" />
-              ) : null}
-            </>
-          );
-          return item.href ? (
-            <Link key={item.label} href={item.href} className={className}>
-              {content}
-            </Link>
-          ) : (
-            <button key={item.label} type="button" className={className}>
-              {content}
-            </button>
-          );
-        })}
+        {dashboardNavItems.map((item) => (
+          <DashboardNavItem
+            key={item.label}
+            item={item}
+            currentPath={currentPath}
+          />
+        ))}
       </nav>
 
       <div className="border-t border-[var(--stroke)] p-3">
@@ -102,5 +102,37 @@ export function DashboardSidebar({
         </div>
       </div>
     </aside>
+  );
+}
+
+function DashboardNavItem({ item, currentPath }: DashboardNavItemProps) {
+  const Icon = item.icon;
+  const active = isDashboardNavItemActive(item, currentPath);
+  const className = `group relative flex h-10 items-center gap-3 rounded-[2px] px-3 text-left text-[12px] uppercase tracking-[0.08em] transition-all ${
+    active
+      ? "bg-[rgba(201,164,107,0.08)] text-brass-hi"
+      : "text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
+  } ${item.disabled ? "cursor-not-allowed opacity-45 hover:bg-transparent hover:text-bone-mute" : ""}`;
+  const content = (
+    <>
+      {active ? (
+        <span className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 bg-brass" />
+      ) : null}
+      <Icon className="size-3.5" />
+      <span>{item.label}</span>
+      {active ? (
+        <span className="ml-auto size-1.5 rounded-full bg-brass animate-pulse-dot" />
+      ) : null}
+    </>
+  );
+
+  return item.href ? (
+    <Link href={item.href} className={className} aria-current={active ? "page" : undefined}>
+      {content}
+    </Link>
+  ) : (
+    <button type="button" className={className} disabled={item.disabled}>
+      {content}
+    </button>
   );
 }

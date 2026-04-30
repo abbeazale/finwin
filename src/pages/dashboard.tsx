@@ -155,6 +155,7 @@ export default function Dashboard({
           firstName={firstName}
           initials={initials}
           isPending={isPending}
+          currentPath={router.pathname}
           onLogout={logout}
         />
 
@@ -163,6 +164,7 @@ export default function Dashboard({
             firstName={firstName}
             initials={initials}
             isPending={isPending}
+            currentPath={router.pathname}
             onLogout={logout}
             onRefreshed={async (result) => {
               await invalidateDashboard();
