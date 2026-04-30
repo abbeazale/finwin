@@ -2,6 +2,17 @@
 
 ## 2026-04-30
 
+### Dashboard mobile navigation restored
+
+- Diagnosed the dashboard sidebar disappearing on narrower screens: `DashboardSidebar` was explicitly `hidden` below the `lg` breakpoint and there was no mobile navigation replacement.
+- Added a compact `lg:hidden` navigation dropdown to `DashboardHeader` so dashboard navigation remains available on tablet/mobile widths.
+- Shared nav item definitions between the desktop sidebar and mobile header menu, and made active-state detection path-based instead of hardcoded to Desk.
+- Verified:
+  - `bunx eslint src/components/dashboard/sidebar.tsx src/components/dashboard/header.tsx src/pages/dashboard.tsx`
+  - `bunx tsc --noEmit`
+  - `bun run build`
+- Browser automation note: direct Chrome control was blocked by macOS automation permissions (`Apple event error -1743`), so visual verification was limited to deterministic class inspection and build/type checks.
+
 ### Plaid link-token 500 diagnosed
 
 - Reproduced the Plaid `plaid.createLinkToken` failure by calling the tRPC procedure locally with a synthetic user context.

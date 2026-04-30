@@ -1,8 +1,12 @@
 import Link from "next/link";
-import { ChevronDown, LogOut, Settings } from "lucide-react";
+import { ChevronDown, LogOut, Menu, Settings } from "lucide-react";
 import { ConnectBank, type ConnectBankResult } from "@/components/connect-bank";
 import { RefreshTransactions, type RefreshResult } from "@/components/refresh-transactions";
 import { Button } from "@/components/ui/button";
+import {
+  dashboardNavItems,
+  isDashboardNavItemActive,
+} from "@/components/dashboard/sidebar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +21,7 @@ type DashboardHeaderProps = {
   firstName: string;
   initials: string;
   isPending: boolean;
+  currentPath: string;
   onLogout: () => void;
   onRefreshed: (t: RefreshResult) => void;
   onConnected: (result: ConnectBankResult) => void;
@@ -26,6 +31,7 @@ export function DashboardHeader({
   firstName,
   initials,
   isPending,
+  currentPath,
   onLogout,
   onRefreshed,
   onConnected,
@@ -33,6 +39,60 @@ export function DashboardHeader({
   return (
     <div className="sticky top-0 z-20 flex items-center justify-between border-b border-[var(--stroke)] bg-[var(--ink-0)]/80 px-6 py-3 smoked">
       <div className="flex items-center gap-6">
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="btn-ghost flex size-9 rounded-[2px] border-[var(--stroke-2)] p-0 shadow-none lg:hidden"
+              aria-label="Open navigation"
+            >
+              <Menu className="size-4" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent
+            align="start"
+            className="min-w-56 border-[var(--stroke-2)] bg-[var(--ink-1)] p-1 text-bone shadow-2xl"
+          >
+            <DropdownMenuLabel className="label-eyebrow px-2 py-2 font-normal">
+              FinWin
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator className="bg-[var(--stroke)]" />
+            <DropdownMenuGroup>
+              {dashboardNavItems.map((item) => {
+                const Icon = item.icon;
+                const active = isDashboardNavItemActive(item, currentPath);
+                const className = `gap-3 rounded-[2px] px-2 py-2 text-[11px] uppercase tracking-[0.12em] ${
+                  active
+                    ? "bg-[rgba(201,164,107,0.08)] text-brass-hi focus:bg-[rgba(201,164,107,0.08)] focus:text-brass-hi"
+                    : "text-bone-mute focus:bg-[var(--ink-2-solid)] focus:text-bone"
+                }`;
+
+                return item.href ? (
+                  <DropdownMenuItem key={item.label} asChild className={className}>
+                    <Link href={item.href} aria-current={active ? "page" : undefined}>
+                      <Icon className="size-3.5" />
+                      {item.label}
+                      {active ? (
+                        <span className="ml-auto size-1.5 rounded-full bg-brass animate-pulse-dot" />
+                      ) : null}
+                    </Link>
+                  </DropdownMenuItem>
+                ) : (
+                  <DropdownMenuItem
+                    key={item.label}
+                    disabled={item.disabled}
+                    className={`${className} opacity-45`}
+                  >
+                    <Icon className="size-3.5" />
+                    {item.label}
+                  </DropdownMenuItem>
+                );
+              })}
+            </DropdownMenuGroup>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
           <span className="label-eyebrow-brass">Live · market open</span>
