@@ -11,10 +11,10 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSession } from "@/lib/auth-client";
-import { trpc } from "@/lib/trpc";
+import { trpc, type RouterInputs, type RouterOutputs } from "@/lib/trpc";
 
 type CategoryFilterValue = "all" | "uncategorized" | string;
-type PendingFilterValue = "all" | "pending" | "posted";
+type PendingFilterValue = NonNullable<RouterInputs["transactions"]["list"]["pending"]>;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   month: "short",
@@ -111,7 +111,6 @@ export default function TransactionsPage() {
       </div>
 
       <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
-        {/* Header */}
         <header className="mb-12 flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <Link
@@ -150,7 +149,6 @@ export default function TransactionsPage() {
           </div>
         </header>
 
-        {/* Uncategorized callout */}
         {data && data.uncategorizedCount > 0 ? (
           <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-md border border-[rgba(212,154,74,0.32)] bg-[rgba(212,154,74,0.06)] px-5 py-4">
             <div className="flex items-start gap-3">
@@ -193,7 +191,6 @@ export default function TransactionsPage() {
           </p>
         ) : null}
 
-        {/* Filter bar */}
         <section className="mb-8 overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
           <div className="flex items-center justify-between border-b border-[var(--stroke)] px-5 py-3">
             <span className="label-eyebrow-brass">Filter</span>
@@ -288,9 +285,7 @@ export default function TransactionsPage() {
           </div>
         </section>
 
-        {/* Tape */}
         <section className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
-          {/* Column head */}
           <div className="grid grid-cols-[88px_1fr_auto] gap-4 border-b border-[var(--stroke)] px-5 py-3 md:grid-cols-[88px_1.6fr_1fr_140px]">
             <span className="label-eyebrow">Date</span>
             <span className="label-eyebrow">Merchant</span>
@@ -330,7 +325,6 @@ export default function TransactionsPage() {
                     key={transaction.id}
                     className="group grid grid-cols-[88px_1fr_auto] gap-4 px-5 py-3.5 transition-colors hover:bg-[var(--ink-2-solid)] md:grid-cols-[88px_1.6fr_1fr_140px] md:items-center"
                   >
-                    {/* Date */}
                     <div className="min-w-0">
                       <p className="num text-[12px] text-bone">
                         {formatDateLabel(transaction.date)}
@@ -343,7 +337,6 @@ export default function TransactionsPage() {
                       ) : null}
                     </div>
 
-                    {/* Merchant */}
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="truncate text-[13.5px] text-bone">
@@ -386,7 +379,6 @@ export default function TransactionsPage() {
                       </div>
                     </div>
 
-                    {/* Account / Category */}
                     <div className="hidden min-w-0 md:block">
                       <p className="truncate text-[12.5px] text-bone">
                         {formatAccountLabel(
@@ -412,7 +404,6 @@ export default function TransactionsPage() {
                       </div>
                     </div>
 
-                    {/* Amount */}
                     <div className="text-right">
                       <p
                         className={`num text-[14px] tracking-tight ${
@@ -434,7 +425,6 @@ export default function TransactionsPage() {
             </ul>
           )}
 
-          {/* Footer status */}
           <div className="flex items-center justify-between border-t border-[var(--stroke)] px-5 py-3">
             <span className="label-eyebrow">
               Showing {transactions.length} of {data?.totalCount ?? 0}
@@ -476,12 +466,7 @@ function PageStatus({ label }: { label: string }) {
   );
 }
 
-type CategoryOption = {
-  id: string;
-  name: string;
-  groupName: string;
-  defaultBudgetable: boolean;
-};
+type CategoryOption = RouterOutputs["transactions"]["list"]["categories"][number];
 
 type GroupedCategories = Array<{
   groupName: string;

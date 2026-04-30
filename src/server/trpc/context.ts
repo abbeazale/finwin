@@ -10,12 +10,8 @@ export type Context = {
 export async function createContext(
   opts: NodeHTTPCreateContextFnOptions<NextApiRequest, NextApiResponse>,
 ): Promise<Context> {
-  try {
-    const session = await auth.api.getSession({
-      headers: toRequestHeaders(opts.req.headers),
-    });
-    return { userId: session?.user.id ?? null };
-  } catch {
-    return { userId: null };
-  }
+  const session = await auth.api.getSession({
+    headers: toRequestHeaders(opts.req.headers),
+  });
+  return { userId: session?.user.id ?? null };
 }

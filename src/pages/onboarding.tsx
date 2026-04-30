@@ -109,7 +109,6 @@ export default function OnboardingPage({
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-ink-0 text-bone">
-      {/* Ambient atmosphere */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute -top-40 right-[20%] h-[32rem] w-[32rem] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(232,199,145,0.06), transparent 65%)" }} />
         <div className="absolute -bottom-40 left-[10%] h-[32rem] w-[48rem] blur-3xl" style={{ background: "radial-gradient(ellipse, rgba(255,154,60,0.05), transparent 60%)" }} />
@@ -124,7 +123,6 @@ export default function OnboardingPage({
           <span className="label-eyebrow">Form · 02 / 03</span>
         </div>
 
-        {/* Progress bar */}
         <div className="mt-10 grid grid-cols-3 gap-1">
           {steps.map((s) => (
             <div key={s.k} className="flex flex-col gap-2">
@@ -155,7 +153,6 @@ export default function OnboardingPage({
           </p>
 
           <form onSubmit={handleSubmit} className="mt-12 flex flex-col gap-12">
-            {/* Identity section */}
             <section className="flex flex-col gap-6">
               <div className="flex items-center gap-3">
                 <span className="label-eyebrow-brass">§ Identity</span>
@@ -208,7 +205,6 @@ export default function OnboardingPage({
               </Field>
             </section>
 
-            {/* Preferences section */}
             <section className="flex flex-col gap-6">
               <div className="flex items-center gap-3">
                 <span className="label-eyebrow-brass">§ Locale</span>

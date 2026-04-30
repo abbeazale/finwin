@@ -3,7 +3,7 @@ import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 
-type RefreshResult = {
+export type RefreshResult = {
   added: number;
   modified: number;
   removed: number;

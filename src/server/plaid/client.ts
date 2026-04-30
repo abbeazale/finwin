@@ -33,5 +33,3 @@ export function getPlaid(): PlaidApi {
 
   return cached;
 }
-
-export const plaidEnv = process.env.PLAID_ENV ?? "sandbox";

@@ -3,17 +3,16 @@ import { and, asc, desc, eq, gte, isNull, lte, sql } from "drizzle-orm";
 import { z } from "zod";
 import { bankAccounts, categories, categoryGroups, transactions } from "@/db/schema";
 import { db } from "@/index";
+import { monthDateRegex } from "@/server/lib/month";
 import { protectedProcedure, router } from "../trpc";
-
-const datePattern = /^\d{4}-\d{2}-\d{2}$/;
 
 const listTransactionsInput = z.object({
   accountId: z.string().uuid().optional(),
   categoryId: z.string().uuid().optional(),
   uncategorizedOnly: z.boolean().default(false),
   pending: z.enum(["all", "pending", "posted"]).default("all"),
-  dateFrom: z.string().regex(datePattern).optional(),
-  dateTo: z.string().regex(datePattern).optional(),
+  dateFrom: z.string().regex(monthDateRegex).optional(),
+  dateTo: z.string().regex(monthDateRegex).optional(),
   includeInactiveAccounts: z.boolean().default(false),
   sortBy: z.enum(["date_desc", "amount_asc"]).default("date_desc"),
   limit: z.number().int().min(1).max(250).default(100),

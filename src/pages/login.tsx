@@ -15,7 +15,6 @@ export default function Login() {
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-ink-0 text-bone">
-      {/* Ambient atmosphere */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute -top-40 right-[10%] h-[36rem] w-[36rem] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(232,199,145,0.08), transparent 65%)" }} />
         <div className="absolute -bottom-48 left-[5%] h-[40rem] w-[52rem] blur-3xl" style={{ background: "radial-gradient(ellipse, rgba(255,154,60,0.06), transparent 60%)" }} />
@@ -23,7 +22,6 @@ export default function Login() {
       </div>
 
       <div className="relative z-10 mx-auto flex min-h-screen max-w-6xl flex-col px-6 py-8 sm:px-10">
-        {/* Header */}
         <div className="flex items-center justify-between">
           <Link href="/" className="flex items-baseline gap-2.5">
             <span className="display text-[22px] leading-none text-bone">
@@ -33,9 +31,7 @@ export default function Login() {
           <span className="label-eyebrow">Reception · 2026</span>
         </div>
 
-        {/* Two-column: the room, and the form */}
         <div className="mt-16 grid flex-1 gap-16 lg:grid-cols-[0.95fr_1fr] lg:items-center lg:gap-24">
-          {/* LEFT — the room */}
           <aside className="hidden lg:flex lg:flex-col lg:gap-10 animate-fade-slide">
             <div>
               <div className="mb-6 flex items-center gap-3">
@@ -52,7 +48,6 @@ export default function Login() {
               </p>
             </div>
 
-            {/* Instrument sample */}
             <div className="relative rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)] p-5 cove">
               <div className="mb-4 flex items-center justify-between">
                 <span className="label-eyebrow">Desk readout</span>
@@ -88,9 +83,7 @@ export default function Login() {
             </div>
           </aside>
 
-          {/* RIGHT — form */}
           <section className="relative animate-fade-slide" style={{ animationDelay: "140ms" }}>
-            {/* Toggle */}
             <div className="relative mx-auto mb-10 flex w-full max-w-md overflow-hidden rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)] p-1">
               <div
                 className={`absolute inset-y-1 left-1 w-[calc(50%-4px)] rounded-[2px] bg-gradient-to-b from-[var(--brass-hi)] via-[var(--brass)] to-[var(--brass-lo)] transition-transform duration-500 ease-out ${
@@ -121,7 +114,6 @@ export default function Login() {
               </Button>
             </div>
 
-            {/* Form panel */}
             <div className="relative mx-auto w-full max-w-md rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)] p-8 cove sm:p-10 brackets">
               <div className="pointer-events-none absolute inset-x-0 top-0 h-px" style={{ background: "linear-gradient(90deg, transparent, var(--brass-hi), transparent)", opacity: 0.4 }} />
               {activePage === "signin" ? <LoginForm /> : <SignupComponent />}

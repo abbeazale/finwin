@@ -1,5 +1,52 @@
 # FinWin Ledger
 
+## 2026-04-30
+
+### Plaid link-token 500 diagnosed
+
+- Reproduced the Plaid `plaid.createLinkToken` failure by calling the tRPC procedure locally with a synthetic user context.
+- Root cause from Plaid: `INVALID_API_KEYS` (`invalid client_id or secret provided`) for the configured `PLAID_ENV=production`; the same local credentials also failed against sandbox.
+- Updated `src/server/trpc/routers/plaid.ts` so `INVALID_API_KEYS` now surfaces an actionable tRPC message that points at `PLAID_CLIENT_ID`, `PLAID_SECRET`, and `PLAID_ENV` instead of the generic "Failed to create link token."
+- Verified:
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/server/trpc/routers/plaid.ts`
+- **Next**: replace the local Plaid credentials with a matching `client_id`/secret/environment pair, restart the dev server, then retry Connect bank.
+
+## 2026-04-29
+
+### Code quality cleanup pass shipped
+
+- Coordinated eight focused cleanup passes across duplication, shared types, unused code, circular dependencies, weak types, defensive error handling, legacy code, and stale comments.
+- Added Knip as repo tooling with `bun run knip` and `knip.json`; current scan passes with Tailwind/shadcn tooling intentionally ignored.
+- Removed unused generated UI wrappers and orphan files:
+  - `src/components/ui/badge.tsx`
+  - `src/components/ui/button-group.tsx`
+  - `src/components/ui/card.tsx`
+  - `src/components/ui/field.tsx`
+  - `src/components/ui/input.tsx`
+  - `src/components/ui/label.tsx`
+  - `src/components/ui/progress.tsx`
+  - `src/components/ui/separator.tsx`
+  - `src/components/ui/skeleton.tsx`
+  - `src/features/connections/plaid/plaid.ts`
+  - `src/login/page.jsx`
+  - `src/server/db/schema.ts`
+- Moved Plaid category mapping from `src/server/trpc/category-map.ts` to `src/server/lib/category-map.ts` so Plaid sync no longer depends on a tRPC module.
+- Consolidated reusable server helpers:
+  - month input validation/date math in `src/server/lib/month.ts`
+  - money serialization in `src/server/lib/money.ts`
+  - Plaid encrypted-token row decryption in `src/server/plaid/crypto.ts`
+  - Plaid API error extraction in `src/server/plaid/errors.ts`
+- Tightened type contracts by deriving client page shapes from `RouterOutputs` and replacing unsafe Plaid error/JWK casts with guarded helpers.
+- Removed stale/noisy comments and preserved comments only where they explain integration contracts or non-obvious financial behavior.
+- Verified:
+  - `bunx tsc --noEmit`
+  - `bun run lint`
+  - `bun run knip`
+  - `bunx madge --circular --extensions ts,tsx --ts-config tsconfig.json src`
+  - `bun run build`
+- Build note: Next still warns that it inferred `/Users/abbe` as the workspace root because `/Users/abbe/package-lock.json` exists above the project; build otherwise passes.
+
 ## 2026-04-22
 
 ### Better Auth passkey + TOTP MFA baseline shipped

@@ -4,12 +4,14 @@ import { Plus, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 
+export type ConnectBankResult = { connectionId: string; accountCount: number };
+
 type ConnectBankProps = {
   /** Pass to reconnect (Plaid Link update mode) an existing connection. */
   connectionId?: string;
   label?: string;
   className?: string;
-  onConnected?: (result: { connectionId: string; accountCount: number }) => void;
+  onConnected?: (result: ConnectBankResult) => void;
   onReconnected?: (connectionId: string) => void;
 };
 

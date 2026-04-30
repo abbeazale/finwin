@@ -11,11 +11,7 @@ const authBaseURL = process.env.BETTER_AUTH_URL?.replace(/\/$/, "");
 function getAuthHost() {
   if (!authBaseURL) return undefined;
 
-  try {
-    return new URL(authBaseURL).hostname;
-  } catch {
-    return undefined;
-  }
+  return new URL(authBaseURL).hostname;
 }
 
 export const auth = betterAuth({
