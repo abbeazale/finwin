@@ -10,11 +10,11 @@
 - `src/server/trpc/routers/dashboard.ts` — dashboard overview, cashflow, spending-by-category, and recent transaction queries
 - `src/server/trpc/routers/plaid.ts` — all Plaid procedures
 - `src/server/trpc/routers/transactions.ts` — transaction listing query plus category reassignment mutation for `/transactions`
-- `src/server/trpc/category-map.ts` — Plaid PFC → our category name mapping (TS const)
+- `src/server/lib/category-map.ts` — Plaid PFC → our category name mapping (TS const)
 - `src/server/plaid/crypto.ts` — application-layer AES-256-GCM encryption/decryption for Plaid access tokens
 - `src/server/plaid/sync.ts` — Plaid transaction sync with auto-categorization
 - `src/pages/dashboard.tsx` — main dashboard; Budget Progress now reads from `budgets.summary`
-- `src/pages/budgets.tsx` — monthly budgets desk built with shadcn cards/fields and Recharts via shadcn chart
+- `src/pages/budgets.tsx` — monthly budgets desk with Recharts via the retained shadcn chart wrapper
 - `src/pages/transactions.tsx` — production transaction ledger view with filters, uncategorized nudge, and inline category reassignment
 - `src/pages/settings/security.tsx` — passkey enrollment and TOTP setup surface
 - `src/pages/two-factor.tsx` — TOTP / backup-code challenge page for password sign-in when 2FA is enabled
@@ -35,6 +35,7 @@
 - `bun run dev`
 - `bun run build`
 - `bun run lint`
+- `bun run knip` — unused-file/export scan; Tailwind and shadcn tooling are intentionally ignored in `knip.json`
 - `bun run dbreset` — drops and remigrates the DB (non-production only)
 - `bun run seed` — idempotent category seed; run once against a fresh DB before testing sync
 
@@ -48,7 +49,7 @@
 - Plaid token encryption — server-side AES-256-GCM with versioned env-provided keys
 - tRPC v11 + TanStack Query v5 — all app data routes; webhook stays as plain Next API route
 - Zod v4 — tRPC input validation
-- shadcn/ui via `components.json`
+- shadcn/ui via `components.json`; only actively imported generated components are kept in `src/components/ui`
 
 ## Router Conventions
 

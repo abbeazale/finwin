@@ -6,22 +6,35 @@ import { db } from "@/index";
 import { bankAccounts, bankConnections, transactions } from "@/db/schema";
 import { getPlaid } from "@/server/plaid/client";
 import {
-  decryptPlaidAccessToken,
+  decryptPlaidAccessTokenFromRow,
   encryptPlaidAccessToken,
 } from "@/server/plaid/crypto";
-import { syncConnection } from "@/server/plaid/sync";
+import { getPlaidErrorData } from "@/server/plaid/errors";
+import { syncConnection, syncUserConnections } from "@/server/plaid/sync";
 import { protectedProcedure, router } from "../trpc";
 
-export type ConnectionRow = {
-  id: string;
-  status: string;
-  syncErrorCode: string | null;
-  lastSyncedAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  accounts: { name: string; mask: string | null; type: string }[];
-  lastTransactionDate: string | null;
-};
+function createPlaidLinkTokenError(err: unknown) {
+  const plaidError = getPlaidErrorData(err);
+
+  if (plaidError?.error_code === "INVALID_API_KEYS") {
+    return new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Plaid rejected the configured API keys for PLAID_ENV=${process.env.PLAID_ENV ?? "sandbox"}. Check PLAID_CLIENT_ID, PLAID_SECRET, and PLAID_ENV.`,
+    });
+  }
+
+  if (err instanceof Error && err.message.includes("PLAID_CLIENT_ID and PLAID_SECRET")) {
+    return new TRPCError({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Plaid credentials are missing. Set PLAID_CLIENT_ID and PLAID_SECRET.",
+    });
+  }
+
+  return new TRPCError({
+    code: "INTERNAL_SERVER_ERROR",
+    message: "Failed to create link token.",
+  });
+}
 
 export const plaidRouter = router({
   createLinkToken: protectedProcedure
@@ -43,10 +56,7 @@ export const plaidRouter = router({
           )
           .limit(1);
         if (!conn) throw new TRPCError({ code: "NOT_FOUND", message: "Connection not found." });
-        updateAccessToken = decryptPlaidAccessToken(
-          conn.accessTokenEncrypted,
-          conn.accessTokenKeyVersion,
-        );
+        updateAccessToken = decryptPlaidAccessTokenFromRow(conn);
       }
 
       try {
@@ -60,10 +70,9 @@ export const plaidRouter = router({
           access_token: updateAccessToken,
         });
         return { link_token: data.link_token, expiration: data.expiration };
-      } catch (err: unknown) {
-        const plaidErr = (err as { response?: { data?: unknown } })?.response?.data;
-        console.error("plaid linkTokenCreate failed", plaidErr ?? err);
-        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to create link token." });
+      } catch (err) {
+        console.error("plaid linkTokenCreate failed", getPlaidErrorData(err) ?? err);
+        throw createPlaidLinkTokenError(err);
       }
     }),
 
@@ -124,10 +133,9 @@ export const plaidRouter = router({
           accountCount: accountsRes.accounts.length,
           initialSync,
         };
-      } catch (err: unknown) {
+      } catch (err) {
         if (err instanceof TRPCError) throw err;
-        const plaidErr = (err as { response?: { data?: unknown } })?.response?.data;
-        console.error("plaid exchange failed", plaidErr ?? err);
+        console.error("plaid exchange failed", getPlaidErrorData(err) ?? err);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to exchange public token." });
       }
     }),
@@ -156,27 +164,11 @@ export const plaidRouter = router({
           };
         }
 
-        const connectionRows = await db
-          .select({ id: bankConnections.id })
-          .from(bankConnections)
-          .where(
-            and(
-              eq(bankConnections.userId, ctx.userId),
-              eq(bankConnections.status, "active"),
-            ),
-          );
-
-        const results = await Promise.all(
-          connectionRows.map(async (row) => {
-            const result = await syncConnection(row.id);
-            return { connectionId: row.id, ...result };
-          }),
-        );
+        const results = await syncUserConnections(ctx.userId);
         return { results };
-      } catch (err: unknown) {
+      } catch (err) {
         if (err instanceof TRPCError) throw err;
-        const plaidErr = (err as { response?: { data?: unknown } })?.response?.data;
-        console.error("plaid sync failed", plaidErr ?? err);
+        console.error("plaid sync failed", getPlaidErrorData(err) ?? err);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Sync failed." });
       }
     }),
@@ -195,7 +187,7 @@ export const plaidRouter = router({
       .where(eq(bankConnections.userId, ctx.userId))
       .orderBy(desc(bankConnections.createdAt));
 
-    const connections: ConnectionRow[] = await Promise.all(
+    const connections = await Promise.all(
       rows.map(async (r) => {
         const accts = await db
           .select({
@@ -246,14 +238,13 @@ export const plaidRouter = router({
       if (!connection) throw new TRPCError({ code: "NOT_FOUND", message: "Connection not found." });
 
       try {
-        const accessToken = decryptPlaidAccessToken(
-          connection.accessTokenEncrypted,
-          connection.accessTokenKeyVersion,
-        );
+        const accessToken = decryptPlaidAccessTokenFromRow(connection);
         await getPlaid().itemRemove({ access_token: accessToken });
       } catch (err) {
-        const plaidErr = (err as { response?: { data?: unknown } })?.response?.data;
-        console.error("plaid itemRemove failed (continuing with local unlink)", plaidErr ?? err);
+        console.error(
+          "plaid itemRemove failed (continuing with local unlink)",
+          getPlaidErrorData(err) ?? err,
+        );
       }
 
       await db.transaction(async (tx) => {

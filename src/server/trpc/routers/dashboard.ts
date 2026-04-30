@@ -7,21 +7,13 @@ import {
   transactions,
 } from "@/db/schema";
 import { db } from "@/index";
+import {
+  getNextMonthStart,
+  getPreviousMonthStart,
+  monthInputSchema,
+} from "@/server/lib/month";
+import { formatMoneyValue } from "@/server/lib/money";
 import { protectedProcedure, router } from "../trpc";
-
-const monthPattern = /^\d{4}-\d{2}-\d{2}$/;
-
-const monthInputSchema = z.object({
-  month: z.string().regex(monthPattern),
-}).superRefine((value, ctx) => {
-  if (!isFirstOfMonth(value.month)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Month must be the first day of a month.",
-      path: ["month"],
-    });
-  }
-});
 
 const recentTransactionsInput = monthInputSchema.extend({
   limit: z.number().int().min(1).max(12).default(7),
@@ -49,9 +41,9 @@ export const dashboardRouter = router({
         comparisonMonth,
         comparisonAvailable,
         totals: {
-          inflow: formatMoneyValue(current.inflow) ?? "0.00",
-          outflow: formatMoneyValue(current.outflow) ?? "0.00",
-          netCashflow: formatMoneyValue(current.netCashflow) ?? "0.00",
+          inflow: formatMoneyValue(current.inflow),
+          outflow: formatMoneyValue(current.outflow),
+          netCashflow: formatMoneyValue(current.netCashflow),
           savingsRate: getSavingsRate(current.inflow, current.netCashflow),
         },
         deltas: {
@@ -103,9 +95,9 @@ export const dashboardRouter = router({
         const row = rowsByDate.get(date);
         return {
           date,
-          inflowAmount: formatMoneyValue(row?.inflow ?? 0) ?? "0.00",
-          outflowAmount: formatMoneyValue(row?.outflow ?? 0) ?? "0.00",
-          netAmount: formatMoneyValue(row?.netAmount ?? 0) ?? "0.00",
+          inflowAmount: formatMoneyValue(row?.inflow ?? 0),
+          outflowAmount: formatMoneyValue(row?.outflow ?? 0),
+          netAmount: formatMoneyValue(row?.netAmount ?? 0),
         };
       });
 
@@ -160,14 +152,14 @@ export const dashboardRouter = router({
       return {
         month: input.month,
         totals: {
-          totalTrackedSpend: formatMoneyValue(totalTrackedSpend) ?? "0.00",
+          totalTrackedSpend: formatMoneyValue(totalTrackedSpend),
           categoryCount: normalizedRows.length,
         },
         rows: normalizedRows.slice(0, input.limit).map((row) => ({
           categoryId: row.categoryId,
           categoryName: row.categoryName,
           groupName: row.groupName,
-          spendAmount: formatMoneyValue(row.spendAmount) ?? "0.00",
+          spendAmount: formatMoneyValue(row.spendAmount),
           shareOfTotal: totalTrackedSpend > 0 ? row.spendAmount / totalTrackedSpend : null,
         })),
       };
@@ -268,29 +260,6 @@ function getSpendingByCategoryCondition() {
   );
 }
 
-function isFirstOfMonth(value: string) {
-  const parts = value.split("-");
-  return parts.length === 3 && parts[2] === "01";
-}
-
-function getNextMonthStart(value: string) {
-  const [year, month] = value.split("-").map(Number);
-  const nextDate = new Date(Date.UTC(year, month, 1));
-  const nextYear = nextDate.getUTCFullYear();
-  const nextMonth = `${nextDate.getUTCMonth() + 1}`.padStart(2, "0");
-
-  return `${nextYear}-${nextMonth}-01`;
-}
-
-function getPreviousMonthStart(value: string) {
-  const [year, month] = value.split("-").map(Number);
-  const previousDate = new Date(Date.UTC(year, month - 2, 1));
-  const previousYear = previousDate.getUTCFullYear();
-  const previousMonth = `${previousDate.getUTCMonth() + 1}`.padStart(2, "0");
-
-  return `${previousYear}-${previousMonth}-01`;
-}
-
 function getMonthDays(value: string) {
   const [year, month] = value.split("-").map(Number);
   const dayCount = new Date(Date.UTC(year, month, 0)).getUTCDate();
@@ -319,12 +288,4 @@ function getChangeRatio(
   }
 
   return (currentValue - previousValue) / Math.abs(previousValue);
-}
-
-function formatMoneyValue(value: number | null) {
-  if (value === null) {
-    return null;
-  }
-
-  return value.toFixed(2);
 }

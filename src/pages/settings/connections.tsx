@@ -43,14 +43,12 @@ export default function ConnectionsSettings() {
 
   return (
     <div className="relative min-h-screen bg-ink-0 text-bone">
-      {/* Atmosphere */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute -top-40 right-[15%] h-[30rem] w-[30rem] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(232,199,145,0.05), transparent 65%)" }} />
         <div className="absolute -bottom-40 left-0 h-[28rem] w-[48rem] blur-3xl" style={{ background: "radial-gradient(ellipse, rgba(255,154,60,0.04), transparent 60%)" }} />
       </div>
 
       <div className="relative z-10 mx-auto w-full max-w-5xl px-6 py-10 sm:px-10">
-        {/* Header */}
         <div className="mb-12 flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <Link
@@ -76,7 +74,6 @@ export default function ConnectionsSettings() {
             <ConnectBank onConnected={() => void connectionsQuery.refetch()} />
           </div>
 
-          {/* Settings nav tabs */}
           <div className="flex items-center gap-px overflow-x-auto border-b border-[var(--stroke)]">
             {[
               { label: "Connections", active: true, href: "/settings/connections" },

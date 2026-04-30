@@ -39,14 +39,12 @@ const roomSpec = [
 export default function Home() {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-ink-0 text-bone">
-      {/* ── Ambient atmosphere: tungsten bloom + city glow + architectural grid ── */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div className="absolute -top-48 right-1/4 h-[40rem] w-[40rem] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(232,199,145,0.07), transparent 65%)" }} />
         <div className="absolute -bottom-40 left-0 h-[36rem] w-[60rem] blur-3xl" style={{ background: "radial-gradient(ellipse, rgba(255,154,60,0.06), transparent 60%)" }} />
         <div className="grid-plan absolute inset-0 opacity-[0.35] [mask-image:radial-gradient(ellipse_60%_50%_at_50%_30%,#000,transparent_80%)]" />
       </div>
 
-      {/* ── Ticker strip ── */}
       <div className="relative z-20 overflow-hidden border-b border-[var(--stroke)] bg-[var(--ink-1)]">
         <div className="flex w-max animate-ticker py-2.5">
           {[...marquee, ...marquee, ...marquee].map((item, i) => (
@@ -60,7 +58,6 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 mx-auto max-w-7xl px-6 pb-24 pt-8 sm:px-10">
-        {/* ── Header ── */}
         <header className="flex items-center justify-between">
           <Link href="/" className="flex items-baseline gap-2.5">
             <span className="display text-[26px] leading-none tracking-tight text-bone">Fin<span className="italic text-brass">Win</span></span>
@@ -99,7 +96,6 @@ export default function Home() {
           </div>
         </header>
 
-        {/* ── Hero ── */}
         <main>
           <section className="relative mt-16 grid gap-16 lg:mt-24 lg:grid-cols-[1.1fr_0.9fr] lg:items-end lg:gap-24">
             <div className="animate-fade-slide">
@@ -132,7 +128,6 @@ export default function Home() {
                 </a>
               </div>
 
-              {/* Spec sheet */}
               <div className="mt-14 grid max-w-md grid-cols-2 gap-x-10 gap-y-3 border-t border-[var(--stroke)] pt-6">
                 {roomSpec.map(([k, v]) => (
                   <div key={k} className="flex flex-col gap-1">
@@ -143,9 +138,7 @@ export default function Home() {
               </div>
             </div>
 
-            {/* ── Window with desk silhouette ── */}
             <div className="relative animate-fade-in" style={{ animationDelay: "220ms" }}>
-              {/* Window frame */}
               <div className="relative overflow-hidden rounded-[3px] border border-[var(--stroke-2)] bg-[var(--ink-1)] p-3 cove">
                 <div className="mb-3 flex items-center justify-between px-1">
                   <div className="flex items-center gap-2">
@@ -156,15 +149,10 @@ export default function Home() {
                   <span className="label-eyebrow">NORTH · 42F · 22:14</span>
                 </div>
 
-                {/* The "window" — a night skyline */}
                 <div className="relative aspect-[5/4] overflow-hidden rounded-[2px] border border-[var(--stroke-2)]" style={{ background: "linear-gradient(180deg, #0e0d0b 0%, #1a140d 50%, #2a1f14 85%, #3a2c1a 100%)" }}>
-                  {/* moon / tungsten */}
                   <div className="absolute right-[14%] top-[18%] h-12 w-12 rounded-full" style={{ background: "radial-gradient(circle, #e8c791 0%, #c9a46b 35%, transparent 70%)", filter: "blur(0.5px)", opacity: 0.65 }} />
-                  {/* horizon glow */}
                   <div className="absolute inset-x-0 bottom-[22%] h-24" style={{ background: "linear-gradient(0deg, rgba(255,154,60,0.32) 0%, transparent 100%)" }} />
-                  {/* skyline */}
                   <div className="skyline absolute inset-x-0 bottom-0 h-[55%]" />
-                  {/* lit windows */}
                   <div className="absolute inset-x-0 bottom-[8%] h-[40%]">
                     {Array.from({ length: 28 }).map((_, i) => {
                       const left = (i * 37) % 100;
@@ -187,22 +175,17 @@ export default function Home() {
                       );
                     })}
                   </div>
-                  {/* window blinds overlay */}
                   <div className="blinds pointer-events-none absolute inset-0 opacity-70" />
-                  {/* mullions */}
                   <div className="pointer-events-none absolute inset-0">
                     <div className="absolute inset-y-0 left-1/3 w-px bg-[var(--ink-0)]" />
                     <div className="absolute inset-y-0 left-2/3 w-px bg-[var(--ink-0)]" />
                     <div className="absolute inset-x-0 top-1/2 h-px bg-[var(--ink-0)]" />
                   </div>
 
-                  {/* Desk silhouette at base — foreground "command center" */}
                   <div className="absolute inset-x-8 bottom-0 h-[32%]">
                     <div className="absolute inset-x-0 bottom-0 h-4" style={{ background: "linear-gradient(180deg, #3b2817 0%, #1d1c18 100%)", borderTop: "1px solid rgba(201,164,107,0.4)" }} />
-                    {/* monitor */}
                     <div className="absolute left-1/2 bottom-4 h-[60%] w-[55%] -translate-x-1/2 rounded-[2px] border border-[var(--brass-lo)]" style={{ background: "linear-gradient(180deg, #17161310 0%, #0a0a09 100%)", boxShadow: "0 0 24px -4px rgba(232,199,145,0.35)" }}>
                       <div className="relative m-1.5 h-[calc(100%-12px)] overflow-hidden rounded-[1px] bg-[var(--ink-0)]">
-                        {/* mini-chart */}
                         <svg viewBox="0 0 100 40" className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
                           <defs>
                             <linearGradient id="sparkfill" x1="0" y1="0" x2="0" y2="1">
@@ -217,13 +200,11 @@ export default function Home() {
                     </div>
                   </div>
 
-                  {/* brass gleam sweep */}
                   <div className="pointer-events-none absolute inset-0">
                     <div className="animate-brass-gleam absolute inset-y-0 w-1/3" style={{ background: "linear-gradient(110deg, transparent, rgba(232,199,145,0.18), transparent)" }} />
                   </div>
                 </div>
 
-                {/* Instrument readout beneath window */}
                 <div className="mt-3 grid grid-cols-3 divide-x divide-[var(--stroke)] overflow-hidden rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-0)]">
                   <Readout eyebrow="NET / M" value="+$2,770" tone="sage" />
                   <Readout eyebrow="BUDGET" value="62%" tone="amber" />
@@ -231,7 +212,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Frame caption */}
               <div className="mt-3 flex items-center justify-between">
                 <span className="label-eyebrow">Fig. 01 — The desk, facing outward</span>
                 <span className="num text-[10px] text-bone-faint">[view:22·14]</span>
@@ -239,7 +219,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── Capabilities ── */}
           <section id="capabilities" className="mt-32">
             <div className="mb-16 grid gap-4 md:grid-cols-[1fr_1.4fr] md:items-end">
               <div>
@@ -297,7 +276,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── Method ── */}
           <section id="method" className="mt-32">
             <div className="grid gap-8 md:grid-cols-[1fr_2fr] md:gap-16">
               <div className="md:sticky md:top-12 md:self-start">
@@ -329,7 +307,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── Ledger / CTA ── */}
           <section id="ledger" className="relative mt-32 overflow-hidden rounded-[3px] border border-[var(--stroke-2)] brackets">
             <div className="absolute inset-0 blinds pointer-events-none opacity-50" />
             <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at 70% 120%, rgba(255,154,60,0.09), transparent 60%), radial-gradient(ellipse at 20% -10%, rgba(232,199,145,0.06), transparent 50%)" }} />
@@ -361,7 +338,6 @@ export default function Home() {
                 </div>
               </div>
 
-              {/* Architectural ledger block */}
               <div className="relative rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)]/70 p-6 smoked">
                 <div className="mb-4 flex items-center justify-between">
                   <span className="label-eyebrow">Ledger · preview</span>
@@ -386,7 +362,6 @@ export default function Home() {
             </div>
           </section>
 
-          {/* ── Footer ── */}
           <footer className="mt-20 grid gap-6 border-t border-[var(--stroke)] pt-10 md:grid-cols-3">
             <div>
               <span className="display text-[22px] text-bone">Fin<span className="italic text-brass">Win</span></span>

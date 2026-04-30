@@ -1,13 +1,20 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
+import { z } from "zod";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH_BYTES = 12;
 const KEY_LENGTH_BYTES = 32;
 const PAYLOAD_VERSION = "v1";
+const keyMapSchema = z.record(z.string(), z.string());
 
 type EncryptionResult = {
   encrypted: string;
   keyVersion: string;
+};
+
+type EncryptedPlaidAccessTokenRow = {
+  accessTokenEncrypted: string;
+  accessTokenKeyVersion: string;
 };
 
 type KeyConfig = {
@@ -36,7 +43,7 @@ export function encryptPlaidAccessToken(plaintext: string): EncryptionResult {
   };
 }
 
-export function decryptPlaidAccessToken(encrypted: string, keyVersion: string) {
+function decryptPlaidAccessToken(encrypted: string, keyVersion: string) {
   getKeyConfig();
   const key = getKeyForVersion(keyVersion);
   const parts = encrypted.split(":");
@@ -57,6 +64,15 @@ export function decryptPlaidAccessToken(encrypted: string, keyVersion: string) {
   return plaintext.toString("utf8");
 }
 
+/**
+ * Convenience wrapper for the common `bank_connections`-row decryption shape:
+ * routers and the sync path all read `accessTokenEncrypted` +
+ * `accessTokenKeyVersion` together, so co-locate the unpack here.
+ */
+export function decryptPlaidAccessTokenFromRow(row: EncryptedPlaidAccessTokenRow) {
+  return decryptPlaidAccessToken(row.accessTokenEncrypted, row.accessTokenKeyVersion);
+}
+
 function getKeyConfig(): KeyConfig {
   keyConfigCache ??= loadKeyConfig();
   return keyConfigCache;
@@ -74,24 +90,21 @@ function loadKeyConfig(): KeyConfig {
     throw new Error("PLAID_TOKEN_ENCRYPTION_KEYS must be set.");
   }
 
-  let parsed: unknown;
+  let parsedJson;
   try {
-    parsed = JSON.parse(rawKeys);
+    parsedJson = JSON.parse(rawKeys);
   } catch {
     throw new Error("PLAID_TOKEN_ENCRYPTION_KEYS must be valid JSON.");
   }
 
-  if (!parsed || typeof parsed !== "object" || Array.isArray(parsed)) {
-    throw new Error("PLAID_TOKEN_ENCRYPTION_KEYS must be a JSON object.");
+  const parsed = keyMapSchema.safeParse(parsedJson);
+  if (!parsed.success) {
+    throw new Error("PLAID_TOKEN_ENCRYPTION_KEYS must be a JSON object of base64 strings.");
   }
 
   const keys = new Map<string, Buffer>();
 
-  for (const [version, value] of Object.entries(parsed)) {
-    if (typeof value !== "string") {
-      throw new Error(`Encryption key for version "${version}" must be a base64 string.`);
-    }
-
+  for (const [version, value] of Object.entries(parsed.data)) {
     const key = Buffer.from(value, "base64");
     if (key.length !== KEY_LENGTH_BYTES) {
       throw new Error(

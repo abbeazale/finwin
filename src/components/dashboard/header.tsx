@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { ChevronDown, LogOut, Settings } from "lucide-react";
-import { ConnectBank } from "@/components/connect-bank";
-import { RefreshTransactions } from "@/components/refresh-transactions";
+import { ConnectBank, type ConnectBankResult } from "@/components/connect-bank";
+import { RefreshTransactions, type RefreshResult } from "@/components/refresh-transactions";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,8 +18,8 @@ type DashboardHeaderProps = {
   initials: string;
   isPending: boolean;
   onLogout: () => void;
-  onRefreshed: (t: { added: number; modified: number; removed: number; hasConnectionErrors: boolean }) => void;
-  onConnected: (result: { accountCount: number }) => void;
+  onRefreshed: (t: RefreshResult) => void;
+  onConnected: (result: ConnectBankResult) => void;
 };
 
 export function DashboardHeader({

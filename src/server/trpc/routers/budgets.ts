@@ -3,48 +3,29 @@ import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { budgets, categories, categoryGroups, transactions } from "@/db/schema";
 import { db } from "@/index";
+import {
+  getNextMonthStart,
+  monthDateRegex,
+  monthInputSchema,
+  refineFirstOfMonth,
+} from "@/server/lib/month";
+import { formatMoneyValue } from "@/server/lib/money";
 import { protectedProcedure, router } from "../trpc";
 
-const monthPattern = /^\d{4}-\d{2}-\d{2}$/;
+const upsertBudgetInput = z
+  .object({
+    categoryId: z.string().uuid(),
+    month: z.string().regex(monthDateRegex),
+    amount: z.number().finite().min(0),
+  })
+  .superRefine(refineFirstOfMonth);
 
-const monthInputSchema = z.object({
-  month: z.string().regex(monthPattern),
-}).superRefine((value, ctx) => {
-  if (!isFirstOfMonth(value.month)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Month must be the first day of a month.",
-      path: ["month"],
-    });
-  }
-});
-
-const upsertBudgetInput = z.object({
-  categoryId: z.string().uuid(),
-  month: z.string().regex(monthPattern),
-  amount: z.number().finite().min(0),
-}).superRefine((value, ctx) => {
-  if (!isFirstOfMonth(value.month)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Month must be the first day of a month.",
-      path: ["month"],
-    });
-  }
-});
-
-const deleteBudgetInput = z.object({
-  categoryId: z.string().uuid(),
-  month: z.string().regex(monthPattern),
-}).superRefine((value, ctx) => {
-  if (!isFirstOfMonth(value.month)) {
-    ctx.addIssue({
-      code: z.ZodIssueCode.custom,
-      message: "Month must be the first day of a month.",
-      path: ["month"],
-    });
-  }
-});
+const deleteBudgetInput = z
+  .object({
+    categoryId: z.string().uuid(),
+    month: z.string().regex(monthDateRegex),
+  })
+  .superRefine(refineFirstOfMonth);
 
 type SummaryStatus = "on_track" | "near_limit" | "over" | "unbudgeted" | "no_budget";
 
@@ -163,7 +144,7 @@ export const budgetsRouter = router({
           categoryId: category.categoryId,
           categoryName: category.categoryName,
           budgetAmount: formatMoneyValue(budgetAmount),
-          actualAmount: formatMoneyValue(actualAmount) ?? "0.00",
+          actualAmount: formatMoneyValue(actualAmount),
           remainingAmount: formatMoneyValue(remainingAmount),
           percentUsed,
           status,
@@ -175,9 +156,9 @@ export const budgetsRouter = router({
       return {
         month: input.month,
         totals: {
-          totalBudgeted: formatMoneyValue(totalBudgeted) ?? "0.00",
-          totalActual: formatMoneyValue(totalActual) ?? "0.00",
-          totalRemaining: formatMoneyValue(totalBudgeted - totalActual) ?? "0.00",
+          totalBudgeted: formatMoneyValue(totalBudgeted),
+          totalActual: formatMoneyValue(totalActual),
+          totalRemaining: formatMoneyValue(totalBudgeted - totalActual),
           overBudgetCount,
           unbudgetedCount,
         },
@@ -237,20 +218,6 @@ export const budgetsRouter = router({
     }),
 });
 
-function isFirstOfMonth(value: string) {
-  const parts = value.split("-");
-  return parts.length === 3 && parts[2] === "01";
-}
-
-function getNextMonthStart(value: string) {
-  const [year, month] = value.split("-").map(Number);
-  const nextDate = new Date(Date.UTC(year, month, 1));
-  const nextYear = nextDate.getUTCFullYear();
-  const nextMonth = `${nextDate.getUTCMonth() + 1}`.padStart(2, "0");
-
-  return `${nextYear}-${nextMonth}-01`;
-}
-
 async function getBudgetableCategory(categoryId: string) {
   const [category] = await db
     .select({
@@ -290,12 +257,4 @@ function getBudgetStatus({
   }
 
   return "on_track";
-}
-
-function formatMoneyValue(value: number | null) {
-  if (value === null) {
-    return null;
-  }
-
-  return value.toFixed(2);
 }

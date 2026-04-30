@@ -68,7 +68,7 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   try {
     if (payload.webhook_type === "TRANSACTIONS" && SYNC_CODES.has(payload.webhook_code)) {
-      // TODO(phase 4): move to a queue if sync latency grows.
+      // Plaid retries on non-2xx responses, so keep this handler synchronous until sync volume warrants a durable queue.
       await syncConnection(connection.id);
     } else if (payload.webhook_type === "ITEM") {
       if (payload.webhook_code === "ERROR") {

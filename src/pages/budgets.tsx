@@ -13,7 +13,7 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { useSession } from "@/lib/auth-client";
-import { trpc } from "@/lib/trpc";
+import { trpc, type RouterOutputs } from "@/lib/trpc";
 import {
   ChartContainer,
   ChartLegend,
@@ -29,15 +29,7 @@ const budgetChartConfig = {
   actual: { label: "Actual", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
-type SummaryRow = {
-  categoryId: string;
-  categoryName: string;
-  budgetAmount: string | null;
-  actualAmount: string;
-  remainingAmount: string | null;
-  percentUsed: number | null;
-  status: "on_track" | "near_limit" | "over" | "unbudgeted" | "no_budget";
-};
+type SummaryRow = RouterOutputs["budgets"]["summary"]["groups"][number]["rows"][number];
 
 const STATUS_LABELS: Record<SummaryRow["status"], string> = {
   on_track: "On track",
@@ -145,7 +137,6 @@ export default function BudgetsPage() {
 
   return (
     <div className="relative min-h-screen bg-ink-0 text-bone">
-      {/* Ambient backdrop */}
       <div className="pointer-events-none fixed inset-0 z-0">
         <div
           className="absolute -top-36 right-[10%] h-[30rem] w-[30rem] rounded-full blur-3xl"
@@ -158,7 +149,6 @@ export default function BudgetsPage() {
       </div>
 
       <div className="relative z-10 mx-auto w-full max-w-7xl px-6 py-10 sm:px-10">
-        {/* ── Header ── */}
         <header className="mb-10 flex flex-col gap-6">
           <div className="flex items-center justify-between">
             <Link
@@ -191,7 +181,6 @@ export default function BudgetsPage() {
               </p>
             </div>
 
-            {/* Month navigator */}
             <div className="flex items-center gap-1 overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] p-1 cove">
               <Button
                 type="button"
@@ -219,7 +208,6 @@ export default function BudgetsPage() {
           </div>
         </header>
 
-        {/* Error banners */}
         {(summaryQuery.error || pageError) ? (
           <p className="mb-8 flex items-center gap-3 rounded-md border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
             <CircleAlert className="size-3.5 shrink-0" />
@@ -227,9 +215,7 @@ export default function BudgetsPage() {
           </p>
         ) : null}
 
-        {/* ── KPI strip + chart ── */}
         <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-          {/* Snapshot panel */}
           <div className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
             <div className="flex items-center gap-2.5 border-b border-[var(--stroke)] px-5 py-4">
               <Target className="size-4 text-brass-hi" />
@@ -265,7 +251,6 @@ export default function BudgetsPage() {
                     />
                   </div>
 
-                  {/* Top spends */}
                   <div className="mt-5">
                     <div className="mb-3 h-px bg-[var(--stroke)]" />
                     <p className="label-eyebrow mb-3 text-bone-faint">Top spends this month</p>
@@ -318,7 +303,6 @@ export default function BudgetsPage() {
             </div>
           </div>
 
-          {/* Pressure chart */}
           <div
             className={`overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove transition-colors ${chartData.length > 0 ? "cursor-pointer hover:border-[var(--stroke-2)]" : ""}`}
             onClick={() => chartData.length > 0 && setChartModalOpen(true)}
@@ -360,7 +344,6 @@ export default function BudgetsPage() {
           </div>
         </section>
 
-        {/* ── Budget groups ── */}
         <section className="mt-8 flex flex-col gap-6">
           {summary ? (
             summary.groups.map((group) => {
@@ -444,8 +427,6 @@ export default function BudgetsPage() {
   );
 }
 
-// ── Components ────────────────────────────────────────────
-
 function BudgetCategoryCard({
   row,
   month,
@@ -518,11 +499,9 @@ function BudgetCategoryCard({
 
   return (
     <article className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-0)]/80 transition-colors hover:border-[var(--stroke-2)]">
-      {/* Status stripe */}
       <div className={`h-0.5 w-full transition-colors ${STATUS_BAR[row.status]}`} />
 
       <div className="p-5">
-        {/* Category header */}
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <p className="text-[14.5px] font-[450] text-bone">{row.categoryName}</p>
@@ -550,7 +529,6 @@ function BudgetCategoryCard({
           </div>
         </div>
 
-        {/* Progress bar */}
         {budgetAmount !== null ? (
           <div className="mt-4 flex items-center gap-3">
             <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--ink-3)]">
@@ -565,7 +543,6 @@ function BudgetCategoryCard({
           </div>
         ) : null}
 
-        {/* Inline edit form */}
         {isEditing ? (
           <div className="mt-4 rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] p-4">
             <span className="label-eyebrow mb-2.5 block">Monthly target</span>
@@ -622,14 +599,12 @@ function BudgetCategoryCard({
           </div>
         ) : (
           <>
-            {/* Budget target label */}
             {budgetAmount !== null ? (
               <p className="mt-3 text-[11px] text-bone-faint">
                 Target {formatMoney(budgetAmount)} · {formatMonthHeading(month)}
               </p>
             ) : null}
 
-            {/* Transaction list */}
             <div className="mt-4">
               <div className="mb-2 h-px bg-[var(--stroke)]" />
               {txQuery.isLoading ? (
@@ -922,10 +897,8 @@ function ChartModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
       onClick={onClose}
     >
-      {/* Backdrop */}
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
 
-      {/* Panel */}
       <div
         className="relative z-10 w-full max-w-4xl overflow-hidden rounded-lg border border-[var(--stroke)] bg-[var(--ink-1)]"
         onClick={(e) => e.stopPropagation()}
@@ -967,8 +940,6 @@ function ChartModal({
     </div>
   );
 }
-
-// ── Utilities ─────────────────────────────────────────────
 
 function getCurrentMonthStart() {
   const now = new Date();

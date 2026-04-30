@@ -3,12 +3,13 @@ import type { Transaction as PlaidTransaction, RemovedTransaction } from "plaid"
 import { db } from "@/index";
 import { bankAccounts, bankConnections, categories, categoryGroups, transactions } from "@/db/schema";
 import { getPlaid } from "./client";
-import { decryptPlaidAccessToken } from "./crypto";
-import { PLAID_CATEGORY_MAP, PLAID_PRIMARY_FALLBACK_MAP } from "@/server/trpc/category-map";
+import { decryptPlaidAccessTokenFromRow } from "./crypto";
+import { getPlaidErrorCode } from "./errors";
+import { PLAID_CATEGORY_MAP, PLAID_PRIMARY_FALLBACK_MAP } from "@/server/lib/category-map";
 
-export type SyncErrorReason = "login_required" | "locked" | "cursor_reset" | "unknown" | null;
+type SyncErrorReason = "login_required" | "locked" | "cursor_reset" | "unknown" | null;
 
-export type SyncResult = {
+type SyncResult = {
   added: number;
   modified: number;
   removed: number;
@@ -51,11 +52,6 @@ function resolveCategoryId(
   return categoryIdByName.get(resolvedName) ?? null;
 }
 
-function extractPlaidErrorCode(err: unknown): string | null {
-  const data = (err as { response?: { data?: { error_code?: string } } })?.response?.data;
-  return data?.error_code ?? null;
-}
-
 function classifyErrorReason(errorCode: string): SyncErrorReason {
   if (errorCode === "ITEM_LOGIN_REQUIRED" || errorCode === "INSUFFICIENT_CREDENTIALS") {
     return "login_required";
@@ -80,10 +76,7 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
     .limit(1);
 
   if (!connection) throw new Error(`bankConnection ${connectionId} not found`);
-  const accessToken = decryptPlaidAccessToken(
-    connection.accessTokenEncrypted,
-    connection.accessTokenKeyVersion,
-  );
+  const accessToken = decryptPlaidAccessTokenFromRow(connection);
 
   const categoryRows = await db
     .select({ id: categories.id, name: categories.name })
@@ -110,7 +103,6 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
   // Run the sync loop. On a cursor-related error, reset the cursor and retry once from scratch.
   let didCursorReset = false;
   for (let attempt = 0; attempt < 2; attempt++) {
-    let loopError: unknown = null;
     added.length = 0;
     modified.length = 0;
     removed.length = 0;
@@ -128,10 +120,8 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         cursor = data.next_cursor;
         hasMore = data.has_more;
       }
-      loopError = null;
     } catch (err) {
-      loopError = err;
-      const errorCode = extractPlaidErrorCode(err);
+      const errorCode = getPlaidErrorCode(err);
 
       if (errorCode && CURSOR_RESET_ERROR_CODES.has(errorCode) && attempt === 0) {
         // Stale cursor — null it out and retry from scratch.
@@ -161,10 +151,10 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
         .update(bankConnections)
         .set({ status: "error", syncErrorCode: code, updatedAt: new Date() })
         .where(eq(bankConnections.id, connectionId));
-      throw loopError;
+      throw err;
     }
 
-    if (loopError === null) break;
+    break;
   }
 
   const upserts = [...added, ...modified].flatMap((tx) => {
@@ -243,7 +233,9 @@ export async function syncConnection(connectionId: string): Promise<SyncResult> 
   };
 }
 
-export async function syncUserConnections(userId: string): Promise<SyncResult[]> {
+export async function syncUserConnections(
+  userId: string,
+): Promise<Array<{ connectionId: string } & SyncResult>> {
   const rows = await db
     .select({ id: bankConnections.id })
     .from(bankConnections)
@@ -254,9 +246,10 @@ export async function syncUserConnections(userId: string): Promise<SyncResult[]>
       ),
     );
 
-  const results: SyncResult[] = [];
-  for (const row of rows) {
-    results.push(await syncConnection(row.id));
-  }
-  return results;
+  return Promise.all(
+    rows.map(async (row) => {
+      const result = await syncConnection(row.id);
+      return { connectionId: row.id, ...result };
+    }),
+  );
 }
