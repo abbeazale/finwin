@@ -19,7 +19,7 @@ export const dashboardNavItems: {
   { label: "Desk", icon: LayoutDashboard, href: "/dashboard" },
   { label: "Transactions", icon: Wallet, href: "/transactions" },
   { label: "Budgets", icon: Target, href: "/budgets" },
-  { label: "Investments", icon: LineChart, disabled: true },
+  { label: "Investments", icon: LineChart, href: "/investments" },
   { label: "Analytics", icon: TrendingUp, disabled: true },
   { label: "Settings", icon: Settings, href: "/settings/connections" },
 ];

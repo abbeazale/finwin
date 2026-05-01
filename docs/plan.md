@@ -10,7 +10,8 @@ FinWin should help users move from raw transaction noise to understandable finan
 - Better Auth now supports email/password, GitHub, Google, passkey sign-in, and TOTP two-factor enrollment.
 - Plaid integration is complete — accounts link, transactions sync with auto-categorization, connections managed via `/settings/connections`.
 - All app data routes use tRPC. Plaid webhook stays as a plain REST route.
-- Phase 3 (Dashboard analytics wired to real data) is the active milestone.
+- Phase 6a (real investment accounts) is the active milestone.
+- Phase 6a implementation is complete through schema, Plaid import, read API/UI, and FX conversion; live Plaid investment-account verification remains.
 - Active hardening pass before real-bank rollout: stored Plaid access tokens now move to encrypted-only storage with a disposable-db reset path for rollout/testing.
 
 ## Milestone Status
@@ -20,9 +21,31 @@ FinWin should help users move from raw transaction noise to understandable finan
 | 1 | Auth, schema, and account-link foundations | ✅ Done |
 | 2 | Real transaction import and normalization | ✅ Done — Plaid sync + auto-categorization via Plaid PFC map |
 | 3 | Transactions page, category reassignment, budgets page, budget-vs-actual | ✅ Done — `/transactions` reassignment, `/budgets`, and dashboard budget progress verified on real synced data |
-| 4 | Dashboard analytics wired to real data | 🔄 In progress (Phase 3) |
+| 4 | Dashboard analytics wired to real data | ✅ Core shipped — live verification follow-up remains |
 | 5 | AI insights | ⏳ Phase 5 |
-| 6 | Portfolio / investing simulation | ⏳ Phase 6 |
+| 6 | Real investment accounts / portfolio | 🔄 Phase 6a implemented — live Plaid verification remains |
+
+## Phase 6a — Real Investment Accounts
+
+Next tasks in order:
+
+1. **Live Plaid verification** — sync against sandbox/development investment data and confirm holdings replacement, transaction idempotency, inactive-account behavior, and FX exclusions.
+2. **Provider data spot-check** — compare `/investments` totals, native currencies, and transaction cash impact against Plaid responses or DB rows.
+3. **Production readiness cleanup** — decide whether to add a scheduled/internal OER refresh trigger before deployment.
+
+### Phase 6a implementation notes
+
+- `bank_accounts.nickname` is nullable and user-owned; Plaid sync continues to own `bank_accounts.name`.
+- Investment accounts continue to use `bank_accounts.type = "investment"`.
+- `securities`, `investment_holdings`, `investment_transactions`, and `currency_rates` are represented in Drizzle schema and migration `drizzle/0005_vengeful_firelord.sql`.
+- Holdings are current snapshots unique by `(account_id, security_id)`, not an append-only ledger.
+- Investment transactions store Plaid's raw `plaid_amount`; user-facing cash impact is derived later as `-plaid_amount`.
+- User foreign keys use Better Auth's current `text` user IDs.
+- New Plaid Link tokens request both `transactions` and `investments`; update-mode Link remains access-token based.
+- Investment holdings sync replaces current snapshots per account and removes closed positions.
+- Investment transaction sync uses a 730-day first-sync window, 7-day overlap on later syncs, and Plaid pagination.
+- `/investments` renders protected live account, holding, and investment transaction data.
+- OER-backed FX conversion is server-side. Missing FX excludes non-USD rows from USD aggregates; stale FX is surfaced.
 
 ## Phase 3 — Dashboard Analytics Wired To Real Data
 
@@ -72,6 +95,16 @@ Next tasks in order:
 - Dashboard analytics spec: `docs/spec/dashboard-analytics.md`
 - Dashboard analytics implementation plan: `docs/plan/dashboard-analytics.md`
 - Plaid token encryption spec: `docs/spec/plaid-token-encryption.md`
+- Investment accounts overview: `docs/spec/investments-real-accounts.md`
+- Investment accounts plan: `docs/plan/investments-real-accounts.md`
+- Investment schema/accounts spec: `docs/spec/investments-schema-accounts.md`
+- Investment schema/accounts plan: `docs/plan/investments-schema-accounts.md`
+- Investment Plaid sync spec: `docs/spec/investments-plaid-sync.md`
+- Investment Plaid sync plan: `docs/plan/investments-plaid-sync.md`
+- Investment API/UI spec: `docs/spec/investments-api-ui.md`
+- Investment API/UI plan: `docs/plan/investments-api-ui.md`
+- Investment FX spec: `docs/spec/investments-fx-rates.md`
+- Investment FX plan: `docs/plan/investments-fx-rates.md`
 
 ### Security hardening notes
 
@@ -97,6 +130,7 @@ Next tasks in order:
 - Uncategorized: `defaultBudgetable=false`, excluded from budget math until reassigned.
 - Inactive accounts hidden by default in tx page; "include inactive" toggle.
 - Category reassignment does not persist merchant rules yet.
+- Investment transaction semantics preserve Plaid raw cash amount as `plaid_amount`; display cash impact is derived as `-plaid_amount`.
 
 ## Success Signals
 
