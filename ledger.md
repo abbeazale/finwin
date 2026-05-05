@@ -1,5 +1,58 @@
 # FinWin Ledger
 
+## 2026-05-01
+
+### Dashboard cashflow zero-state fix
+
+- Diagnosed `/dashboard` KPI zeroes with connected accounts:
+  - local synced transactions were in April 2026 while the dashboard defaulted to May 2026
+  - all local rows were categorized as `Transfer`, which the overview/cashflow query previously excluded
+- Updated dashboard server-side initial month selection to use the current profile timezone month when it has transactions, otherwise fall back to the latest month with imported transactions.
+- Updated dashboard overview/cashflow inclusion so generic `Transfer` rows count as visible ledger movement; `Credit Card Payment` remains excluded to avoid linked-card double counting.
+- Updated `docs/spec/dashboard-analytics.md` and `docs/plan/dashboard-analytics.md` to reflect the revised transfer treatment.
+- Verified:
+  - local dashboard month fallback resolves May 2026 to April 2026 for the current synced user because May has no transaction rows
+  - local April dashboard KPI inputs now return inflow `2755.25`, outflow `0.00`, net `2755.25`
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/pages/dashboard.tsx src/server/trpc/routers/dashboard.ts`
+  - `bun run build`
+- Build note: Next still warns that it inferred `/Users/abbe` as the workspace root because `/Users/abbe/package-lock.json` exists above the project; build otherwise passes.
+
+### Session handoff
+
+- `/dashboard` should now open on the latest imported transaction month when the current month is empty.
+- Generic `Transfer` rows are now part of overview/cashflow KPI math; `Spend lanes` still excludes the `Transfers` group.
+- Existing unrelated worktree changes from the investment/FX pass remain untouched.
+
+### Investment FX and price fallback fix
+
+- Added `POST /api/internal/fx/refresh` to refresh Open Exchange Rates into `currency_rates`.
+  - Local development can call it without a secret.
+  - Production fails closed unless `FX_REFRESH_SECRET` is configured and supplied as a bearer token.
+- Refreshed local OER cache successfully with the configured `OER_KEY`; 172 USD-base rates were cached.
+- Updated investment valuation so market value and cost basis convert independently:
+  - market value uses the resolved price currency
+  - cost basis uses the holding/account reporting currency
+  - missing price or market-value FX excludes a holding from USD market-value totals
+  - missing cost-basis FX suppresses gain/loss without suppressing market value
+- Resolved zero Plaid institution holding prices by falling back to `securities.close_price`.
+- Updated `/investments` to show fallback close-price and missing-price states instead of rendering zero as a real price.
+- Updated `.env.example`, `docs/plan.md`, `docs/resources.md`, and `docs/plan/investments-fx-rates.md`.
+- Verified:
+  - local FX refresh helper returned `{"refreshed":true,"reason":null,"rateCount":172}`
+  - `curl -X POST http://localhost:3000/api/internal/fx/refresh` returned the same successful refresh result
+  - local holding sanity check showed USD close-price market values and CAD cost basis converted via OER
+  - `bunx tsc --noEmit`
+  - `bun run lint`
+  - `bun run build`
+- Build note: Next still warns that it inferred `/Users/abbe` as the workspace root because `/Users/abbe/package-lock.json` exists above the project; build otherwise passes.
+
+### Session handoff
+
+- Dev server remains available at `http://localhost:3000`.
+- `/investments` should now show nonzero market values for USD holdings whose Plaid holding price is `0.0000` when `securities.close_price` exists.
+- Before production, set `FX_REFRESH_SECRET` and wire `POST /api/internal/fx/refresh` to a scheduled job or controlled admin/manual trigger.
+
 ## 2026-04-30
 
 ### Investment Phase 6a implementation pass

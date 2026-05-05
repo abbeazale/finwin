@@ -4,7 +4,7 @@ Companion to [spec/investments-fx-rates.md](../spec/investments-fx-rates.md).
 
 Order: 4 — implement after the native-value API/UI works.
 
-Status: complete as of 2026-04-30; scheduled/internal refresh wiring remains a deployment decision.
+Status: complete as of 2026-05-01; deployment scheduling remains a production decision.
 
 ## Goal
 
@@ -52,6 +52,8 @@ Exit: API code can call one conversion helper instead of hand-rolling math.
 - Exclude holdings with missing FX from aggregate totals.
 - Return `excludedHoldingCount`.
 - Surface stale/missing FX warnings on `/investments`.
+- Resolve market value from the security close price when Plaid reports a zero
+  institution holding price.
 
 Exit: mixed-currency portfolios render honestly.
 
@@ -69,6 +71,7 @@ Exit: mixed-currency portfolios render honestly.
 - `src/server/trpc/routers/investments.ts`
 - `.env.example`
 - `docs/resources.md`
+- `src/pages/api/internal/fx/refresh.ts`
 - deployment cron config later, if applicable
 
 ## Done
@@ -76,3 +79,4 @@ Exit: mixed-currency portfolios render honestly.
 - Native values remain unchanged.
 - USD aggregates use cached rates.
 - Missing or stale FX is visible instead of silently wrong.
+- Zero institution holding prices fall back to security close prices.

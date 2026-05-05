@@ -104,7 +104,6 @@ export const investmentsRouter = router({
           const value = values[index];
           const quantity = toNumber(holding.quantity) ?? 0;
           const costBasisNative = toNumber(holding.costBasis);
-          const institutionPriceNative = toNumber(holding.institutionPrice) ?? 0;
 
           return {
             holdingId: holding.holdingId,
@@ -118,12 +117,20 @@ export const investmentsRouter = router({
             securityType: holding.securityType,
             isCashEquivalent: holding.isCashEquivalent,
             quantity: formatDecimal(quantity, 8),
-            nativeCurrency: value.nativeCurrency,
+            nativeCurrency: value.marketValueCurrency,
             costBasisNative: formatDecimal(costBasisNative),
+            costBasisCurrency: getNativeCurrency(
+              holding.isoCurrencyCode,
+              holding.unofficialCurrencyCode,
+              holding.accountCurrency,
+            ),
             costBasisUsd: formatDecimal(value.costBasisUsd),
-            institutionPriceNative: formatDecimal(institutionPriceNative, 4),
-            institutionPriceAsOf: holding.institutionPriceAsOf,
+            institutionPriceNative: formatDecimal(value.price, 4),
+            institutionPriceAsOf: value.priceAsOf,
+            priceSource: value.priceSource,
+            priceCurrency: value.priceCurrency,
             marketValueNative: formatDecimal(value.marketValueNative),
+            marketValueCurrency: value.marketValueCurrency,
             marketValueUsd: formatDecimal(value.marketValueUsd),
             gainLossUsd: formatDecimal(value.gainLossUsd),
             gainLossPct: value.gainLossPct,
@@ -289,6 +296,10 @@ async function getHoldingRows(userId: string, includeInactive: boolean, accountI
       securityName: securities.name,
       securityType: securities.type,
       isCashEquivalent: securities.isCashEquivalent,
+      securityClosePrice: securities.closePrice,
+      securityClosePriceAsOf: securities.closePriceAsOf,
+      securityIsoCurrencyCode: securities.isoCurrencyCode,
+      securityUnofficialCurrencyCode: securities.unofficialCurrencyCode,
       quantity: investmentHoldings.quantity,
       costBasis: investmentHoldings.costBasis,
       institutionPrice: investmentHoldings.institutionPrice,
@@ -313,9 +324,22 @@ async function getHoldingRows(userId: string, includeInactive: boolean, accountI
 function getHoldingValue(holding: HoldingRow, fxRates: FxRateLookup): InvestmentValueResult {
   return calculateInvestmentValue({
     quantity: toNumber(holding.quantity) ?? 0,
-    institutionPrice: toNumber(holding.institutionPrice) ?? 0,
+    institutionPrice: toNumber(holding.institutionPrice),
+    institutionPriceCurrency: getNativeCurrency(
+      holding.isoCurrencyCode,
+      holding.unofficialCurrencyCode,
+      holding.accountCurrency,
+    ),
+    institutionPriceAsOf: holding.institutionPriceAsOf,
+    closePrice: toNumber(holding.securityClosePrice),
+    closePriceCurrency: getNativeCurrency(
+      holding.securityIsoCurrencyCode,
+      holding.securityUnofficialCurrencyCode,
+      null,
+    ),
+    closePriceAsOf: holding.securityClosePriceAsOf,
     costBasis: toNumber(holding.costBasis),
-    nativeCurrency: getNativeCurrency(
+    costBasisCurrency: getNativeCurrency(
       holding.isoCurrencyCode,
       holding.unofficialCurrencyCode,
       holding.accountCurrency,

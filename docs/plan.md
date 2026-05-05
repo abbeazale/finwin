@@ -31,7 +31,7 @@ Next tasks in order:
 
 1. **Live Plaid verification** — sync against sandbox/development investment data and confirm holdings replacement, transaction idempotency, inactive-account behavior, and FX exclusions.
 2. **Provider data spot-check** — compare `/investments` totals, native currencies, and transaction cash impact against Plaid responses or DB rows.
-3. **Production readiness cleanup** — decide whether to add a scheduled/internal OER refresh trigger before deployment.
+3. **Production readiness cleanup** — wire the internal OER refresh route to deployment scheduling before production.
 
 ### Phase 6a implementation notes
 
@@ -45,7 +45,9 @@ Next tasks in order:
 - Investment holdings sync replaces current snapshots per account and removes closed positions.
 - Investment transaction sync uses a 730-day first-sync window, 7-day overlap on later syncs, and Plaid pagination.
 - `/investments` renders protected live account, holding, and investment transaction data.
-- OER-backed FX conversion is server-side. Missing FX excludes non-USD rows from USD aggregates; stale FX is surfaced.
+- OER-backed FX conversion is server-side. `POST /api/internal/fx/refresh` refreshes cached USD-base rates; production requires `FX_REFRESH_SECRET`.
+- Missing price or missing market-value FX excludes holdings from USD market-value totals; missing cost-basis FX suppresses gain/loss without suppressing market value.
+- Holding valuation prefers a positive Plaid institution holding price, then falls back to the security close price. Fallback/missing price states are surfaced on `/investments`.
 
 ## Phase 3 — Dashboard Analytics Wired To Real Data
 

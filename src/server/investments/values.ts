@@ -1,6 +1,10 @@
 export type InvestmentValueResult = {
-  nativeCurrency: string | null;
-  marketValueNative: number;
+  price: number | null;
+  priceCurrency: string | null;
+  priceSource: "institution" | "close" | "missing";
+  priceAsOf: string | null;
+  marketValueNative: number | null;
+  marketValueCurrency: string | null;
   marketValueUsd: number | null;
   costBasisUsd: number | null;
   gainLossUsd: number | null;
@@ -66,38 +70,88 @@ export function getNativeCurrency(
 
 export function calculateInvestmentValue(input: {
   quantity: number;
-  institutionPrice: number;
+  institutionPrice: number | null;
+  institutionPriceCurrency: string | null;
+  institutionPriceAsOf: string | null;
+  closePrice: number | null;
+  closePriceCurrency: string | null;
+  closePriceAsOf: string | null;
   costBasis: number | null;
-  nativeCurrency: string | null;
+  costBasisCurrency: string | null;
   fxRates?: FxRateLookup;
 }): InvestmentValueResult {
-  const marketValueNative = getMarketValue(input.quantity, input.institutionPrice);
-  const isUsd = input.nativeCurrency === null || input.nativeCurrency === "USD";
-  const fxRate = input.nativeCurrency ? input.fxRates?.get(input.nativeCurrency) : undefined;
-  const canConvert = isUsd || Boolean(fxRate);
-  const marketValueUsd = isUsd
-    ? marketValueNative
-    : fxRate
-      ? marketValueNative / fxRate.rate
-      : null;
-  const costBasisUsd = isUsd
-    ? input.costBasis
-    : fxRate && input.costBasis !== null
-      ? input.costBasis / fxRate.rate
-      : null;
+  const resolvedPrice = resolveHoldingPrice(input);
+  const marketValueNative = resolvedPrice.price === null
+    ? null
+    : getMarketValue(input.quantity, resolvedPrice.price);
+  const marketValueUsd = convertUsd(marketValueNative, resolvedPrice.currency, input.fxRates);
+  const costBasisUsd = convertUsd(input.costBasis, input.costBasisCurrency, input.fxRates);
   const gainLoss = getGainLoss(marketValueUsd, costBasisUsd);
+  const marketFxRate = resolvedPrice.currency ? input.fxRates?.get(resolvedPrice.currency) : undefined;
+  const costBasisFxRate = input.costBasisCurrency ? input.fxRates?.get(input.costBasisCurrency) : undefined;
+  const priceNeedsFx = marketValueNative !== null && resolvedPrice.currency !== null && resolvedPrice.currency !== "USD";
+  const costBasisNeedsFx = input.costBasis !== null && input.costBasisCurrency !== null && input.costBasisCurrency !== "USD";
 
   return {
-    nativeCurrency: input.nativeCurrency,
+    price: resolvedPrice.price,
+    priceCurrency: resolvedPrice.currency,
+    priceSource: resolvedPrice.source,
+    priceAsOf: resolvedPrice.asOf,
     marketValueNative,
+    marketValueCurrency: resolvedPrice.currency,
     marketValueUsd,
     costBasisUsd,
     gainLossUsd: gainLoss.gainLoss,
     gainLossPct: gainLoss.gainLossPct,
-    fxConverted: !isUsd && Boolean(fxRate),
-    fxRateStale: !isUsd && Boolean(fxRate?.isStale),
-    excludedFromUsd: !canConvert,
+    fxConverted: Boolean((priceNeedsFx && marketFxRate) || (costBasisNeedsFx && costBasisFxRate)),
+    fxRateStale: Boolean(
+      (priceNeedsFx && marketFxRate?.isStale) ||
+      (costBasisNeedsFx && costBasisFxRate?.isStale)
+    ),
+    excludedFromUsd: marketValueUsd === null,
   };
+}
+
+function resolveHoldingPrice(input: {
+  institutionPrice: number | null;
+  institutionPriceCurrency: string | null;
+  institutionPriceAsOf: string | null;
+  closePrice: number | null;
+  closePriceCurrency: string | null;
+  closePriceAsOf: string | null;
+}) {
+  if (input.institutionPrice !== null && input.institutionPrice > 0) {
+    return {
+      price: input.institutionPrice,
+      currency: input.institutionPriceCurrency,
+      source: "institution" as const,
+      asOf: input.institutionPriceAsOf,
+    };
+  }
+
+  if (input.closePrice !== null && input.closePrice > 0) {
+    return {
+      price: input.closePrice,
+      currency: input.closePriceCurrency,
+      source: "close" as const,
+      asOf: input.closePriceAsOf,
+    };
+  }
+
+  return {
+    price: null,
+    currency: input.institutionPriceCurrency ?? input.closePriceCurrency,
+    source: "missing" as const,
+    asOf: input.institutionPriceAsOf ?? input.closePriceAsOf,
+  };
+}
+
+function convertUsd(amount: number | null, currency: string | null, fxRates?: FxRateLookup) {
+  if (amount === null) return null;
+  if (currency === null || currency === "USD") return amount;
+
+  const fxRate = fxRates?.get(currency);
+  return fxRate ? amount / fxRate.rate : null;
 }
 
 export function summarizeInvestmentValues(values: InvestmentValueResult[]): InvestmentTotals {

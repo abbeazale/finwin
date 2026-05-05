@@ -74,6 +74,8 @@ export default function InvestmentsPage() {
   const selectedAccount = accounts.find((account) => account.accountId === effectiveSelectedAccountId);
   const stalePriceCount = holdings.filter((holding) => isStaleDate(holding.institutionPriceAsOf)).length;
   const missingCostBasisCount = holdings.filter((holding) => holding.costBasisNative === null).length;
+  const closePriceFallbackCount = holdings.filter((holding) => holding.priceSource === "close").length;
+  const missingPriceCount = holdings.filter((holding) => holding.priceSource === "missing").length;
   const hasInvestmentAccounts = accounts.length > 0;
 
   if (sessionLoading || (accountsQuery.isLoading && !accountsQuery.data)) {
@@ -216,7 +218,7 @@ export default function InvestmentsPage() {
             {portfolioTotals?.excludedHoldingCount ? (
               <Notice
                 icon={<ShieldAlert className="size-4" />}
-                text={`${portfolioTotals.excludedHoldingCount} non-USD holding${portfolioTotals.excludedHoldingCount === 1 ? "" : "s"} are visible below but excluded from USD totals until cached FX rates exist.`}
+                text={`${portfolioTotals.excludedHoldingCount} holding${portfolioTotals.excludedHoldingCount === 1 ? "" : "s"} are visible below but excluded from USD market-value totals because price or FX data is missing.`}
               />
             ) : null}
             {portfolioTotals?.staleFxRateCount ? (
@@ -229,6 +231,18 @@ export default function InvestmentsPage() {
               <Notice
                 icon={<CircleAlert className="size-4" />}
                 text={`${missingCostBasisCount} holding${missingCostBasisCount === 1 ? "" : "s"} are missing institution cost basis, so gain/loss is suppressed instead of shown as zero.`}
+              />
+            ) : null}
+            {closePriceFallbackCount > 0 ? (
+              <Notice
+                icon={<CircleAlert className="size-4" />}
+                text={`${closePriceFallbackCount} holding${closePriceFallbackCount === 1 ? " is" : "s are"} using security close price because the institution holding price is zero or missing.`}
+              />
+            ) : null}
+            {missingPriceCount > 0 ? (
+              <Notice
+                icon={<CircleAlert className="size-4" />}
+                text={`${missingPriceCount} holding${missingPriceCount === 1 ? "" : "s"} are missing a usable institution or security close price.`}
               />
             ) : null}
             {stalePriceCount > 0 ? (
@@ -290,16 +304,20 @@ function HoldingsPanel({ holdings, loading }: { holdings: Holding[]; loading: bo
                       {holding.isCashEquivalent ? <MiniPill label="Cash" /> : null}
                       {holding.excludedFromUsd ? <MiniPill label={holding.nativeCurrency ?? "FX"} tone="amber" /> : null}
                       {holding.fxRateStale ? <MiniPill label="Stale FX" tone="amber" /> : null}
+                      {holding.priceSource === "close" ? <MiniPill label="Close" tone="amber" /> : null}
+                      {holding.priceSource === "missing" ? <MiniPill label="No price" tone="oxide" /> : null}
                       {isStaleDate(holding.institutionPriceAsOf) ? <MiniPill label="Stale price" tone="oxide" /> : null}
                     </div>
                   </td>
                   <td className="px-3 py-4 font-mono text-bone-mute">{trimDecimal(holding.quantity)}</td>
                   <td className="px-3 py-4">
-                    <div>{formatNativeMoney(holding.institutionPriceNative, holding.nativeCurrency)}</div>
-                    <div className="mt-1 text-bone-faint">{holding.institutionPriceAsOf ?? "No date"}</div>
+                    <div>{formatNativeMoney(holding.institutionPriceNative, holding.priceCurrency)}</div>
+                    <div className="mt-1 text-bone-faint">
+                      {formatPriceDetail(holding.priceSource, holding.institutionPriceAsOf)}
+                    </div>
                   </td>
-                  <td className="px-3 py-4">{formatNativeMoney(holding.marketValueNative, holding.nativeCurrency)}</td>
-                  <td className="px-3 py-4">{formatNativeMoney(holding.costBasisNative, holding.nativeCurrency)}</td>
+                  <td className="px-3 py-4">{formatNativeMoney(holding.marketValueNative, holding.marketValueCurrency)}</td>
+                  <td className="px-3 py-4">{formatNativeMoney(holding.costBasisNative, holding.costBasisCurrency)}</td>
                   <td className="px-3 py-4">
                     <div className={Number(holding.gainLossUsd ?? 0) < 0 ? "text-oxide-hi" : "text-sage-hi"}>
                       {formatNullableMoney(holding.gainLossUsd, true)}
@@ -518,6 +536,11 @@ function formatNativeMoney(value: string | null | undefined, currency: string | 
   const numeric = Number(value);
   const prefix = signed && numeric > 0 ? "+" : "";
   return `${prefix}${formatMoney(numeric)}${currency && currency !== "USD" ? ` ${currency}` : ""}`;
+}
+
+function formatPriceDetail(source: Holding["priceSource"], asOf: string | null | undefined) {
+  const label = source === "close" ? "Close" : source === "institution" ? "Institution" : "No price";
+  return asOf ? `${label} · ${asOf}` : label;
 }
 
 function formatMoney(value: number) {

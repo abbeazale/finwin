@@ -62,7 +62,7 @@
 - Plaid — account linking, cursor-based transaction sync, webhook verification (ES256 JWT)
 - Plaid token encryption — server-side AES-256-GCM with versioned env-provided keys
 - Plaid Investments — securities, holdings, and investment transaction import
-- Open Exchange Rates — investment FX cache for USD aggregation via `OER_KEY`
+- Open Exchange Rates — investment FX cache for USD aggregation via `OER_KEY`; internal refresh route uses optional `FX_REFRESH_SECRET`
 - tRPC v11 + TanStack Query v5 — all app data routes; webhook stays as plain Next API route
 - Zod v4 — tRPC input validation
 - shadcn/ui via `components.json`; only actively imported generated components are kept in `src/components/ui`
@@ -72,6 +72,7 @@
 - Product pages → `src/pages/` (Pages Router). New pages go here.
 - tRPC API → `src/pages/api/trpc/[trpc].ts`
 - Plaid webhook → `src/pages/api/plaid/webhook.ts` (REST, raw body required)
+- Internal FX refresh → `src/pages/api/internal/fx/refresh.ts` (`POST`, bearer `FX_REFRESH_SECRET` required in production)
 - App data mutations/queries → add procedures to `src/server/trpc/routers/`
 - Current product pages include `/dashboard`, `/transactions`, `/budgets`, `/settings/connections`, `/settings/security`, and `/two-factor`
 - `/investments` is the read-only real investment accounts page.
