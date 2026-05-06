@@ -1,6 +1,152 @@
 # FinWin Ledger
 
+## 2026-05-01
+
+### Dashboard cashflow zero-state fix
+
+- Diagnosed `/dashboard` KPI zeroes with connected accounts:
+  - local synced transactions were in April 2026 while the dashboard defaulted to May 2026
+  - all local rows were categorized as `Transfer`, which the overview/cashflow query previously excluded
+- Updated dashboard server-side initial month selection to use the current profile timezone month when it has transactions, otherwise fall back to the latest month with imported transactions.
+- Updated dashboard overview/cashflow inclusion so generic `Transfer` rows count as visible ledger movement; `Credit Card Payment` remains excluded to avoid linked-card double counting.
+- Updated `docs/spec/dashboard-analytics.md` and `docs/plan/dashboard-analytics.md` to reflect the revised transfer treatment.
+- Verified:
+  - local dashboard month fallback resolves May 2026 to April 2026 for the current synced user because May has no transaction rows
+  - local April dashboard KPI inputs now return inflow `2755.25`, outflow `0.00`, net `2755.25`
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/pages/dashboard.tsx src/server/trpc/routers/dashboard.ts`
+  - `bun run build`
+- Build note: Next still warns that it inferred `/Users/abbe` as the workspace root because `/Users/abbe/package-lock.json` exists above the project; build otherwise passes.
+
+### Session handoff
+
+- `/dashboard` should now open on the latest imported transaction month when the current month is empty.
+- Generic `Transfer` rows are now part of overview/cashflow KPI math; `Spend lanes` still excludes the `Transfers` group.
+- Existing unrelated worktree changes from the investment/FX pass remain untouched.
+
+### Investment FX and price fallback fix
+
+- Added `POST /api/internal/fx/refresh` to refresh Open Exchange Rates into `currency_rates`.
+  - Local development can call it without a secret.
+  - Production fails closed unless `FX_REFRESH_SECRET` is configured and supplied as a bearer token.
+- Refreshed local OER cache successfully with the configured `OER_KEY`; 172 USD-base rates were cached.
+- Updated investment valuation so market value and cost basis convert independently:
+  - market value uses the resolved price currency
+  - cost basis uses the holding/account reporting currency
+  - missing price or market-value FX excludes a holding from USD market-value totals
+  - missing cost-basis FX suppresses gain/loss without suppressing market value
+- Resolved zero Plaid institution holding prices by falling back to `securities.close_price`.
+- Updated `/investments` to show fallback close-price and missing-price states instead of rendering zero as a real price.
+- Updated `.env.example`, `docs/plan.md`, `docs/resources.md`, and `docs/plan/investments-fx-rates.md`.
+- Verified:
+  - local FX refresh helper returned `{"refreshed":true,"reason":null,"rateCount":172}`
+  - `curl -X POST http://localhost:3000/api/internal/fx/refresh` returned the same successful refresh result
+  - local holding sanity check showed USD close-price market values and CAD cost basis converted via OER
+  - `bunx tsc --noEmit`
+  - `bun run lint`
+  - `bun run build`
+- Build note: Next still warns that it inferred `/Users/abbe` as the workspace root because `/Users/abbe/package-lock.json` exists above the project; build otherwise passes.
+
+### Session handoff
+
+- Dev server remains available at `http://localhost:3000`.
+- `/investments` should now show nonzero market values for USD holdings whose Plaid holding price is `0.0000` when `securities.close_price` exists.
+- Before production, set `FX_REFRESH_SECRET` and wire `POST /api/internal/fx/refresh` to a scheduled job or controlled admin/manual trigger.
+
 ## 2026-04-30
+
+### Investment Phase 6a implementation pass
+
+- Implemented the remaining ordered Phase 6a plans after the schema/accounts slice:
+  - `docs/plan/investments-plaid-sync.md`
+  - `docs/plan/investments-api-ui.md`
+  - `docs/plan/investments-fx-rates.md`
+- Plaid Link now requests `Products.Investments` for new connections while keeping update-mode Link access-token based.
+- Added investment import paths in `src/server/plaid/sync.ts`:
+  - shared securities upsert by `plaid_security_id`
+  - holdings snapshot replacement per active investment account
+  - closed holding removal on re-sync
+  - paginated investment transaction import with 730-day first sync and 7-day overlap
+  - raw Plaid `plaid_amount` persistence without regular bank transaction sign inversion
+- Added Plaid investment webhook dispatch in `src/pages/api/plaid/webhook.ts`:
+  - `HOLDINGS` + `DEFAULT_UPDATE`
+  - `INVESTMENTS_TRANSACTIONS` + `DEFAULT_UPDATE`
+- Added `investmentsRouter` in `src/server/trpc/routers/investments.ts` and registered it in `_app.ts`.
+- Added investment math helpers:
+  - `src/server/investments/values.ts`
+  - `src/server/investments/fx.ts`
+- Added `/investments` as the read-only portfolio surface with:
+  - sync button
+  - account selector
+  - inactive-account toggle
+  - portfolio summary
+  - holdings table
+  - investment transaction history
+  - missing cost basis, stale price, missing FX, and stale FX notices
+- Added `OER_KEY` to `.env.example` and documented Open Exchange Rates in `docs/resources.md`.
+- Updated `docs/plan.md`, `docs/resources.md`, and the investment plan files to reflect implementation status.
+- Verified:
+  - `bunx tsc --noEmit`
+  - `bun run lint`
+  - `bun run build` with network access for `next/font` Google font fetches
+  - `curl -I http://localhost:3000/investments` returned `200 OK`
+- Verification limitations:
+  - Browser-level Playwright check could not run because `playwright` is not installed in the available Node REPL environment.
+  - Live Plaid sandbox/development investment-account sync was not run because valid Plaid credentials/data were not available in this session.
+- **Next**: run live Plaid investment verification after credentials are fixed, apply migration/reset as appropriate, connect a sandbox/development investment item, and compare `/investments` against Plaid/DB rows.
+
+### Session handoff
+
+- Dev server is running at `http://localhost:3000`.
+- Disposable database was reset with `bun run dbreset` and seeded with `bun run seed`; migration `0005_vengeful_firelord.sql` has been applied locally.
+- Existing Plaid credential issue from earlier still matters: replace local `PLAID_CLIENT_ID` / `PLAID_SECRET` / `PLAID_ENV` with a matching valid pair before testing Link.
+- The Investments sidebar/mobile-nav item now links to `/investments`.
+- Suggested next live-testing flow:
+  - create/sign in to a fresh user
+  - connect a Plaid sandbox/development investment account
+  - inspect `/investments`
+- Watch areas during verification:
+  - holdings re-sync removes closed positions
+  - investment transactions do not duplicate across overlap syncs
+  - `plaid_amount` remains raw and UI cash impact is inverted
+  - missing/non-USD FX rows stay visible while excluded from USD totals
+
+### Investment schema/accounts milestone complete
+
+- Implemented Phase 6a.1 storage foundation from `docs/plan/investments-schema-accounts.md`.
+- Added `bank_accounts.nickname` as nullable, user-owned display metadata. Plaid account sync does not write this field, so provider account names remain sync-owned.
+- Added Drizzle schema and migration `drizzle/0005_vengeful_firelord.sql` for:
+  - `securities`
+  - `investment_holdings`
+  - `investment_transactions`
+  - `currency_rates`
+- Preserved the investment sign contract by naming the transaction cash column `plaid_amount`; FinWin display `cashImpact = -plaid_amount` remains a read-time/API concern.
+- Updated `docs/plan.md`, `docs/resources.md`, and `docs/plan/investments-schema-accounts.md` to show Phase 6a as active and schema/accounts as complete.
+- Verified:
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/db/schema.ts`
+- **Next**: implement `docs/plan/investments-plaid-sync.md` in order, starting with Plaid `Products.Investments` enablement and shared securities upsert support.
+
+### Investment real-accounts spec split
+
+- Reviewed `docs/spec/investments-real-accounts.md` for the Phase 6a real investment accounts goal.
+- Corrected investment transaction sign language: store Plaid raw `plaid_amount`, derive FinWin display `cashImpact = -plaid_amount`, and keep security quantity semantics separate.
+- Corrected investment webhook naming to Plaid's `webhook_type` + `webhook_code` shape.
+- Kept user FKs aligned with the current Better Auth schema (`text` IDs), rather than introducing UUID user IDs inside the investment spec.
+- Replaced institution-name-as-label with a user-owned `bank_accounts.nickname` model; provider account name remains sync-owned.
+- Split the oversized spec into focused docs:
+  - `docs/spec/investments-real-accounts.md` — Phase 6a overview and order
+  - `docs/spec/investments-schema-accounts.md`
+  - `docs/spec/investments-plaid-sync.md`
+  - `docs/spec/investments-fx-rates.md`
+  - `docs/spec/investments-api-ui.md`
+- Added matching implementation plans:
+  - `docs/plan/investments-real-accounts.md`
+  - `docs/plan/investments-schema-accounts.md`
+  - `docs/plan/investments-plaid-sync.md`
+  - `docs/plan/investments-fx-rates.md`
+  - `docs/plan/investments-api-ui.md`
+- Marked the plan files with explicit order numbers: overview/final verification `0`, schema/accounts `1`, Plaid sync `2`, API/UI `3`, FX rates `4`.
 
 ### Dashboard mobile navigation restored
 

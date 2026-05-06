@@ -4,8 +4,12 @@ import {
   getUserProfile,
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
+import { transactions } from "@/db/schema";
+import { db } from "@/index";
 import { signOut } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
+import { getNextMonthStart } from "@/server/lib/month";
+import { and, desc, eq, gte, lt } from "drizzle-orm";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
@@ -832,6 +836,35 @@ function getMonthStartForTimeZone(date: Date, timeZone: string) {
   return `${year}-${month}-01`;
 }
 
+async function getInitialDashboardMonth(userId: string, currentMonth: string) {
+  const nextMonth = getNextMonthStart(currentMonth);
+
+  const [currentMonthRow] = await db
+    .select({ id: transactions.id })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        gte(transactions.date, currentMonth),
+        lt(transactions.date, nextMonth),
+      ),
+    )
+    .limit(1);
+
+  if (currentMonthRow) {
+    return currentMonth;
+  }
+
+  const [latestRow] = await db
+    .select({ date: transactions.date })
+    .from(transactions)
+    .where(eq(transactions.userId, userId))
+    .orderBy(desc(transactions.date))
+    .limit(1);
+
+  return latestRow ? latestRow.date.slice(0, 7) + "-01" : currentMonth;
+}
+
 export const getServerSideProps: GetServerSideProps<DashboardProps> = async (context) => {
   const session = await getPageSession(context);
 
@@ -846,12 +879,14 @@ export const getServerSideProps: GetServerSideProps<DashboardProps> = async (con
   }
 
   const timeZone = profile?.timezone ?? "America/Toronto";
+  const currentMonth = getMonthStartForTimeZone(new Date(), timeZone);
+  const initialMonth = await getInitialDashboardMonth(session.user.id, currentMonth);
 
   return {
     props: {
       firstName: profile?.firstName ?? "there",
       currency: profile?.currency ?? "CAD",
-      initialMonth: getMonthStartForTimeZone(new Date(), timeZone),
+      initialMonth,
     },
   };
 };
