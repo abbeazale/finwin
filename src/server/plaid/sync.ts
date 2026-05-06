@@ -6,6 +6,7 @@ import { getPlaid } from "./client";
 import { decryptPlaidAccessTokenFromRow } from "./crypto";
 import { getPlaidErrorCode } from "./errors";
 import { PLAID_CATEGORY_MAP, PLAID_PRIMARY_FALLBACK_MAP } from "@/server/lib/category-map";
+import { DEFAULT_CATEGORY_NAME } from "@/server/lib/category-taxonomy";
 
 type SyncErrorReason = "login_required" | "locked" | "cursor_reset" | "unknown" | null;
 
@@ -48,7 +49,7 @@ function resolveCategoryId(
   let resolvedName: string | undefined;
   if (detailed) resolvedName = PLAID_CATEGORY_MAP[detailed];
   if (!resolvedName && primary) resolvedName = PLAID_PRIMARY_FALLBACK_MAP[primary];
-  if (!resolvedName) resolvedName = "Uncategorized";
+  if (!resolvedName) resolvedName = DEFAULT_CATEGORY_NAME;
   return categoryIdByName.get(resolvedName) ?? null;
 }
 

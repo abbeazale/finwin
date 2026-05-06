@@ -1,12 +1,11 @@
 import { useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { trpc } from "@/lib/trpc";
+import { trpc, type RouterOutputs } from "@/lib/trpc";
 
-export type RefreshResult = {
-  added: number;
-  modified: number;
-  removed: number;
+type SyncTransactionsResult = RouterOutputs["plaid"]["syncTransactions"]["results"][number];
+
+export type RefreshResult = Pick<SyncTransactionsResult, "added" | "modified" | "removed"> & {
   hasConnectionErrors: boolean;
 };
 
@@ -31,7 +30,7 @@ export function RefreshTransactions({ onRefreshed }: Props) {
       onRefreshed?.(totals);
     },
     onError: (e) => {
-      setError(e.message ?? "Sync failed");
+      setError(e.message);
     },
   });
 

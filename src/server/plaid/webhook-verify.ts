@@ -3,15 +3,25 @@ import { importJWK, jwtVerify, decodeProtectedHeader, type JWK } from "jose";
 import type { JWKPublicKey } from "plaid";
 import { getPlaid } from "./client";
 
-const jwkCache = new Map<string, CryptoKey>();
+type PlaidWebhookVerificationKey = Awaited<ReturnType<typeof importJWK>>;
+type PlaidWebhookJwtPayload = {
+  iat?: number;
+  request_body_sha256?: string;
+};
 
-async function getVerificationKey(kid: string): Promise<CryptoKey> {
+const jwkCache = new Map<string, PlaidWebhookVerificationKey>();
+
+function getErrorMessage(err: unknown) {
+  return err instanceof Error ? err.message : String(err);
+}
+
+async function getVerificationKey(kid: string): Promise<PlaidWebhookVerificationKey> {
   const cached = jwkCache.get(kid);
   if (cached) return cached;
 
   const { data } = await getPlaid().webhookVerificationKeyGet({ key_id: kid });
   const jwk = toJoseJwk(data.key);
-  const key = (await importJWK(jwk, "ES256")) as CryptoKey;
+  const key = await importJWK(jwk, "ES256");
   jwkCache.set(kid, key);
   return key;
 }
@@ -56,15 +66,19 @@ export async function verifyPlaidWebhook(
   let verified;
   try {
     const key = await getVerificationKey(header.kid);
-    verified = await jwtVerify(signatureHeader, key);
+    verified = await jwtVerify<PlaidWebhookJwtPayload>(signatureHeader, key);
   } catch (e) {
-    return { ok: false, reason: `jwt verify failed: ${(e as Error).message}` };
+    return { ok: false, reason: `jwt verify failed: ${getErrorMessage(e)}` };
   }
 
-  const payload = verified.payload as { iat?: number; request_body_sha256?: string };
+  const payload = verified.payload;
 
-  if (!payload.iat || Date.now() / 1000 - payload.iat > 5 * 60) {
+  if (typeof payload.iat !== "number" || Date.now() / 1000 - payload.iat > 5 * 60) {
     return { ok: false, reason: "jwt older than 5 minutes" };
+  }
+
+  if (typeof payload.request_body_sha256 !== "string") {
+    return { ok: false, reason: "missing body hash claim" };
   }
 
   const expected = createHash("sha256").update(rawBody).digest("hex");

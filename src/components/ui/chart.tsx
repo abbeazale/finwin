@@ -328,6 +328,12 @@ function ChartLegendContent({
 }
 
 // Helper to extract item config from a payload.
+function getStringProperty<K extends string>(source: object | undefined, key: K) {
+  if (!source || !(key in source)) return undefined
+  const value = (source as { [P in K]?: unknown })[key]
+  return typeof value === "string" ? value : undefined
+}
+
 function getPayloadConfigFromPayload(
   config: ChartConfig,
   payload: unknown,
@@ -344,22 +350,10 @@ function getPayloadConfigFromPayload(
       ? payload.payload
       : undefined
 
-  let configLabelKey: string = key
-
-  if (
-    key in payload &&
-    typeof payload[key as keyof typeof payload] === "string"
-  ) {
-    configLabelKey = payload[key as keyof typeof payload] as string
-  } else if (
-    payloadPayload &&
-    key in payloadPayload &&
-    typeof payloadPayload[key as keyof typeof payloadPayload] === "string"
-  ) {
-    configLabelKey = payloadPayload[
-      key as keyof typeof payloadPayload
-    ] as string
-  }
+  const configLabelKey =
+    getStringProperty(payload, key) ??
+    getStringProperty(payloadPayload, key) ??
+    key
 
   return configLabelKey in config ? config[configLabelKey] : config[key]
 }

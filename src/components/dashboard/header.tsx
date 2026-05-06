@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import {
   dashboardNavItems,
   isDashboardNavItemActive,
-} from "@/components/dashboard/sidebar";
+} from "@/components/dashboard/nav";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,7 +69,7 @@ export function DashboardHeader({
                     : "text-bone-mute focus:bg-[var(--ink-2-solid)] focus:text-bone"
                 }`;
 
-                return item.href ? (
+                return (
                   <DropdownMenuItem key={item.label} asChild className={className}>
                     <Link href={item.href} aria-current={active ? "page" : undefined}>
                       <Icon className="size-3.5" />
@@ -79,15 +79,6 @@ export function DashboardHeader({
                       ) : null}
                     </Link>
                   </DropdownMenuItem>
-                ) : (
-                  <DropdownMenuItem
-                    key={item.label}
-                    disabled={item.disabled}
-                    className={`${className} opacity-45`}
-                  >
-                    <Icon className="size-3.5" />
-                    {item.label}
-                  </DropdownMenuItem>
                 );
               })}
             </DropdownMenuGroup>
@@ -95,9 +86,8 @@ export function DashboardHeader({
         </DropdownMenu>
         <div className="flex items-center gap-2">
           <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
-          <span className="label-eyebrow-brass">Live · market open</span>
+          <span className="label-eyebrow-brass">Live · Plaid-backed</span>
         </div>
-        <span className="label-eyebrow hidden lg:inline">NYSE 09:41 · PST 06:41</span>
       </div>
       <div className="flex items-center gap-3">
         <RefreshTransactions onRefreshed={onRefreshed} />

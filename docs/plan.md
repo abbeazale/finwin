@@ -10,6 +10,7 @@ FinWin should help users move from raw transaction noise to understandable finan
 - Better Auth now supports email/password, GitHub, Google, passkey sign-in, and TOTP two-factor enrollment.
 - Plaid integration is complete — accounts link, transactions sync with auto-categorization, connections managed via `/settings/connections`.
 - All app data routes use tRPC. Plaid webhook stays as a plain REST route.
+- Routing is Pages Router only. `/` is a server-side redirect into `/login`, `/onboarding`, or `/dashboard`.
 - Phase 3 (Dashboard analytics wired to real data) is the active milestone.
 - Active hardening pass before real-bank rollout: stored Plaid access tokens now move to encrypted-only storage with a disposable-db reset path for rollout/testing.
 
@@ -30,7 +31,7 @@ Next tasks in order:
 
 1. **Live verification pass** — sanity-check the new dashboard metrics against synced data, especially transfer exclusion, refunds, and inactive-account history.
 2. **Keep financial math centralized** — continue reusing `budgets.summary` and shared transaction queries rather than duplicating dashboard calculations.
-3. **Trim any remaining provisional copy** — keep portfolio and AI affordances out of the dashboard until those milestones exist behind real data.
+3. **Keep provisional surfaces out** — portfolio, investing simulation, AI, and marketing-style demo readouts stay deferred until backed by real implementation.
 
 ### Phase 2 completion notes
 
@@ -61,6 +62,10 @@ Next tasks in order:
   - net cashflow
 - `Savings rate` remains available as a derived metric for secondary copy, not a primary card.
 - Watchlist and rotating AI insight placeholders were removed from the dashboard.
+- Shared domain constants now live in:
+  - `src/server/lib/category-taxonomy.ts` for category/group names and seed taxonomy
+  - `src/lib/budget-status.ts` for budget status labels
+- Onboarding profile completion now uses `onboarding.complete` tRPC instead of a separate REST API route.
 - Build verification complete:
   - `bunx tsc --noEmit`
   - `bunx eslint src/pages/dashboard.tsx src/server/trpc/routers/dashboard.ts src/server/trpc/routers/_app.ts`
@@ -97,6 +102,7 @@ Next tasks in order:
 - Uncategorized: `defaultBudgetable=false`, excluded from budget math until reassigned.
 - Inactive accounts hidden by default in tx page; "include inactive" toggle.
 - Category reassignment does not persist merchant rules yet.
+- Root landing/marketing surfaces are removed for now; signed-out users enter through `/login`.
 
 ## Success Signals
 

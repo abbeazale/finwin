@@ -24,6 +24,15 @@ function passkeyErrorMessage(message: string | undefined) {
   return message;
 }
 
+function hasTwoFactorRedirect(data: unknown) {
+  return (
+    typeof data === "object" &&
+    data !== null &&
+    "twoFactorRedirect" in data &&
+    data.twoFactorRedirect === true
+  );
+}
+
 export default function LoginForm({
   className,
   ...props
@@ -78,7 +87,7 @@ export default function LoginForm({
         setError(signInError.message ?? "Unable to sign in.");
         return;
       }
-      if ((data as { twoFactorRedirect?: boolean } | null)?.twoFactorRedirect) {
+      if (hasTwoFactorRedirect(data)) {
         return;
       }
       await router.push("/dashboard");

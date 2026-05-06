@@ -1,5 +1,40 @@
 # FinWin Ledger
 
+## 2026-05-06
+
+### Code quality cleanup pass refreshed
+
+- Coordinated eight focused cleanup passes across duplication, shared types, unused code, circular dependencies, weak types, defensive error handling, legacy/fallback code, and stale comments/copy.
+- Consolidated category domain constants:
+  - `src/server/lib/category-taxonomy.ts` now owns category/group names, default category constants, and seed taxonomy.
+  - `scripts/seed-categories.ts`, `src/server/lib/category-map.ts`, `src/server/plaid/sync.ts`, and dashboard analytics now use those constants instead of repeated strings.
+- Consolidated budget status labels/types in `src/lib/budget-status.ts` and reused them from server budget summaries and UI surfaces.
+- Removed unused assets:
+  - `public/github.svg`
+  - `public/githubinverted.svg`
+- Removed App Router route files and the old marketing/root surface:
+  - `src/app/layout.tsx`
+  - `src/app/page.tsx`
+  - moved global CSS to `src/styles/globals.css`
+  - added `src/pages/index.tsx` as the root redirect into `/login`, `/onboarding`, or `/dashboard`
+- Replaced legacy REST onboarding write path with `onboarding.complete` tRPC:
+  - removed `src/pages/api/onboarding.ts`
+  - added `src/server/trpc/routers/onboarding.ts`
+  - updated `/onboarding` to call tRPC directly
+- Tightened weak-type boundaries with runtime narrowing for Plaid webhook payloads, Plaid/JWT errors, Better Auth 2FA redirect detection, Recharts payload config lookup, and transaction pending filter values.
+- Kept justified defensive handling around external APIs, webhook verification, encryption-key parsing, auth flows, and CLI entrypoints. Removed redundant tRPC error-message fallbacks.
+- Untangled dashboard nav ownership by extracting shared nav items/active-state logic to `src/components/dashboard/nav.ts`.
+- Removed fake/forward-looking copy and disabled future nav items for investments, analytics, portfolio, scenario, forecast, and AI surfaces until those milestones are backed by real code.
+- Verified:
+  - `git diff --check`
+  - `bunx tsc --noEmit`
+  - `bun run lint`
+  - `bun run knip`
+  - `bunx madge --circular --extensions ts,tsx --ts-config tsconfig.json src`
+  - `bun run build`
+- Build note: Next still warns that it inferred `/Users/abbe` as the workspace root because `/Users/abbe/package-lock.json` exists above the project; build otherwise passes.
+- **Next**: live-test the root redirect, onboarding completion, login/social sign-in, and Plaid connect/sync flows in the browser against configured env credentials.
+
 ## 2026-04-30
 
 ### Dashboard mobile navigation restored

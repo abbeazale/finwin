@@ -3,6 +3,7 @@ import { Pool } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { eq, and } from "drizzle-orm";
 import { categoryGroups, categories } from "../src/db/schema";
+import { CATEGORY_TAXONOMY } from "../src/server/lib/category-taxonomy";
 
 const databaseUrl = process.env.DATABASE_URL;
 if (!databaseUrl) throw new Error("DATABASE_URL is not set.");
@@ -10,60 +11,9 @@ if (!databaseUrl) throw new Error("DATABASE_URL is not set.");
 const pool = new Pool({ connectionString: databaseUrl });
 const db = drizzle(pool);
 
-type CategoryDef = { name: string; defaultBudgetable?: boolean };
-type GroupDef = { name: string; sortOrder: number; categories: CategoryDef[] };
-
-const TAXONOMY: GroupDef[] = [
-  {
-    name: "Income", sortOrder: 0,
-    categories: [
-      { name: "Paycheck", defaultBudgetable: false },
-      { name: "Other Income", defaultBudgetable: false },
-    ],
-  },
-  {
-    name: "Essentials", sortOrder: 1,
-    categories: [
-      { name: "Groceries" },
-      { name: "Rent & Utilities" },
-      { name: "Transportation" },
-      { name: "Gas" },
-      { name: "Healthcare" },
-      { name: "Insurance" },
-    ],
-  },
-  {
-    name: "Lifestyle", sortOrder: 2,
-    categories: [
-      { name: "Restaurants" },
-      { name: "Entertainment" },
-      { name: "Shopping" },
-      { name: "Subscriptions" },
-      { name: "Personal Care" },
-      { name: "Travel" },
-    ],
-  },
-  {
-    name: "Financial", sortOrder: 3,
-    categories: [
-      { name: "Loan Payments" },
-      { name: "Credit Card Payment", defaultBudgetable: false },
-      { name: "Bank Fees" },
-    ],
-  },
-  {
-    name: "Transfers", sortOrder: 4,
-    categories: [{ name: "Transfer", defaultBudgetable: true }],
-  },
-  {
-    name: "Other", sortOrder: 5,
-    categories: [{ name: "Uncategorized", defaultBudgetable: false }],
-  },
-];
-
 async function seedCategories() {
   console.log("Seeding category groups and categories...");
-  for (const group of TAXONOMY) {
+  for (const group of CATEGORY_TAXONOMY) {
     const existing = await db
       .select({ id: categoryGroups.id })
       .from(categoryGroups)

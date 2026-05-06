@@ -24,7 +24,7 @@ export default function ConnectionsSettings() {
       setMessage("Connection unlinked.");
       void connectionsQuery.refetch();
     },
-    onError: (e) => setMessage(e.message ?? "Unlink failed"),
+    onError: (e) => setMessage(e.message),
   });
 
   async function unlink(id: string) {

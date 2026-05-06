@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import { useSession } from "@/lib/auth-client";
+import { BUDGET_STATUS_LABELS } from "@/lib/budget-status";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 import {
   ChartContainer,
@@ -31,13 +32,7 @@ const budgetChartConfig = {
 
 type SummaryRow = RouterOutputs["budgets"]["summary"]["groups"][number]["rows"][number];
 
-const STATUS_LABELS: Record<SummaryRow["status"], string> = {
-  on_track: "On track",
-  near_limit: "Near limit",
-  over: "Over",
-  unbudgeted: "Unbudgeted",
-  no_budget: "No budget",
-};
+const STATUS_LABELS: Record<SummaryRow["status"], string> = BUDGET_STATUS_LABELS;
 
 const STATUS_PILL: Record<SummaryRow["status"], string> = {
   on_track: "pill-sage",
