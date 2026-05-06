@@ -2,9 +2,12 @@ import { useCallback, useEffect, useState } from "react";
 import { usePlaidLink } from "react-plaid-link";
 import { Plus, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { trpc } from "@/lib/trpc";
+import { trpc, type RouterOutputs } from "@/lib/trpc";
 
-export type ConnectBankResult = { connectionId: string; accountCount: number };
+export type ConnectBankResult = Pick<
+  RouterOutputs["plaid"]["exchangeToken"],
+  "connectionId" | "accountCount"
+>;
 
 type ConnectBankProps = {
   /** Pass to reconnect (Plaid Link update mode) an existing connection. */

@@ -13,9 +13,11 @@ import {
   getUserProfile,
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
+import { capitalizeNameWords } from "@/lib/name";
+import { trpc } from "@/lib/trpc";
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import { useRouter } from "next/router";
-import { FormEvent, useState, useTransition } from "react";
+import { FormEvent, useState } from "react";
 
 const COMMON_CURRENCIES = [
   { value: "CAD", label: "CAD — Canadian Dollar", helper: "Amounts displayed in Canadian Dollar ($)" },
@@ -51,16 +53,6 @@ function splitDisplayName(name: string | null | undefined) {
   };
 }
 
-function capitalizeNameWords(value: string | null | undefined) {
-  return (value ?? "")
-    .trim()
-    .replace(/\s+/g, " ")
-    .split(" ")
-    .filter(Boolean)
-    .map((word) => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
-    .join(" ");
-}
-
 export default function OnboardingPage({
   initialFirstName,
   initialLastName,
@@ -75,25 +67,19 @@ export default function OnboardingPage({
   const [currency, setCurrency] = useState(initialCurrency);
   const [timezone, setTimezone] = useState(initialTimezone);
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const completeOnboarding = trpc.onboarding.complete.useMutation();
+  const isPending = completeOnboarding.isPending;
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     setError(null);
 
-    startTransition(async () => {
-      const response = await fetch("/api/onboarding", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ firstName, lastName, age, currency, timezone }),
-      });
-      if (!response.ok) {
-        const payload = (await response.json().catch(() => null)) as { error?: string } | null;
-        setError(payload?.error ?? "Unable to save your profile.");
-        return;
-      }
+    try {
+      await completeOnboarding.mutateAsync({ firstName, lastName, age, currency, timezone });
       router.push("/dashboard");
-    });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Unable to save your profile.");
+    }
   };
 
   const selectedCurrency =
@@ -149,7 +135,7 @@ export default function OnboardingPage({
             Set up your <span className="italic text-brass-hi">desk.</span>
           </h1>
           <p className="mt-4 max-w-md text-[13px] leading-[1.7] text-bone-mute">
-            A few details so amounts appear in your currency and the ticker wakes up on your clock.
+            A few details so account data, budgets, and month boundaries use the right locale.
           </p>
 
           <form onSubmit={handleSubmit} className="mt-12 flex flex-col gap-12">
@@ -188,7 +174,7 @@ export default function OnboardingPage({
                 </Field>
               </div>
 
-              <Field label="Age" helper="Used to calibrate longer-horizon projections.">
+              <Field label="Age" helper="Required for profile setup.">
                 <input
                   id="onboarding-age"
                   name="age"

@@ -1,4 +1,4 @@
-import "@/app/globals.css";
+import "@/styles/globals.css";
 import { Geist, Instrument_Serif, JetBrains_Mono } from "next/font/google";
 import type { AppProps } from "next/app";
 import { Analytics } from "@vercel/analytics/next";

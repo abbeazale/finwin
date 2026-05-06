@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { eq } from "drizzle-orm";
+import { z } from "zod";
 import { db } from "@/index";
 import { bankConnections } from "@/db/schema";
 import {
@@ -20,12 +21,13 @@ async function readRawBody(req: NextApiRequest): Promise<string> {
   return Buffer.concat(chunks).toString("utf8");
 }
 
-type PlaidWebhookPayload = {
-  webhook_type: string;
-  webhook_code: string;
-  item_id: string;
-  error?: { error_code?: string } | null;
-};
+const plaidWebhookPayloadSchema = z.object({
+  webhook_type: z.string(),
+  webhook_code: z.string(),
+  item_id: z.string(),
+});
+
+type PlaidWebhookPayload = z.infer<typeof plaidWebhookPayloadSchema>;
 
 const SYNC_CODES = new Set([
   "SYNC_UPDATES_AVAILABLE",
@@ -53,7 +55,12 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   let payload: PlaidWebhookPayload;
   try {
-    payload = JSON.parse(rawBody) as PlaidWebhookPayload;
+    const parsedPayload: unknown = JSON.parse(rawBody);
+    const result = plaidWebhookPayloadSchema.safeParse(parsedPayload);
+    if (!result.success) {
+      return res.status(400).json({ error: "Unsupported Plaid webhook payload." });
+    }
+    payload = result.data;
   } catch {
     return res.status(400).json({ error: "Bad JSON." });
   }

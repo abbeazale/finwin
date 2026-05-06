@@ -13,6 +13,12 @@ import {
   monthInputSchema,
 } from "@/server/lib/month";
 import { formatMoneyValue } from "@/server/lib/money";
+import {
+  CATEGORY_GROUP_NAMES,
+  CATEGORY_NAMES,
+  DEFAULT_CATEGORY_GROUP_NAME,
+  DEFAULT_CATEGORY_NAME,
+} from "@/server/lib/category-taxonomy";
 import { protectedProcedure, router } from "../trpc";
 
 const recentTransactionsInput = monthInputSchema.extend({
@@ -136,8 +142,8 @@ export const dashboardRouter = router({
 
           return {
             categoryId: row.categoryId,
-            categoryName: row.categoryName ?? "Uncategorized",
-            groupName: row.groupName ?? "Other",
+            categoryName: row.categoryName ?? DEFAULT_CATEGORY_NAME,
+            groupName: row.groupName ?? DEFAULT_CATEGORY_GROUP_NAME,
             spendAmount,
           };
         })
@@ -204,8 +210,8 @@ export const dashboardRouter = router({
         rows: rows.map((row) => ({
           ...row,
           amount: row.amount.toString(),
-          categoryName: row.categoryName ?? "Uncategorized",
-          categoryGroupName: row.categoryGroupName ?? "Other",
+          categoryName: row.categoryName ?? DEFAULT_CATEGORY_NAME,
+          categoryGroupName: row.categoryGroupName ?? DEFAULT_CATEGORY_GROUP_NAME,
         })),
       };
     }),
@@ -242,7 +248,7 @@ async function getOverviewSnapshot(userId: string, month: string) {
 function getOverviewInclusionCondition() {
   return or(
     isNull(categories.id),
-    ne(categories.name, "Credit Card Payment"),
+    ne(categories.name, CATEGORY_NAMES.CREDIT_CARD_PAYMENT),
   );
 }
 
@@ -250,9 +256,9 @@ function getSpendingByCategoryCondition() {
   return or(
     isNull(categories.id),
     and(
-      ne(categoryGroups.name, "Income"),
-      ne(categoryGroups.name, "Transfers"),
-      ne(categories.name, "Credit Card Payment"),
+      ne(categoryGroups.name, CATEGORY_GROUP_NAMES.INCOME),
+      ne(categoryGroups.name, CATEGORY_GROUP_NAMES.TRANSFERS),
+      ne(categories.name, CATEGORY_NAMES.CREDIT_CARD_PAYMENT),
     ),
   );
 }

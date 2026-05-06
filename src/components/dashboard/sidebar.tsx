@@ -1,28 +1,10 @@
 import Link from "next/link";
-import {
-  LayoutDashboard,
-  LineChart,
-  Settings,
-  Target,
-  TrendingUp,
-  Wallet,
-} from "lucide-react";
 import { Button } from "@/components/ui/button";
-
-
-export const dashboardNavItems: {
-  label: string;
-  icon: typeof LayoutDashboard;
-  href?: string;
-  disabled?: boolean;
-}[] = [
-  { label: "Desk", icon: LayoutDashboard, href: "/dashboard" },
-  { label: "Transactions", icon: Wallet, href: "/transactions" },
-  { label: "Budgets", icon: Target, href: "/budgets" },
-  { label: "Investments", icon: LineChart, href: "/investments" },
-  { label: "Analytics", icon: TrendingUp, disabled: true },
-  { label: "Settings", icon: Settings, href: "/settings/connections" },
-];
+import {
+  dashboardNavItems,
+  isDashboardNavItemActive,
+  type DashboardNavItem,
+} from "@/components/dashboard/nav";
 
 type DashboardSidebarProps = {
   firstName: string;
@@ -32,23 +14,8 @@ type DashboardSidebarProps = {
   onLogout: () => void;
 };
 
-export function isDashboardNavItemActive(
-  item: (typeof dashboardNavItems)[number],
-  currentPath: string,
-) {
-  if (!item.href) {
-    return false;
-  }
-
-  if (item.href === "/dashboard") {
-    return currentPath === item.href;
-  }
-
-  return currentPath === item.href || currentPath.startsWith(`${item.href}/`);
-}
-
 type DashboardNavItemProps = {
-  item: (typeof dashboardNavItems)[number];
+  item: DashboardNavItem;
   currentPath: string;
 };
 
@@ -112,7 +79,7 @@ function DashboardNavItem({ item, currentPath }: DashboardNavItemProps) {
     active
       ? "bg-[rgba(201,164,107,0.08)] text-brass-hi"
       : "text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
-  } ${item.disabled ? "cursor-not-allowed opacity-45 hover:bg-transparent hover:text-bone-mute" : ""}`;
+  }`;
   const content = (
     <>
       {active ? (
@@ -126,13 +93,9 @@ function DashboardNavItem({ item, currentPath }: DashboardNavItemProps) {
     </>
   );
 
-  return item.href ? (
+  return (
     <Link href={item.href} className={className} aria-current={active ? "page" : undefined}>
       {content}
     </Link>
-  ) : (
-    <button type="button" className={className} disabled={item.disabled}>
-      {content}
-    </button>
   );
 }

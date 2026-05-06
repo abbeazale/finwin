@@ -50,33 +50,18 @@ export default function Login() {
 
             <div className="relative rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)] p-5 cove">
               <div className="mb-4 flex items-center justify-between">
-                <span className="label-eyebrow">Desk readout</span>
+                <span className="label-eyebrow">Account access</span>
                 <span className="pill pill-sage"><span className="h-1 w-1 rounded-full bg-[var(--sage-hi)] animate-pulse-dot" />Online</span>
               </div>
-              <div className="grid grid-cols-3 divide-x divide-[var(--stroke)] border-y border-[var(--stroke)]">
-                <div className="flex flex-col gap-1 px-4 py-4">
-                  <span className="label-eyebrow">Net / M</span>
-                  <span className="num text-[20px] text-sage-hi">+$2,770</span>
-                </div>
-                <div className="flex flex-col gap-1 px-4 py-4">
-                  <span className="label-eyebrow">Burn</span>
-                  <span className="num text-[20px] text-amber">62%</span>
-                </div>
-                <div className="flex flex-col gap-1 px-4 py-4">
-                  <span className="label-eyebrow">Port · D</span>
-                  <span className="num text-[20px] text-sage-hi">+1.18%</span>
-                </div>
-              </div>
-              <div className="mt-5 space-y-2 text-[11px] font-[family-name:var(--font-mono)]">
+              <div className="space-y-2 border-y border-[var(--stroke)] py-4 text-[11px] font-[family-name:var(--font-mono)]">
                 {[
-                  ["2026-04-16", "Whole Foods", "-42.18"],
-                  ["2026-04-16", "Payroll", "+3,240.00"],
-                  ["2026-04-15", "Blue Bottle", "-6.25"],
-                ].map(([d, m, a]) => (
-                  <div key={d + m} className="flex justify-between text-bone-mute">
-                    <span className="text-bone-faint">{d}</span>
-                    <span className="text-bone">{m}</span>
-                    <span className={a.startsWith("+") ? "text-sage-hi" : "text-oxide-hi"}>{a}</span>
+                  ["Auth", "Better Auth session"],
+                  ["MFA", "Passkeys and TOTP"],
+                  ["Data", "Plaid-backed after sign-in"],
+                ].map(([label, value]) => (
+                  <div key={label} className="flex justify-between gap-4 text-bone-mute">
+                    <span className="text-bone-faint">{label}</span>
+                    <span className="text-right text-bone">{value}</span>
                   </div>
                 ))}
               </div>

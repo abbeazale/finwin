@@ -6,16 +6,23 @@
 - `.agents/implementationplan.md` — original phased plan (reference only; ledger is canonical)
 - `src/db/schema.ts` — full Drizzle schema (transactions, budgets, investments, categories, bank accounts/connections, auth tables)
 - `src/server/trpc/routers/_app.ts` — tRPC root router; add new routers here
+- `src/server/trpc/routers/onboarding.ts` — profile completion mutation used by `/onboarding`
 - `src/server/trpc/routers/budgets.ts` — monthly budget summary + upsert/delete mutations
 - `src/server/trpc/routers/dashboard.ts` — dashboard overview, cashflow, spending-by-category, and recent transaction queries
 - `src/server/trpc/routers/investments.ts` — protected investment account, holding, transaction, and sync procedures
 - `src/server/trpc/routers/plaid.ts` — all Plaid procedures
 - `src/server/trpc/routers/transactions.ts` — transaction listing query plus category reassignment mutation for `/transactions`
+- `src/server/lib/category-taxonomy.ts` — canonical category/group names, default category constants, and seed taxonomy
 - `src/server/investments/values.ts` — investment display math, gain/loss suppression, and cash-impact helpers
 - `src/server/investments/fx.ts` — Open Exchange Rates refresh/cache helper and USD FX lookup
 - `src/server/lib/category-map.ts` — Plaid PFC → our category name mapping (TS const)
 - `src/server/plaid/crypto.ts` — application-layer AES-256-GCM encryption/decryption for Plaid access tokens
 - `src/server/plaid/sync.ts` — Plaid transaction sync with auto-categorization
+- `src/lib/budget-status.ts` — shared budget status type and labels
+- `src/lib/name.ts` — shared name normalization helper
+- `src/components/dashboard/nav.ts` — shared dashboard nav items and active-route helper
+- `src/styles/globals.css` — global theme tokens and reusable CSS primitives
+- `src/pages/index.tsx` — root redirect into login, onboarding, or dashboard
 - `src/pages/dashboard.tsx` — main dashboard; Budget Progress now reads from `budgets.summary`
 - `src/pages/budgets.tsx` — monthly budgets desk with Recharts via the retained shadcn chart wrapper
 - `src/pages/investments.tsx` — read-only real investment accounts surface
@@ -50,6 +57,7 @@
 - `bun run build`
 - `bun run lint`
 - `bun run knip` — unused-file/export scan; Tailwind and shadcn tooling are intentionally ignored in `knip.json`
+- `bunx madge --circular --extensions ts,tsx --ts-config tsconfig.json src` — circular dependency scan
 - `bun run dbreset` — drops and remigrates the DB (non-production only)
 - `bun run seed` — idempotent category seed; run once against a fresh DB before testing sync
 
@@ -70,6 +78,7 @@
 ## Router Conventions
 
 - Product pages → `src/pages/` (Pages Router). New pages go here.
+- Root route → `src/pages/index.tsx`, currently a server-side redirect.
 - tRPC API → `src/pages/api/trpc/[trpc].ts`
 - Plaid webhook → `src/pages/api/plaid/webhook.ts` (REST, raw body required)
 - Internal FX refresh → `src/pages/api/internal/fx/refresh.ts` (`POST`, bearer `FX_REFRESH_SECRET` required in production)
@@ -85,4 +94,5 @@
 - Plaid raw provider amounts may use the opposite convention; sync should normalize before persistence.
 - Investment transactions are separate from bank transactions and preserve Plaid raw `plaid_amount`; display cash impact is derived on read as `-plaid_amount`.
 - `bank_accounts.is_active=false` marks accounts from unlinked connections. Transactions stay for historical budgets.
+- `src/app` is intentionally gone; keep routing in Pages Router unless the project deliberately migrates.
 - `bank_accounts.nickname` is user-owned display metadata. Plaid sync owns `bank_accounts.name` and should not overwrite nicknames.

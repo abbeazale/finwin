@@ -4,53 +4,48 @@
 
 @custom-variant dark (&:is(.dark *));
 
-/* ─────────────────────────────────────────────────────────
-   FINWIN — ARCHITECTURAL DARK MODE
-   A matte obsidian command center. Brushed brass fixtures.
-   Distant city windows. Tungsten cove lighting. Quiet.
-   ──────────────────────────────────────────────────────── */
+/* FinWin theme tokens */
 
 :root {
-  /* Surfaces — matte blacks with a warm (not blue) undertone */
-  --ink-0: #0a0a09;          /* anodized obsidian (page) */
-  --ink-1: #111110;          /* charcoal panel */
-  --ink-2: #17161310;        /* lifted panel (translucent over ink-0) */
-  --ink-2-solid: #171613;    /* solid variant of ink-2 */
-  --ink-3: #1d1c18;          /* walnut shadow */
-  --ink-4: #26231d;          /* dark walnut */
+  /* Surfaces */
+  --ink-0: #0a0a09;
+  --ink-1: #111110;
+  --ink-2: #17161310;
+  --ink-2-solid: #171613;
+  --ink-3: #1d1c18;
+  --ink-4: #26231d;
   --ink-glass: rgba(18, 17, 15, 0.72);
 
-  /* Strokes — hairlines, some with brass leak */
+  /* Strokes */
   --stroke: rgba(232, 225, 210, 0.06);
   --stroke-2: rgba(232, 225, 210, 0.10);
   --stroke-3: rgba(232, 225, 210, 0.16);
   --stroke-brass: rgba(201, 164, 107, 0.14);
   --stroke-brass-hi: rgba(201, 164, 107, 0.32);
 
-  /* Ink — warm off-whites, tungsten-lit */
+  /* Text */
   --bone: #e8e1d2;
   --bone-mute: #9a8f7c;
   --bone-faint: #5c5448;
   --bone-ghost: #3a3530;
 
-  /* Brass — brushed metal accent, the single point of warmth */
+  /* Accent */
   --brass: #c9a46b;
   --brass-hi: #e8c791;
   --brass-lo: #8a6e42;
   --brass-shadow: rgba(201, 164, 107, 0.22);
   --brass-glow: rgba(232, 199, 145, 0.55);
 
-  /* Walnut — rich wood for occasional warmth */
   --walnut: #3b2817;
 
-  /* Data semantics — matte, not candy */
-  --sage: #7a9a7e;            /* gain */
+  /* Data semantics */
+  --sage: #7a9a7e;
   --sage-hi: #9ebaa0;
-  --oxide: #c26a48;           /* loss */
+  --oxide: #c26a48;
   --oxide-hi: #d88662;
-  --amber: #d49a4a;           /* caution */
+  --amber: #d49a4a;
 
-  /* Cityscape — distant orange window glow, used sparingly */
+  /* Illustration colors */
   --city: #ff9a3c;
   --city-soft: rgba(255, 154, 60, 0.18);
 
@@ -59,7 +54,7 @@
   --font-sans: var(--font-finwin-body), "Geist", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-finwin-mono), "JetBrains Mono", ui-monospace, Menlo, monospace;
 
-  /* Radii — refined architectural */
+  /* Radii */
   --radius: 6px;
   --radius-sm: 3px;
   --radius-md: 6px;
@@ -193,14 +188,12 @@ body {
   font-variant-numeric: tabular-nums;
   font-feature-settings: "ss01", "ss02", "cv11";
   background-image:
-    /* subtle tungsten bloom top */
     radial-gradient(1200px 400px at 70% -200px, rgba(232, 199, 145, 0.04), transparent 70%),
-    /* distant city glow bottom */
     radial-gradient(900px 300px at 25% 120%, rgba(255, 154, 60, 0.04), transparent 60%);
   background-attachment: fixed;
 }
 
-/* Grain overlay — always on, very quiet */
+/* Low-opacity texture overlay */
 body::before {
   content: "";
   position: fixed;
@@ -219,7 +212,7 @@ body::before {
   color: var(--bone);
 }
 
-/* Scrollbar — industrial */
+/* Scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -235,7 +228,7 @@ body::before {
   background: var(--brass-lo);
 }
 
-/* ── Reusable architectural primitives ── */
+/* Reusable UI primitives */
 
 /* Panel surfaces */
 .panel {
@@ -250,7 +243,7 @@ body::before {
   border-radius: var(--radius-md);
 }
 
-/* Cove lighting: hairline brass at top edge of panel */
+/* Top-edge highlight for panels */
 .cove {
   box-shadow:
     inset 0 1px 0 rgba(232, 199, 145, 0.08),
@@ -265,7 +258,7 @@ body::before {
     0 0 32px -12px var(--brass-shadow);
 }
 
-/* Brushed metal surface — subtle vertical grain */
+/* Subtle vertical surface grain */
 .brushed {
   background-image:
     linear-gradient(180deg, rgba(232, 225, 210, 0.015) 0%, transparent 40%, rgba(0, 0, 0, 0.25) 100%),
@@ -285,7 +278,7 @@ body::before {
   -webkit-backdrop-filter: blur(18px) saturate(140%);
 }
 
-/* Window blinds — horizontal louver stripes */
+/* Horizontal louver stripes */
 .blinds {
   background-image: repeating-linear-gradient(
     0deg,
@@ -296,7 +289,7 @@ body::before {
   );
 }
 
-/* Cross-hair architectural grid */
+/* Background grid */
 .grid-plan {
   background-image:
     linear-gradient(var(--stroke) 1px, transparent 1px),
@@ -304,7 +297,7 @@ body::before {
   background-size: 64px 64px;
 }
 
-/* Section label — tracked uppercase metadata */
+/* Uppercase metadata label */
 .label-eyebrow {
   font-family: var(--font-mono);
   font-size: 10px;
@@ -330,14 +323,14 @@ body::before {
   letter-spacing: -0.01em;
 }
 
-/* Serif display — used for moneypiece numerals and hero type */
+/* Serif display type */
 .display {
   font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: -0.015em;
 }
 
-/* Horizon line — pulsing city */
+/* Animated horizon line */
 .horizon {
   position: relative;
 }
@@ -360,7 +353,7 @@ body::before {
   animation: horizon-breathe 8s ease-in-out infinite;
 }
 
-/* Divider — hairline with brass mark */
+/* Divider with accent mark */
 .rule {
   position: relative;
   height: 1px;
@@ -376,7 +369,7 @@ body::before {
   background: var(--brass);
 }
 
-/* Primary — dark instrument panel with brass readout */
+/* Primary button */
 .btn-brass {
   display: inline-flex;
   align-items: center;
@@ -426,7 +419,7 @@ body::before {
   pointer-events: none;
 }
 
-/* Ghost — hairline, minimal */
+/* Secondary button */
 .btn-ghost {
   display: inline-flex;
   align-items: center;
@@ -464,7 +457,7 @@ body::before {
   pointer-events: none;
 }
 
-/* Input field — architectural dark */
+/* Text input */
 .input-arch {
   width: 100%;
   height: 44px;
@@ -490,7 +483,7 @@ body::before {
     0 0 0 3px var(--brass-shadow);
 }
 
-/* Data pill — status tag */
+/* Status tag */
 .pill {
   display: inline-flex;
   align-items: center;
@@ -530,7 +523,7 @@ body::before {
   border: 1px solid var(--stroke-2);
 }
 
-/* Corner bracket — architectural marker */
+/* Decorative corner bracket */
 .brackets {
   position: relative;
 }
@@ -554,38 +547,6 @@ body::before {
   right: -1px;
   border-left: 0;
   border-top: 0;
-}
-
-/* Skyline silhouette — decorative CSS skyline */
-.skyline {
-  position: relative;
-}
-.skyline::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 60px;
-  pointer-events: none;
-  background:
-    linear-gradient(180deg, transparent 0%, var(--ink-0) 100%),
-    repeating-linear-gradient(
-      90deg,
-      transparent 0px, transparent 13px,
-      #000 13px, #000 17px,
-      transparent 17px, transparent 22px,
-      #000 22px, #000 34px,
-      transparent 34px, transparent 40px,
-      #000 40px, #000 55px,
-      transparent 55px, transparent 62px,
-      #000 62px, #000 72px,
-      transparent 72px, transparent 80px,
-      #000 80px, #000 96px,
-      transparent 96px, transparent 102px
-    );
-  mask: linear-gradient(180deg, transparent 0%, #000 35%, #000 100%);
-  opacity: 0.55;
 }
 
 /* Filter select — transactions filter bar */
@@ -662,55 +623,17 @@ body::before {
     to { opacity: 1; transform: translateY(0); }
   }
 
-  @keyframes fade-in {
-    from { opacity: 0; }
-    to { opacity: 1; }
-  }
-
-  @keyframes ticker {
-    from { transform: translateX(0); }
-    to { transform: translateX(-50%); }
-  }
-
   @keyframes pulse-dot {
     0%, 100% { opacity: 0.4; }
     50% { opacity: 1; }
-  }
-
-  @keyframes brass-gleam {
-    0%, 100% { opacity: 0; transform: translateX(-100%) skewX(-12deg); }
-    50% { opacity: 0.6; }
-    100% { opacity: 0; transform: translateX(200%) skewX(-12deg); }
-  }
-
-  @keyframes window-flicker {
-    0%, 92%, 100% { opacity: 0.85; }
-    94% { opacity: 0.4; }
-    96% { opacity: 0.9; }
   }
 
   .animate-fade-slide {
     animation: fade-slide 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
-  .animate-fade-in {
-    animation: fade-in 600ms ease-out both;
-  }
-
-  .animate-ticker {
-    animation: ticker 60s linear infinite;
-  }
-
   .animate-pulse-dot {
     animation: pulse-dot 2.6s ease-in-out infinite;
-  }
-
-  .animate-brass-gleam {
-    animation: brass-gleam 4.5s ease-in-out infinite;
-  }
-
-  .animate-window-flicker {
-    animation: window-flicker 11s ease-in-out infinite;
   }
 }
 

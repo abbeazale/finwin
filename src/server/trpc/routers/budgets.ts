@@ -3,6 +3,7 @@ import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import { z } from "zod";
 import { budgets, categories, categoryGroups, transactions } from "@/db/schema";
 import { db } from "@/index";
+import type { BudgetStatus } from "@/lib/budget-status";
 import {
   getNextMonthStart,
   monthDateRegex,
@@ -26,8 +27,6 @@ const deleteBudgetInput = z
     month: z.string().regex(monthDateRegex),
   })
   .superRefine(refineFirstOfMonth);
-
-type SummaryStatus = "on_track" | "near_limit" | "over" | "unbudgeted" | "no_budget";
 
 export const budgetsRouter = router({
   summary: protectedProcedure
@@ -103,7 +102,7 @@ export const budgetsRouter = router({
           actualAmount: string;
           remainingAmount: string | null;
           percentUsed: number | null;
-          status: SummaryStatus;
+          status: BudgetStatus;
         }>;
       }>();
 
@@ -169,6 +168,7 @@ export const budgetsRouter = router({
     .input(upsertBudgetInput)
     .mutation(async ({ ctx, input }) => {
       const category = await getBudgetableCategory(input.categoryId);
+      const amount = formatMoneyValue(input.amount);
 
       if (!category) {
         throw new TRPCError({
@@ -183,19 +183,19 @@ export const budgetsRouter = router({
           userId: ctx.userId,
           categoryId: input.categoryId,
           month: input.month,
-          amount: input.amount.toFixed(2),
+          amount,
         })
         .onConflictDoUpdate({
           target: [budgets.userId, budgets.categoryId, budgets.month],
           set: {
-            amount: input.amount.toFixed(2),
+            amount,
           },
         });
 
       return {
         categoryId: input.categoryId,
         month: input.month,
-        amount: input.amount.toFixed(2),
+        amount,
       };
     }),
   deleteMonthlyBudget: protectedProcedure
@@ -243,7 +243,7 @@ function getBudgetStatus({
   budgetAmount: number | null;
   actualAmount: number;
   percentUsed: number | null;
-}): SummaryStatus {
+}): BudgetStatus {
   if (budgetAmount === null) {
     return actualAmount > 0 ? "unbudgeted" : "no_budget";
   }

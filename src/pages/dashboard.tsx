@@ -4,6 +4,7 @@ import {
   getUserProfile,
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
+import { formatBudgetStatus as formatBudgetStatusLabel } from "@/lib/budget-status";
 import { transactions } from "@/db/schema";
 import { db } from "@/index";
 import { signOut } from "@/lib/auth-client";
@@ -707,18 +708,7 @@ function shiftMonth(value: string, offset: number) {
 }
 
 function formatBudgetStatus(status: string) {
-  switch (status) {
-    case "on_track":
-      return "On track";
-    case "near_limit":
-      return "Near limit";
-    case "over":
-      return "Over";
-    case "unbudgeted":
-      return "Unbudgeted";
-    default:
-      return "No budget";
-  }
+  return formatBudgetStatusLabel(status);
 }
 
 function formatMoney(amount: number, currency: string, maximumFractionDigits = 2) {

@@ -2,7 +2,6 @@
   "$schema": "https://unpkg.com/knip@6/schema.json",
   "entry": [
     "src/pages/**/*.{ts,tsx}",
-    "src/app/**/*.{ts,tsx}",
     "next.config.{ts,js}",
     "eslint.config.*",
     "postcss.config.*",

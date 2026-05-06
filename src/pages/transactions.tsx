@@ -16,10 +16,16 @@ import { trpc, type RouterInputs, type RouterOutputs } from "@/lib/trpc";
 type CategoryFilterValue = "all" | "uncategorized" | string;
 type PendingFilterValue = NonNullable<RouterInputs["transactions"]["list"]["pending"]>;
 
+const PENDING_FILTER_VALUES = ["all", "pending", "posted"] as const satisfies readonly PendingFilterValue[];
+
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   month: "short",
   day: "numeric",
 });
+
+function isPendingFilterValue(value: string): value is PendingFilterValue {
+  return PENDING_FILTER_VALUES.some((option) => option === value);
+}
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -65,7 +71,7 @@ export default function TransactionsPage() {
       await utils.transactions.list.invalidate();
     },
     onError: (error) => {
-      setCategoryMessage(error.message ?? "Unable to update category.");
+      setCategoryMessage(error.message);
     },
   });
 
@@ -144,7 +150,7 @@ export default function TransactionsPage() {
             </div>
             <p className="mt-4 max-w-2xl text-[13px] leading-[1.7] text-bone-mute">
               Imported tape, read-only by design. Inspect, filter, and surface uncategorized
-              rows before budgets or insights depend on them.
+              rows before budget math depends on them.
             </p>
           </div>
         </header>
@@ -180,7 +186,7 @@ export default function TransactionsPage() {
         {error ? (
           <p className="mb-8 flex items-center gap-3 rounded-md border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
             <CircleAlert className="size-3.5" />
-            {error.message ?? "Unable to load transactions."}
+            {error.message}
           </p>
         ) : null}
 
@@ -240,7 +246,12 @@ export default function TransactionsPage() {
             <FilterCell label="Status">
               <select
                 value={pending}
-                onChange={(event) => setPending(event.target.value as PendingFilterValue)}
+                onChange={(event) => {
+                  const nextValue = event.target.value;
+                  if (isPendingFilterValue(nextValue)) {
+                    setPending(nextValue);
+                  }
+                }}
                 className="filter-select"
               >
                 <option value="all">All rows</option>
