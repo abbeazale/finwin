@@ -4,7 +4,7 @@ Companion to [spec/investments-api-ui.md](../spec/investments-api-ui.md).
 
 Order: 3 — implement after Plaid sync, before FX normalization.
 
-Status: complete as of 2026-04-30; live data spot-check remains.
+Status: complete as of 2026-05-06; live investment UI/data spot-check is complete.
 
 ## Goal
 

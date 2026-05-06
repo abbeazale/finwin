@@ -10,8 +10,8 @@ FinWin should help users move from raw transaction noise to understandable finan
 - Better Auth now supports email/password, GitHub, Google, passkey sign-in, and TOTP two-factor enrollment.
 - Plaid integration is complete — accounts link, transactions sync with auto-categorization, connections managed via `/settings/connections`.
 - All app data routes use tRPC. Plaid webhook stays as a plain REST route.
-- Phase 6a (real investment accounts) is the active milestone.
-- Phase 6a implementation is complete through schema, Plaid import, read API/UI, and FX conversion; live Plaid investment-account verification remains.
+- Phase 6a (real investment accounts) is complete.
+- Phase 5 AI insights is the next product milestone; AI should explain deterministic backend-computed financial summaries, not compute financial truth.
 - Active hardening pass before real-bank rollout: stored Plaid access tokens now move to encrypted-only storage with a disposable-db reset path for rollout/testing.
 
 ## Milestone Status
@@ -22,16 +22,17 @@ FinWin should help users move from raw transaction noise to understandable finan
 | 2 | Real transaction import and normalization | ✅ Done — Plaid sync + auto-categorization via Plaid PFC map |
 | 3 | Transactions page, category reassignment, budgets page, budget-vs-actual | ✅ Done — `/transactions` reassignment, `/budgets`, and dashboard budget progress verified on real synced data |
 | 4 | Dashboard analytics wired to real data | ✅ Core shipped — live verification follow-up remains |
-| 5 | AI insights | ⏳ Phase 5 |
-| 6 | Real investment accounts / portfolio | 🔄 Phase 6a implemented — live Plaid verification remains |
+| 5 | AI insights | ⏭️ Next |
+| 6 | Real investment accounts / portfolio | ✅ Phase 6a done — Plaid + investments verified |
 
 ## Phase 6a — Real Investment Accounts
 
-Next tasks in order:
+Status: complete. Plaid and investments have been verified in the live app flow.
 
-1. **Live Plaid verification** — sync against sandbox/development investment data and confirm holdings replacement, transaction idempotency, inactive-account behavior, and FX exclusions.
-2. **Provider data spot-check** — compare `/investments` totals, native currencies, and transaction cash impact against Plaid responses or DB rows.
-3. **Production readiness cleanup** — wire the internal OER refresh route to deployment scheduling before production.
+Production follow-up:
+
+1. **OER refresh scheduling** — wire the internal OER refresh route to deployment scheduling or a controlled admin/manual trigger before production.
+2. **Connection recovery checks** — keep Plaid reconnect/error handling covered in live smoke tests.
 
 ### Phase 6a implementation notes
 
@@ -56,6 +57,15 @@ Next tasks in order:
 1. **Live verification pass** — sanity-check the new dashboard metrics against synced data, especially transfer exclusion, refunds, and inactive-account history.
 2. **Keep financial math centralized** — continue reusing `budgets.summary` and shared transaction queries rather than duplicating dashboard calculations.
 3. **Trim any remaining provisional copy** — keep portfolio and AI affordances out of the dashboard until those milestones exist behind real data.
+
+## Phase 5 — AI Insights
+
+Next tasks in order:
+
+1. **Summary contract** — define a deterministic backend payload from existing dashboard, budget, transaction, and investment queries.
+2. **Insight generation route** — add a protected server path that turns the summary payload into structured insight copy without recalculating financial values.
+3. **UI surface** — add a small dashboard insight panel or dedicated insights page that clearly cites the underlying metric period and source.
+4. **Guardrails** — prevent AI output from inventing balances, budgets, holdings, or performance numbers; those must come from typed backend data.
 
 ### Phase 2 completion notes
 

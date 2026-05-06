@@ -4,7 +4,7 @@ Companion to [spec/investments-real-accounts.md](../spec/investments-real-accoun
 
 Order: 0 — overview and final verification.
 
-Status: implemented through Phase 6a.4 as of 2026-04-30; final live-data verification remains.
+Status: complete as of 2026-05-06; Plaid and investments are verified in the live app flow.
 
 ## Goal
 
@@ -55,3 +55,5 @@ values and USD-only accounts before mixed-currency aggregation is complete.
 - targeted unit tests for gain/loss suppression and FX exclusion
 - manual sync against Plaid sandbox/development investment accounts
 - re-sync confirms closed holdings disappear and transactions do not duplicate
+
+Verification status: complete by user-confirmed live Plaid/investments flow.

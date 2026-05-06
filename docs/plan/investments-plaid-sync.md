@@ -4,7 +4,7 @@ Companion to [spec/investments-plaid-sync.md](../spec/investments-plaid-sync.md)
 
 Order: 2 — implement after schema/accounts and before API/UI.
 
-Status: complete as of 2026-04-30; live Plaid sandbox/development verification remains.
+Status: complete as of 2026-05-06; Plaid investment sync is verified in the live app flow.
 
 ## Goal
 

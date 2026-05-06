@@ -1,5 +1,31 @@
 # FinWin Ledger
 
+## 2026-05-06
+
+### Plaid and investments live verification complete
+
+- User confirmed Plaid is working with valid credentials and the investment account surface is done.
+- Phase 6a can now be treated as complete rather than "implemented but awaiting live Plaid verification."
+- Current completed product foundation:
+  - Better Auth sign-in plus passkey/TOTP security baseline
+  - encrypted Plaid token storage
+  - Plaid account linking, transaction sync, webhook handling, and connection management
+  - production transaction ledger with filters and category reassignment
+  - monthly budgets and dashboard budget progress backed by synced transactions
+  - live dashboard analytics for overview, cashflow, recent ledger, and spending by category
+  - real investment accounts with holdings, investment transactions, `/investments`, FX conversion, and price fallback states
+- Remaining production-readiness follow-ups:
+  - wire `POST /api/internal/fx/refresh` to a scheduled or controlled admin trigger before production
+  - keep Plaid sync-error hardening verified in the live flow, especially reconnect/error states
+  - browser-test passkey enrollment/sign-in on the deployed or final local app origin
+- Next product milestone: Phase 5 AI insights, implemented as explanation over deterministic backend financial summaries rather than as a source of balances, budgets, or portfolio math.
+
+### Session handoff
+
+- Treat Phase 6a real investment accounts as complete.
+- Update planning language away from "live verification remains" and toward Phase 5 AI insights plus production hardening.
+- If the next session starts implementation, begin with a narrow AI summary contract fed by existing dashboard, budget, transaction, and investment queries.
+
 ## 2026-05-01
 
 ### Dashboard cashflow zero-state fix
