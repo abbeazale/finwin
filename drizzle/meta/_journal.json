@@ -36,6 +36,13 @@
       "when": 1776489200000,
       "tag": "0004_auth_mfa",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1777615975174,
+      "tag": "0005_vengeful_firelord",
+      "breakpoints": true
     }
   ]
 }

@@ -56,7 +56,7 @@ Before adding the router, lock the financial rules in code comments or helper na
 ### Decide once
 
 - dashboard month is calendar-month only
-- transfers are excluded from overview and cashflow
+- transfers are included in overview and cashflow as visible ledger movement
 - `Credit Card Payment` is excluded from overview and cashflow
 - pending rows are included
 - inactive-account history is included
@@ -184,7 +184,7 @@ The dashboard can be trusted as the main entry point into the product.
 ## Risks And Mitigations
 
 - **Transfer handling can make totals look wrong**
-  - Mitigation: exclude `Transfer` and `Credit Card Payment` from overview and cashflow from day one
+  - Mitigation: include generic `Transfer` rows in overview/cashflow until FinWin can distinguish internal matched transfers from external movement; keep `Credit Card Payment` excluded
 
 - **Refund semantics can drift between cards and category charts**
   - Mitigation: treat overview as cashflow math and category chart as net spend math; document both explicitly

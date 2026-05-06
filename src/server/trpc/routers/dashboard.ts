@@ -248,10 +248,7 @@ async function getOverviewSnapshot(userId: string, month: string) {
 function getOverviewInclusionCondition() {
   return or(
     isNull(categories.id),
-    and(
-      ne(categories.name, CATEGORY_NAMES.TRANSFER),
-      ne(categories.name, CATEGORY_NAMES.CREDIT_CARD_PAYMENT),
-    ),
+    ne(categories.name, CATEGORY_NAMES.CREDIT_CARD_PAYMENT),
   );
 }
 

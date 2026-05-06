@@ -63,7 +63,7 @@ export const plaidRouter = router({
         const { data } = await getPlaid().linkTokenCreate({
           user: { client_user_id: ctx.userId },
           client_name: "FinWin",
-          products: updateAccessToken ? [] : [Products.Transactions],
+          products: updateAccessToken ? [] : [Products.Transactions, Products.Investments],
           country_codes: [CountryCode.Us, CountryCode.Ca],
           language: "en",
           webhook: process.env.PLAID_WEBHOOK_URL || undefined,

@@ -222,6 +222,7 @@ export const bankAccounts = pgTable(
     ),
     providerAccountId: text("provider_account_id").notNull(),
     name: text("name").notNull(),
+    nickname: text("nickname"),
     type: text("type").notNull(), // "depository" | "credit" | "loan" | "investment"
     subtype: text("subtype"),
     mask: text("mask"),
@@ -233,6 +234,111 @@ export const bankAccounts = pgTable(
     index("bank_accounts_user_id_idx").on(table.userId),
     index("bank_accounts_connection_id_idx").on(table.connectionId),
     uniqueIndex("bank_accounts_provider_account_id_unique").on(table.providerAccountId),
+  ]),
+);
+
+export const securities = pgTable(
+  "securities",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    plaidSecurityId: text("plaid_security_id").notNull(),
+    tickerSymbol: text("ticker_symbol"),
+    name: text("name"),
+    type: text("type"),
+    isCashEquivalent: boolean("is_cash_equivalent").notNull().default(false),
+    closePrice: numeric("close_price", { precision: 12, scale: 4 }),
+    closePriceAsOf: date("close_price_as_of"),
+    isoCurrencyCode: text("iso_currency_code"),
+    unofficialCurrencyCode: text("unofficial_currency_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ([
+    uniqueIndex("securities_plaid_security_id_unique").on(table.plaidSecurityId),
+  ]),
+);
+
+export const investmentHoldings = pgTable(
+  "investment_holdings",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => bankAccounts.id, { onDelete: "cascade" }),
+    securityId: uuid("security_id")
+      .notNull()
+      .references(() => securities.id),
+    quantity: numeric("quantity", { precision: 18, scale: 8 }).notNull(),
+    costBasis: numeric("cost_basis", { precision: 12, scale: 2 }),
+    institutionPrice: numeric("institution_price", { precision: 12, scale: 4 }).notNull(),
+    institutionPriceAsOf: date("institution_price_as_of"),
+    isoCurrencyCode: text("iso_currency_code"),
+    unofficialCurrencyCode: text("unofficial_currency_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ([
+    index("investment_holdings_user_id_idx").on(table.userId),
+    index("investment_holdings_account_id_idx").on(table.accountId),
+    uniqueIndex("investment_holdings_account_security_unique").on(
+      table.accountId,
+      table.securityId,
+    ),
+  ]),
+);
+
+export const investmentTransactions = pgTable(
+  "investment_transactions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    accountId: uuid("account_id")
+      .notNull()
+      .references(() => bankAccounts.id, { onDelete: "cascade" }),
+    securityId: uuid("security_id").references(() => securities.id),
+    plaidInvestmentTransactionId: text("plaid_investment_transaction_id").notNull(),
+    date: date("date").notNull(),
+    name: text("name").notNull(),
+    quantity: numeric("quantity", { precision: 18, scale: 8 }),
+    plaidAmount: numeric("plaid_amount", { precision: 12, scale: 2 }).notNull(),
+    price: numeric("price", { precision: 12, scale: 4 }),
+    fees: numeric("fees", { precision: 12, scale: 2 }),
+    type: text("type").notNull(),
+    subtype: text("subtype"),
+    isoCurrencyCode: text("iso_currency_code"),
+    unofficialCurrencyCode: text("unofficial_currency_code"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ([
+    index("investment_transactions_user_date_idx").on(table.userId, table.date),
+    index("investment_transactions_account_id_idx").on(table.accountId),
+    uniqueIndex("investment_transactions_plaid_id_unique").on(
+      table.plaidInvestmentTransactionId,
+    ),
+  ]),
+);
+
+export const currencyRates = pgTable(
+  "currency_rates",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    baseCurrency: text("base_currency").notNull(),
+    quoteCurrency: text("quote_currency").notNull(),
+    rate: numeric("rate", { precision: 18, scale: 8 }).notNull(),
+    fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ([
+    uniqueIndex("currency_rates_base_quote_unique").on(
+      table.baseCurrency,
+      table.quoteCurrency,
+    ),
   ]),
 );
 

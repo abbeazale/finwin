@@ -3,7 +3,11 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/index";
 import { bankConnections } from "@/db/schema";
-import { syncConnection } from "@/server/plaid/sync";
+import {
+  syncConnection,
+  syncInvestmentHoldings,
+  syncInvestmentTransactions,
+} from "@/server/plaid/sync";
 import { verifyPlaidWebhook } from "@/server/plaid/webhook-verify";
 
 // Next's default body parser would strip whitespace and break request_body_sha256.
@@ -77,6 +81,13 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     if (payload.webhook_type === "TRANSACTIONS" && SYNC_CODES.has(payload.webhook_code)) {
       // Plaid retries on non-2xx responses, so keep this handler synchronous until sync volume warrants a durable queue.
       await syncConnection(connection.id);
+    } else if (payload.webhook_type === "HOLDINGS" && payload.webhook_code === "DEFAULT_UPDATE") {
+      await syncInvestmentHoldings(connection.id);
+    } else if (
+      payload.webhook_type === "INVESTMENTS_TRANSACTIONS" &&
+      payload.webhook_code === "DEFAULT_UPDATE"
+    ) {
+      await syncInvestmentTransactions(connection.id);
     } else if (payload.webhook_type === "ITEM") {
       if (payload.webhook_code === "ERROR") {
         await db

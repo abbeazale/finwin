@@ -90,13 +90,13 @@ For monthly overview cards and the cashflow chart:
 - month-scoped
 - include pending rows
 - include historical rows from inactive accounts
-- exclude rows categorized as `Transfer`
 - exclude rows categorized as `Credit Card Payment`
 
 Reasoning:
 - pending should align with current budgeting behavior
 - inactive-account history should still count for historical truth
-- transfers and credit-card-payment rows would distort inflow/outflow totals with internal money movement
+- transfers represent visible ledger movement unless explicitly reclassified into a more precise category
+- credit-card-payment rows would distort inflow/outflow totals with internal money movement
 
 ### Refund and reversal treatment
 
