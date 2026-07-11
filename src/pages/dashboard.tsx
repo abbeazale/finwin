@@ -4,7 +4,7 @@ import {
   getUserProfile,
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
-import { formatBudgetStatus as formatBudgetStatusLabel } from "@/lib/budget-status";
+import { formatBudgetStatus } from "@/lib/budget-status";
 import { transactions } from "@/db/schema";
 import { db } from "@/index";
 import { signOut } from "@/lib/auth-client";
@@ -15,6 +15,8 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
+import { formatCurrency } from "@/lib/currency";
+import { formatMonthHeading, parseLocalDate, shiftMonthStart } from "@/lib/date";
 import { useRouter } from "next/router";
 import { useState, useTransition } from "react";
 import {
@@ -213,7 +215,7 @@ export default function Dashboard({
                   variant="ghost"
                   size="icon"
                   className="size-8 rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
-                  onClick={() => setMonth((current) => shiftMonth(current, -1))}
+                  onClick={() => setMonth((current) => shiftMonthStart(current, -1))}
                 >
                   <ArrowLeft className="size-3.5" />
                   <span className="sr-only">Previous month</span>
@@ -227,7 +229,7 @@ export default function Dashboard({
                   variant="ghost"
                   size="icon"
                   className="size-8 rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
-                  onClick={() => setMonth((current) => shiftMonth(current, 1))}
+                  onClick={() => setMonth((current) => shiftMonthStart(current, 1))}
                 >
                   <ArrowRight className="size-3.5" />
                   <span className="sr-only">Next month</span>
@@ -672,56 +674,26 @@ function LegendDot({ label, color }: { label: string; color: string }) {
   );
 }
 
-function formatMonthHeading(value: string) {
-  const [year, month] = value.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-CA", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, 1));
-}
-
 function formatShortDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("en-CA", {
     month: "2-digit",
     day: "2-digit",
-  }).format(new Date(year, month - 1, day));
+  }).format(parseLocalDate(value));
 }
 
 function formatTooltipDate(value: string) {
-  const [year, month, day] = value.split("-").map(Number);
   return new Intl.DateTimeFormat("en-CA", {
     month: "short",
     day: "numeric",
-  }).format(new Date(year, month - 1, day));
+  }).format(parseLocalDate(value));
 }
 
 function formatTooltipLabel(value: React.ReactNode) {
   return typeof value === "string" ? formatTooltipDate(value) : value;
 }
 
-function shiftMonth(value: string, offset: number) {
-  const [year, month] = value.split("-").map(Number);
-  const shifted = new Date(Date.UTC(year, month - 1 + offset, 1));
-
-  return `${shifted.getUTCFullYear()}-${`${shifted.getUTCMonth() + 1}`.padStart(2, "0")}-01`;
-}
-
-function formatBudgetStatus(status: string) {
-  return formatBudgetStatusLabel(status);
-}
-
 function formatMoney(amount: number, currency: string, maximumFractionDigits = 2) {
-  try {
-    return new Intl.NumberFormat("en-CA", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: maximumFractionDigits === 0 ? 0 : 2,
-      maximumFractionDigits,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toFixed(maximumFractionDigits)}`;
-  }
+  return formatCurrency(amount, currency, maximumFractionDigits);
 }
 
 function formatSignedMoney(amount: number, currency: string) {

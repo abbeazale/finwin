@@ -1,4 +1,4 @@
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { currencyRates } from "@/db/schema";
 import { db } from "@/index";
@@ -33,22 +33,22 @@ export async function refreshOpenExchangeRates() {
   const now = new Date();
   const entries = Object.entries(payload.rates);
 
-  for (const [quoteCurrency, rate] of entries) {
+  if (entries.length > 0) {
     await db
       .insert(currencyRates)
-      .values({
+      .values(entries.map(([quoteCurrency, rate]) => ({
         baseCurrency: USD,
         quoteCurrency,
         rate: rate.toFixed(8),
         fetchedAt,
         updatedAt: now,
-      })
+      })))
       .onConflictDoUpdate({
         target: [currencyRates.baseCurrency, currencyRates.quoteCurrency],
         set: {
-          rate: rate.toFixed(8),
-          fetchedAt,
-          updatedAt: now,
+          rate: sql`excluded.rate`,
+          fetchedAt: sql`excluded.fetched_at`,
+          updatedAt: sql`excluded.updated_at`,
         },
       });
   }
@@ -81,7 +81,7 @@ export async function getUsdFxRates(): Promise<FxRateLookup> {
   return map;
 }
 
-export function isFxRateStale(fetchedAt: Date) {
+function isFxRateStale(fetchedAt: Date) {
   const ageMs = Date.now() - fetchedAt.getTime();
   return ageMs > STALE_AFTER_DAYS * 86_400_000;
 }

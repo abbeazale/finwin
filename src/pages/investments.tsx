@@ -12,6 +12,8 @@ import {
 import { useSession } from "@/lib/auth-client";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
+import { PageStatus } from "@/components/page-status";
+import { formatCurrency } from "@/lib/currency";
 
 type Account = RouterOutputs["investments"]["getAccounts"]["accounts"][number];
 type Holding = RouterOutputs["investments"]["getHoldings"]["holdings"][number];
@@ -511,14 +513,6 @@ function PanelStatus({ label }: { label: string }) {
   return <div className="px-5 py-12 text-center text-[13px] text-bone-mute">{label}</div>;
 }
 
-function PageStatus({ label }: { label: string }) {
-  return (
-    <div className="flex min-h-screen items-center justify-center bg-ink-0 text-[13px] text-bone-mute">
-      {label}
-    </div>
-  );
-}
-
 function formatAccountOption(account: Account) {
   const suffix = account.accountMask ? ` · ${account.accountMask}` : "";
   return `${account.accountName}${suffix}${account.isActive ? "" : " · inactive"}`;
@@ -544,11 +538,7 @@ function formatPriceDetail(source: Holding["priceSource"], asOf: string | null |
 }
 
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatCurrency(value, "USD", 2, "en-US");
 }
 
 function formatPercent(value: number | null | undefined) {

@@ -24,6 +24,9 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
+import { PageStatus } from "@/components/page-status";
+import { formatCurrency } from "@/lib/currency";
+import { formatMonthHeading, shiftMonthStart } from "@/lib/date";
 
 const budgetChartConfig = {
   budget: { label: "Budget", color: "var(--chart-1)" },
@@ -181,7 +184,7 @@ export default function BudgetsPage() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setMonth(getShiftedMonthStart(month, -1))}
+                onClick={() => setMonth(shiftMonthStart(month, -1))}
                 className="size-9 rounded text-bone-mute shadow-none hover:bg-[var(--ink-3)] hover:text-bone"
               >
                 <ArrowLeft className="size-3.5" />
@@ -194,7 +197,7 @@ export default function BudgetsPage() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setMonth(getShiftedMonthStart(month, 1))}
+                onClick={() => setMonth(shiftMonthStart(month, 1))}
                 className="size-9 rounded text-bone-mute shadow-none hover:bg-[var(--ink-3)] hover:text-bone"
               >
                 <ArrowRight className="size-3.5" />
@@ -846,23 +849,6 @@ function BudgetGroupSkeleton() {
   );
 }
 
-function PageStatus({ label }: { label: string }) {
-  return (
-    <div className="relative flex min-h-screen items-center justify-center bg-ink-0 text-bone">
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className="absolute -top-32 right-[14%] h-[28rem] w-[28rem] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, rgba(232,199,145,0.05), transparent 65%)" }}
-        />
-      </div>
-      <div className="relative z-10 flex flex-col items-center gap-3">
-        <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
-        <span className="label-eyebrow-brass">{label}</span>
-      </div>
-    </div>
-  );
-}
-
 type ChartRow = { category: string; budget: number; actual: number };
 
 function ChartModal({
@@ -941,12 +927,6 @@ function getCurrentMonthStart() {
   return `${now.getFullYear()}-${`${now.getMonth() + 1}`.padStart(2, "0")}-01`;
 }
 
-function getShiftedMonthStart(value: string, delta: number) {
-  const [year, month] = value.split("-").map(Number);
-  const next = new Date(Date.UTC(year, month - 1 + delta, 1));
-  return `${next.getUTCFullYear()}-${`${next.getUTCMonth() + 1}`.padStart(2, "0")}-01`;
-}
-
 function getDaysLeftInMonth(monthStart: string) {
   const [year, month] = monthStart.split("-").map(Number);
   const today = new Date();
@@ -962,21 +942,8 @@ function getLastDayOfMonth(monthStart: string) {
   return `${year}-${String(month).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`;
 }
 
-function formatMonthHeading(value: string) {
-  const [year, month] = value.split("-").map(Number);
-  return new Intl.DateTimeFormat("en-CA", {
-    month: "long",
-    year: "numeric",
-  }).format(new Date(year, month - 1, 1));
-}
-
 function formatMoney(value: number) {
-  return new Intl.NumberFormat("en-CA", {
-    style: "currency",
-    currency: "CAD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(value);
+  return formatCurrency(value, "CAD");
 }
 
 function formatSignedMoney(value: number) {
