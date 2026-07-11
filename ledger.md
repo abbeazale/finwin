@@ -1,5 +1,20 @@
 # FinWin Ledger
 
+## 2026-07-11
+
+### Landing page stock ticker shipped
+
+- Replaced the landing page marquee's hardcoded personal-finance stats with a live top-20 US stock ticker (symbol, price, green/red arrow with percent change).
+- Added `src/server/market/quotes.ts`: Finnhub `/quote` fetch per symbol with a 5-minute in-memory cache, zod validation, and stale-serve on provider failure. Static top-20 symbol list by market cap.
+- `src/pages/index.tsx` fetches quotes in `getServerSideProps` (logged-out path only) and falls back to the old stats marquee when quotes are unavailable (missing key, provider down on cold cache).
+- Added `FINNHUB_API_KEY` to `.env` (gitignored) and `.env.example`. No Finnhub webhooks needed — REST polling only.
+- Verified:
+  - `bunx tsc --noEmit`
+  - `bunx eslint src/pages/index.tsx src/server/market/quotes.ts`
+  - live Finnhub calls for `AAPL` and `BRK.B` return real quotes with the configured key
+  - rendered `/` shows 20 quotes with correct up/down arrows (AAPL down rendered `▼ 0.28%` in oxide)
+  - `bun run build`
+
 ## 2026-05-06
 
 ### Code quality cleanup pass refreshed

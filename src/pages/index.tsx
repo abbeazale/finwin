@@ -6,6 +6,7 @@ import {
   getUserProfile,
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
+import { getTickerQuotes, type TickerQuote } from "@/server/market/quotes";
 
 const pillars = [
   {
@@ -25,7 +26,7 @@ const pillars = [
   },
 ];
 
-const marquee = [
+const fallbackMarquee = [
   { k: "CASHFLOW · M", v: "+ $2,770" },
   { k: "BURN RATE", v: "62%" },
   { k: "NET WORTH", v: "$148,320" },
@@ -36,6 +37,11 @@ const marquee = [
   { k: "VOL · 30D", v: "11.4%" },
 ];
 
+const priceFormatter = new Intl.NumberFormat("en-US", {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
 const roomSpec = [
   ["Lighting", "Tungsten cove · no overheads"],
   ["Surfaces", "Matte obsidian, brushed brass"],
@@ -43,7 +49,11 @@ const roomSpec = [
   ["Noise floor", "Whisper-quiet"],
 ];
 
-export default function Home() {
+type HomeProps = {
+  quotes: TickerQuote[];
+};
+
+export default function Home({ quotes }: HomeProps) {
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-ink-0 text-bone">
       <Head>
@@ -61,13 +71,29 @@ export default function Home() {
 
       <div className="relative z-20 overflow-hidden border-b border-[var(--stroke)] bg-[var(--ink-1)]">
         <div className="flex w-max animate-ticker py-2.5">
-          {[...marquee, ...marquee, ...marquee].map((item, i) => (
-            <div key={i} className="flex shrink-0 items-center gap-3 px-8">
-              <span className="label-eyebrow">{item.k}</span>
-              <span className="num text-[11px] text-bone">{item.v}</span>
-              <span className="text-bone-ghost">·</span>
-            </div>
-          ))}
+          {quotes.length > 0
+            ? [...quotes, ...quotes, ...quotes].map((quote, i) => {
+                const up = quote.change >= 0;
+                return (
+                  <div key={i} className="flex shrink-0 items-center gap-3 px-8">
+                    <span className="label-eyebrow">{quote.symbol}</span>
+                    <span className="num text-[11px] text-bone">
+                      ${priceFormatter.format(quote.price)}
+                    </span>
+                    <span className={`num text-[11px] ${up ? "text-sage-hi" : "text-oxide-hi"}`}>
+                      {up ? "▲" : "▼"} {Math.abs(quote.changePercent).toFixed(2)}%
+                    </span>
+                    <span className="text-bone-ghost">·</span>
+                  </div>
+                );
+              })
+            : [...fallbackMarquee, ...fallbackMarquee, ...fallbackMarquee].map((item, i) => (
+                <div key={i} className="flex shrink-0 items-center gap-3 px-8">
+                  <span className="label-eyebrow">{item.k}</span>
+                  <span className="num text-[11px] text-bone">{item.v}</span>
+                  <span className="text-bone-ghost">·</span>
+                </div>
+              ))}
         </div>
       </div>
 
@@ -417,11 +443,11 @@ function Readout({
   );
 }
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
+export const getServerSideProps: GetServerSideProps<HomeProps> = async (context) => {
   const session = await getPageSession(context);
 
   if (!session) {
-    return { props: {} };
+    return { props: { quotes: await getTickerQuotes() } };
   }
 
   const profile = await getUserProfile(session.user.id);
