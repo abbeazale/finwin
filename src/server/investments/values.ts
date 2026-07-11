@@ -14,7 +14,7 @@ export type InvestmentValueResult = {
   excludedFromUsd: boolean;
 };
 
-export type InvestmentTotals = {
+type InvestmentTotals = {
   totalValueUsd: string | null;
   totalCostBasisUsd: string | null;
   totalGainLossUsd: string | null;
@@ -40,7 +40,7 @@ export function formatDecimal(value: number | null, scale = 2) {
   return value.toFixed(scale);
 }
 
-export function getMarketValue(quantity: number, institutionPrice: number) {
+function getMarketValue(quantity: number, institutionPrice: number) {
   return quantity * institutionPrice;
 }
 
@@ -48,7 +48,7 @@ export function getCashImpact(plaidAmount: number) {
   return -plaidAmount;
 }
 
-export function getGainLoss(marketValue: number | null, costBasis: number | null) {
+function getGainLoss(marketValue: number | null, costBasis: number | null) {
   if (marketValue === null || costBasis === null) {
     return { gainLoss: null, gainLossPct: null };
   }

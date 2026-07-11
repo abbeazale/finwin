@@ -549,6 +549,38 @@ body::before {
   border-top: 0;
 }
 
+/* Skyline silhouette — decorative CSS skyline */
+.skyline {
+  position: relative;
+}
+.skyline::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 60px;
+  pointer-events: none;
+  background:
+    linear-gradient(180deg, transparent 0%, var(--ink-0) 100%),
+    repeating-linear-gradient(
+      90deg,
+      transparent 0px, transparent 13px,
+      #000 13px, #000 17px,
+      transparent 17px, transparent 22px,
+      #000 22px, #000 34px,
+      transparent 34px, transparent 40px,
+      #000 40px, #000 55px,
+      transparent 55px, transparent 62px,
+      #000 62px, #000 72px,
+      transparent 72px, transparent 80px,
+      #000 80px, #000 96px,
+      transparent 96px, transparent 102px
+    );
+  mask: linear-gradient(180deg, transparent 0%, #000 35%, #000 100%);
+  opacity: 0.55;
+}
+
 /* Filter select — transactions filter bar */
 .filter-select {
   width: 100%;
@@ -623,17 +655,55 @@ body::before {
     to { opacity: 1; transform: translateY(0); }
   }
 
+  @keyframes fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes ticker {
+    from { transform: translateX(0); }
+    to { transform: translateX(-50%); }
+  }
+
   @keyframes pulse-dot {
     0%, 100% { opacity: 0.4; }
     50% { opacity: 1; }
+  }
+
+  @keyframes brass-gleam {
+    0%, 100% { opacity: 0; transform: translateX(-100%) skewX(-12deg); }
+    50% { opacity: 0.6; }
+    100% { opacity: 0; transform: translateX(200%) skewX(-12deg); }
+  }
+
+  @keyframes window-flicker {
+    0%, 92%, 100% { opacity: 0.85; }
+    94% { opacity: 0.4; }
+    96% { opacity: 0.9; }
   }
 
   .animate-fade-slide {
     animation: fade-slide 680ms cubic-bezier(0.16, 1, 0.3, 1) both;
   }
 
+  .animate-fade-in {
+    animation: fade-in 600ms ease-out both;
+  }
+
+  .animate-ticker {
+    animation: ticker 60s linear infinite;
+  }
+
   .animate-pulse-dot {
     animation: pulse-dot 2.6s ease-in-out infinite;
+  }
+
+  .animate-brass-gleam {
+    animation: brass-gleam 4.5s ease-in-out infinite;
+  }
+
+  .animate-window-flicker {
+    animation: window-flicker 11s ease-in-out infinite;
   }
 }
 

@@ -10,7 +10,10 @@ import {
   Landmark,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { PageStatus } from "@/components/page-status";
 import { useSession } from "@/lib/auth-client";
+import { formatCurrency } from "@/lib/currency";
+import { parseLocalDate } from "@/lib/date";
 import { trpc, type RouterInputs, type RouterOutputs } from "@/lib/trpc";
 
 type CategoryFilterValue = "all" | "uncategorized" | string;
@@ -460,23 +463,6 @@ function FilterCell({ label, children }: { label: string; children: React.ReactN
   );
 }
 
-function PageStatus({ label }: { label: string }) {
-  return (
-    <div className="relative flex min-h-screen items-center justify-center bg-ink-0 text-bone">
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className="absolute -top-32 right-[14%] h-[28rem] w-[28rem] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, rgba(232,199,145,0.05), transparent 65%)" }}
-        />
-      </div>
-      <div className="relative z-10 flex flex-col items-center gap-3">
-        <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
-        <span className="label-eyebrow-brass">{label}</span>
-      </div>
-    </div>
-  );
-}
-
 type CategoryOption = RouterOutputs["transactions"]["list"]["categories"][number];
 
 type GroupedCategories = Array<{
@@ -554,19 +540,9 @@ function groupCategories(categories: CategoryOption[]) {
 }
 
 function formatDateLabel(date: string) {
-  const [year, month, day] = date.split("-").map(Number);
-  return DATE_FORMATTER.format(new Date(year, month - 1, day));
+  return DATE_FORMATTER.format(parseLocalDate(date));
 }
 
 function formatMoney(amount: number, currency: string) {
-  try {
-    return new Intl.NumberFormat("en-CA", {
-      style: "currency",
-      currency,
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(amount);
-  } catch {
-    return `${currency} ${amount.toFixed(2)}`;
-  }
+  return formatCurrency(amount, currency);
 }
