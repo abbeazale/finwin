@@ -65,6 +65,7 @@
 - `bun run lint`
 - `bun run knip` — unused-file/export scan; Tailwind and shadcn tooling are intentionally ignored in `knip.json`
 - `bunx madge --circular --extensions ts,tsx --ts-config tsconfig.json src` — circular dependency scan
+- `bun test` — Bun unit/characterization suite
 - `bun run db:migrate` — non-destructive Drizzle migrator; apply pending migrations and verify journal completeness
 - `bun run dbreset` — drops and remigrates the DB (non-production only)
 - `bun run seed` — idempotent category seed; run once against a fresh DB before testing sync
