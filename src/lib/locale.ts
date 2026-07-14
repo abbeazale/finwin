@@ -1,4 +1,4 @@
-export const DEFAULT_TIMEZONE = "America/Toronto";
+const DEFAULT_TIMEZONE = "America/Toronto";
 
 export const COMMON_CURRENCIES = [
   { value: "CAD", label: "CAD — Canadian Dollar", helper: "Amounts displayed in Canadian Dollar ($)" },

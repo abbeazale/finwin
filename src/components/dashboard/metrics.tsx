@@ -11,7 +11,7 @@ type OverviewCard = {
   positiveTone: MetricTone;
 };
 
-export type MetricTone = "neutral" | "good" | "bad";
+type MetricTone = "neutral" | "good" | "bad";
 
 export function DashboardOverviewCards({
   cards,
@@ -117,7 +117,7 @@ export function formatShortDate(value: string) {
   }).format(parseLocalDate(value));
 }
 
-export function formatTooltipDate(value: string) {
+function formatTooltipDate(value: string) {
   return new Intl.DateTimeFormat("en-CA", {
     month: "short",
     day: "numeric",

@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -30,6 +30,24 @@ function isPendingFilterValue(value: string): value is PendingFilterValue {
   return PENDING_FILTER_VALUES.some((option) => option === value);
 }
 
+function buildFilterKey(input: {
+  accountId: string;
+  categoryFilter: CategoryFilterValue;
+  pending: PendingFilterValue;
+  dateFrom: string;
+  dateTo: string;
+  includeInactiveAccounts: boolean;
+}) {
+  return [
+    input.accountId,
+    input.categoryFilter,
+    input.pending,
+    input.dateFrom,
+    input.dateTo,
+    input.includeInactiveAccounts ? "1" : "0",
+  ].join("|");
+}
+
 export default function TransactionsPage() {
   const utils = trpc.useUtils();
   const { session, isPending: sessionLoading } = useRequireSession();
@@ -40,8 +58,19 @@ export default function TransactionsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [includeInactiveAccounts, setIncludeInactiveAccounts] = useState(false);
-  const [offset, setOffset] = useState(0);
+  const [pageOffset, setPageOffset] = useState(0);
+  const [offsetFilterKey, setOffsetFilterKey] = useState("");
   const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
+
+  const filterKey = buildFilterKey({
+    accountId,
+    categoryFilter,
+    pending,
+    dateFrom,
+    dateTo,
+    includeInactiveAccounts,
+  });
+  const offset = offsetFilterKey === filterKey ? pageOffset : 0;
 
   const deferredFilters = useDeferredValue({
     accountId: accountId || undefined,
@@ -57,17 +86,6 @@ export default function TransactionsPage() {
     limit: PAGE_SIZE,
     offset,
   });
-
-  useEffect(() => {
-    setOffset(0);
-  }, [
-    accountId,
-    categoryFilter,
-    pending,
-    dateFrom,
-    dateTo,
-    includeInactiveAccounts,
-  ]);
 
   const transactionsQuery = trpc.transactions.list.useQuery(deferredFilters, {
     enabled: Boolean(session),
@@ -98,6 +116,11 @@ export default function TransactionsPage() {
     Boolean(dateTo) ||
     includeInactiveAccounts;
 
+  function goToOffset(nextOffset: number) {
+    setOffsetFilterKey(filterKey);
+    setPageOffset(nextOffset);
+  }
+
   function resetFilters() {
     setAccountId("");
     setCategoryFilter("all");
@@ -105,7 +128,8 @@ export default function TransactionsPage() {
     setDateFrom("");
     setDateTo("");
     setIncludeInactiveAccounts(false);
-    setOffset(0);
+    setOffsetFilterKey("");
+    setPageOffset(0);
   }
 
   if (sessionLoading || (isLoading && !data)) {
@@ -460,7 +484,7 @@ export default function TransactionsPage() {
                 size="sm"
                 className="rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
                 disabled={offset <= 0 || isFetching}
-                onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))}
+                onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
               >
                 <ArrowLeft className="size-3.5" />
                 Previous
@@ -472,7 +496,7 @@ export default function TransactionsPage() {
                   size="sm"
                   className="rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
                   disabled={isFetching}
-                  onClick={() => setOffset((current) => current + PAGE_SIZE)}
+                  onClick={() => goToOffset(offset + PAGE_SIZE)}
                 >
                   Next
                   <ArrowRight className="size-3.5" />

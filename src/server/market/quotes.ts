@@ -34,7 +34,7 @@ export type TickerQuote = {
   changePercent: number;
 };
 
-export type SymbolSearchResult = {
+type SymbolSearchResult = {
   symbol: string;
   description: string;
 };

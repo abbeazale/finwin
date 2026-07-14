@@ -1,4 +1,4 @@
-export const PLAID_UPSERT_CHUNK_SIZE = 100;
+const PLAID_UPSERT_CHUNK_SIZE = 100;
 
 export function chunkArray<T>(items: T[], chunkSize: number = PLAID_UPSERT_CHUNK_SIZE): T[][] {
   if (chunkSize <= 0) {

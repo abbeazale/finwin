@@ -16,7 +16,6 @@ import {
   ChartLegendContent,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from "@/components/ui/chart";
 import { Button } from "@/components/ui/button";
 import { PageStatus } from "@/components/page-status";
