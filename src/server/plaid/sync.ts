@@ -1,4 +1,4 @@
-import { and, eq, inArray } from "drizzle-orm";
+import { and, eq, inArray, sql } from "drizzle-orm";
 import type {
   RemovedTransaction,
   Transaction as PlaidTransaction,
@@ -12,6 +12,7 @@ import {
   transactions,
 } from "@/db/schema";
 import { getPlaid } from "./client";
+import { chunkArray } from "./chunk";
 import { decryptPlaidAccessTokenFromRow } from "./crypto";
 import { getPlaidErrorCode } from "./errors";
 import {
@@ -206,31 +207,31 @@ export async function syncConnection(
     .filter((id): id is string => Boolean(id));
 
   await db.transaction(async (tx) => {
-    for (const row of upserts) {
+    for (const chunk of chunkArray(upserts)) {
       await tx
         .insert(transactions)
-        .values(row)
+        .values(chunk)
         .onConflictDoUpdate({
           target: transactions.providerTransactionId,
           set: {
-            date: row.date,
-            authorizedDate: row.authorizedDate,
-            name: row.name,
-            merchantName: row.merchantName,
-            amount: row.amount,
-            currency: row.currency,
-            pending: row.pending,
+            date: sql`excluded.date`,
+            authorizedDate: sql`excluded.authorized_date`,
+            name: sql`excluded.name`,
+            merchantName: sql`excluded.merchant_name`,
+            amount: sql`excluded.amount`,
+            currency: sql`excluded.currency`,
+            pending: sql`excluded.pending`,
           },
         });
     }
 
-    if (removedIds.length > 0) {
+    for (const chunk of chunkArray(removedIds)) {
       await tx
         .delete(transactions)
         .where(
           and(
             eq(transactions.userId, connection.userId),
-            inArray(transactions.providerTransactionId, removedIds),
+            inArray(transactions.providerTransactionId, chunk),
           ),
         );
     }

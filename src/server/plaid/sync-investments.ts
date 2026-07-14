@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, notInArray } from "drizzle-orm";
+import { and, desc, eq, inArray, notInArray, sql } from "drizzle-orm";
 import type { Holding, InvestmentTransaction, Security } from "plaid";
 import {
   bankAccounts,
@@ -9,6 +9,7 @@ import {
 } from "@/db/schema";
 import { db } from "@/index";
 import { getPlaid } from "./client";
+import { chunkArray } from "./chunk";
 import { decryptPlaidAccessTokenFromRow } from "./crypto";
 import { getPlaidErrorCode } from "./errors";
 
@@ -76,22 +77,22 @@ async function upsertSecurities(plaidSecurities: Security[]) {
   const rows = [...rowsByPlaidId.values()];
   if (rows.length === 0) return new Map<string, string>();
 
-  for (const row of rows) {
+  for (const chunk of chunkArray(rows)) {
     await db
       .insert(securities)
-      .values(row)
+      .values(chunk)
       .onConflictDoUpdate({
         target: securities.plaidSecurityId,
         set: {
-          tickerSymbol: row.tickerSymbol,
-          name: row.name,
-          type: row.type,
-          isCashEquivalent: row.isCashEquivalent,
-          closePrice: row.closePrice,
-          closePriceAsOf: row.closePriceAsOf,
-          isoCurrencyCode: row.isoCurrencyCode,
-          unofficialCurrencyCode: row.unofficialCurrencyCode,
-          updatedAt: row.updatedAt,
+          tickerSymbol: sql`excluded.ticker_symbol`,
+          name: sql`excluded.name`,
+          type: sql`excluded.type`,
+          isCashEquivalent: sql`excluded.is_cash_equivalent`,
+          closePrice: sql`excluded.close_price`,
+          closePriceAsOf: sql`excluded.close_price_as_of`,
+          isoCurrencyCode: sql`excluded.iso_currency_code`,
+          unofficialCurrencyCode: sql`excluded.unofficial_currency_code`,
+          updatedAt: sql`excluded.updated_at`,
         },
       });
   }
@@ -183,45 +184,49 @@ export async function syncInvestmentHoldings(
     const keptSecurityIds = new Set<string>();
 
     await db.transaction(async (tx) => {
-      for (const holding of holdingsForAccount) {
+      const holdingRows = holdingsForAccount.flatMap((holding) => {
         const securityId = securityIdByPlaidId.get(holding.security_id);
-        if (!securityId) continue;
+        if (!securityId) return [];
 
         keptSecurityIds.add(securityId);
-        const row = {
-          userId: connection.userId,
-          accountId: account.id,
-          securityId,
-          quantity: fixed(holding.quantity, 8),
-          costBasis:
-            holding.cost_basis === null ? null : fixed(holding.cost_basis, 2),
-          institutionPrice: fixed(holding.institution_price, 4),
-          institutionPriceAsOf: holding.institution_price_as_of ?? null,
-          isoCurrencyCode: holding.iso_currency_code,
-          unofficialCurrencyCode: holding.unofficial_currency_code,
-          updatedAt: new Date(),
-        };
+        return [
+          {
+            userId: connection.userId,
+            accountId: account.id,
+            securityId,
+            quantity: fixed(holding.quantity, 8),
+            costBasis:
+              holding.cost_basis === null ? null : fixed(holding.cost_basis, 2),
+            institutionPrice: fixed(holding.institution_price, 4),
+            institutionPriceAsOf: holding.institution_price_as_of ?? null,
+            isoCurrencyCode: holding.iso_currency_code,
+            unofficialCurrencyCode: holding.unofficial_currency_code,
+            updatedAt: new Date(),
+          },
+        ];
+      });
 
+      for (const chunk of chunkArray(holdingRows)) {
         await tx
           .insert(investmentHoldings)
-          .values(row)
+          .values(chunk)
           .onConflictDoUpdate({
             target: [
               investmentHoldings.accountId,
               investmentHoldings.securityId,
             ],
             set: {
-              quantity: row.quantity,
-              costBasis: row.costBasis,
-              institutionPrice: row.institutionPrice,
-              institutionPriceAsOf: row.institutionPriceAsOf,
-              isoCurrencyCode: row.isoCurrencyCode,
-              unofficialCurrencyCode: row.unofficialCurrencyCode,
-              updatedAt: row.updatedAt,
+              quantity: sql`excluded.quantity`,
+              costBasis: sql`excluded.cost_basis`,
+              institutionPrice: sql`excluded.institution_price`,
+              institutionPriceAsOf: sql`excluded.institution_price_as_of`,
+              isoCurrencyCode: sql`excluded.iso_currency_code`,
+              unofficialCurrencyCode: sql`excluded.unofficial_currency_code`,
+              updatedAt: sql`excluded.updated_at`,
             },
           });
-        holdingsUpserted += 1;
       }
+      holdingsUpserted += holdingRows.length;
 
       const keptIds = [...keptSecurityIds];
       const removedRows = await tx
@@ -317,17 +322,16 @@ export async function syncInvestmentTransactions(
   }
 
   const securityIdByPlaidId = await upsertSecurities(plaidSecurities);
-  let transactionsUpserted = 0;
+  const transactionRows = plaidTransactions.flatMap((plaidTransaction) => {
+    const accountId = accountIdByProvider.get(plaidTransaction.account_id);
+    if (!accountId) return [];
 
-  await db.transaction(async (tx) => {
-    for (const plaidTransaction of plaidTransactions) {
-      const accountId = accountIdByProvider.get(plaidTransaction.account_id);
-      if (!accountId) continue;
+    const securityId = plaidTransaction.security_id
+      ? (securityIdByPlaidId.get(plaidTransaction.security_id) ?? null)
+      : null;
 
-      const securityId = plaidTransaction.security_id
-        ? (securityIdByPlaidId.get(plaidTransaction.security_id) ?? null)
-        : null;
-      const row = {
+    return [
+      {
         userId: connection.userId,
         accountId,
         securityId,
@@ -346,32 +350,37 @@ export async function syncInvestmentTransactions(
         subtype: plaidTransaction.subtype,
         isoCurrencyCode: plaidTransaction.iso_currency_code,
         unofficialCurrencyCode: plaidTransaction.unofficial_currency_code,
-      };
+      },
+    ];
+  });
 
+  await db.transaction(async (tx) => {
+    for (const chunk of chunkArray(transactionRows)) {
       await tx
         .insert(investmentTransactions)
-        .values(row)
+        .values(chunk)
         .onConflictDoUpdate({
           target: investmentTransactions.plaidInvestmentTransactionId,
           set: {
-            userId: row.userId,
-            accountId: row.accountId,
-            securityId: row.securityId,
-            date: row.date,
-            name: row.name,
-            quantity: row.quantity,
-            plaidAmount: row.plaidAmount,
-            price: row.price,
-            fees: row.fees,
-            type: row.type,
-            subtype: row.subtype,
-            isoCurrencyCode: row.isoCurrencyCode,
-            unofficialCurrencyCode: row.unofficialCurrencyCode,
+            userId: sql`excluded.user_id`,
+            accountId: sql`excluded.account_id`,
+            securityId: sql`excluded.security_id`,
+            date: sql`excluded.date`,
+            name: sql`excluded.name`,
+            quantity: sql`excluded.quantity`,
+            plaidAmount: sql`excluded.plaid_amount`,
+            price: sql`excluded.price`,
+            fees: sql`excluded.fees`,
+            type: sql`excluded.type`,
+            subtype: sql`excluded.subtype`,
+            isoCurrencyCode: sql`excluded.iso_currency_code`,
+            unofficialCurrencyCode: sql`excluded.unofficial_currency_code`,
           },
         });
-      transactionsUpserted += 1;
     }
   });
+
+  const transactionsUpserted = transactionRows.length;
 
   const now = new Date();
   await db
