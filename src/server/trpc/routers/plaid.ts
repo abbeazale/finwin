@@ -11,7 +11,7 @@ import {
 } from "@/server/plaid/crypto";
 import { getPlaidErrorData } from "@/server/plaid/errors";
 import { syncConnection, syncUserConnections } from "@/server/plaid/sync";
-import { protectedProcedure, router } from "../trpc";
+import { recentAuthProcedure, protectedProcedure, router } from "../trpc";
 
 function createPlaidLinkTokenError(err: unknown) {
   const plaidError = getPlaidErrorData(err);
@@ -37,7 +37,7 @@ function createPlaidLinkTokenError(err: unknown) {
 }
 
 export const plaidRouter = router({
-  createLinkToken: protectedProcedure
+  createLinkToken: recentAuthProcedure
     .input(z.object({ connectionId: z.string().uuid().optional() }))
     .mutation(async ({ ctx, input }) => {
       let updateAccessToken: string | undefined;
@@ -76,7 +76,7 @@ export const plaidRouter = router({
       }
     }),
 
-  exchangeToken: protectedProcedure
+  exchangeToken: recentAuthProcedure
     .input(z.object({ publicToken: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {
@@ -222,7 +222,7 @@ export const plaidRouter = router({
     return connections;
   }),
 
-  unlinkConnection: protectedProcedure
+  unlinkConnection: recentAuthProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const [connection] = await db
@@ -259,7 +259,7 @@ export const plaidRouter = router({
       return { ok: true };
     }),
 
-  reactivateConnection: protectedProcedure
+  reactivateConnection: recentAuthProcedure
     .input(z.object({ id: z.string().uuid() }))
     .mutation(async ({ ctx, input }) => {
       const [connection] = await db

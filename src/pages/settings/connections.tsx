@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, Building2, Plug, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
+import { isRecentAuthRequiredMessage } from "@/lib/recent-auth";
 import { useRequireSession } from "@/hooks/use-require-session";
 import { ConnectBank } from "@/components/connect-bank";
 import { PageStatus } from "@/components/page-status";
@@ -109,7 +110,20 @@ export default function ConnectionsSettings() {
         {message ? (
           <p className="mb-8 flex items-center gap-3 rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-2.5 text-[12px] text-brass-hi">
             <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
-            {message}
+            <span>
+              {message}
+              {isRecentAuthRequiredMessage(message) ? (
+                <>
+                  {" "}
+                  <Link
+                    href="/login?returnTo=/settings/connections"
+                    className="underline underline-offset-2 hover:text-bone"
+                  >
+                    Sign in again
+                  </Link>
+                </>
+              ) : null}
+            </span>
           </p>
         ) : null}
 
