@@ -9,6 +9,14 @@ import { Button } from "@/components/ui/button";
 
 type Notice = { kind: "success" | "error"; text: string };
 
+function getTotpSetupKey(totpURI: string) {
+  try {
+    return new URL(totpURI).searchParams.get("secret") ?? totpURI;
+  } catch {
+    return totpURI;
+  }
+}
+
 export default function SecuritySettings() {
   const { session, isPending: sessionLoading } = useRequireSession();
   const [passkeyName, setPasskeyName] = useState("");
@@ -17,8 +25,11 @@ export default function SecuritySettings() {
   const [totpURI, setTotpURI] = useState<string | null>(null);
   const [backupCodes, setBackupCodes] = useState<string[]>([]);
   const [backupCodesAcknowledged, setBackupCodesAcknowledged] = useState(false);
+  const [twoFactorSetupComplete, setTwoFactorSetupComplete] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [isPending, startTransition] = useTransition();
+  const totpSetupKey = totpURI ? getTotpSetupKey(totpURI) : null;
+  const twoFactorEnabled = twoFactorSetupComplete || session?.user.twoFactorEnabled === true;
 
   function addPasskey() {
     setNotice(null);
@@ -52,6 +63,7 @@ export default function SecuritySettings() {
         return;
       }
 
+      setPassword("");
       setTotpURI(data.totpURI);
       setBackupCodes(data.backupCodes ?? []);
       setBackupCodesAcknowledged(false);
@@ -83,8 +95,10 @@ export default function SecuritySettings() {
       }
 
       setTotpCode("");
+      setTotpURI(null);
       setBackupCodes([]);
       setBackupCodesAcknowledged(false);
+      setTwoFactorSetupComplete(true);
       setNotice({ kind: "success", text: "Two-factor enabled." });
     });
   }
@@ -230,104 +244,202 @@ export default function SecuritySettings() {
               </div>
               <div>
                 <span className="label-eyebrow-brass">Authenticator</span>
-                <h2 className="display text-[24px] leading-tight text-bone">Backup challenge</h2>
+                <h2 className="display text-[24px] leading-tight text-bone">Authenticator app</h2>
               </div>
             </div>
 
-            <form onSubmit={enableTwoFactor} className="flex flex-col gap-3">
-              <label htmlFor="two-factor-password" className="label-eyebrow">Password</label>
-              <input
-                id="two-factor-password"
-                type="password"
-                value={password}
-                onChange={(event) => setPassword(event.target.value)}
-                autoComplete="current-password"
-                className="input-arch"
-              />
-              <Button
-                type="submit"
-                variant="ghost"
-                disabled={isPending}
-                className="btn-brass mt-2 h-12 justify-center disabled:opacity-60"
-              >
-                Start setup
-              </Button>
-            </form>
+            <p className="text-[12px] leading-[1.7] text-bone-mute">
+              Add FinWin to Microsoft Authenticator, Google Authenticator, 1Password,
+              or another app that generates 6-digit verification codes.
+            </p>
 
-            {totpURI ? (
-              <form onSubmit={verifyTwoFactor} className="mt-6 flex flex-col gap-4 border-t border-[var(--stroke)] pt-6">
-                <div className="flex flex-col items-center gap-3">
-                  <span className="label-eyebrow">Scan with authenticator</span>
-                  <div className="rounded-[2px] bg-bone p-3">
-                    <QRCodeSVG value={totpURI} size={176} level="M" />
-                  </div>
-                  <details className="w-full">
-                    <summary className="label-eyebrow cursor-pointer text-bone-faint transition-colors hover:text-brass-hi">
-                      Can&apos;t scan? Show setup URI
-                    </summary>
-                    <textarea
-                      readOnly
-                      value={totpURI}
-                      onFocus={(event) => event.currentTarget.select()}
-                      className="input-arch mt-2 min-h-24 resize-none font-mono text-[11px]"
-                    />
-                  </details>
+            {twoFactorEnabled ? (
+              <div className="mt-5 flex items-start gap-3 border-y border-[var(--stroke)] py-5">
+                <span className="mt-0.5 flex size-6 shrink-0 items-center justify-center rounded-full border border-[var(--stroke-brass-hi)] text-brass-hi">
+                  ✓
+                </span>
+                <div>
+                  <p className="text-[12px] font-medium text-bone">Two-factor authentication is on</p>
+                  <p className="mt-1 text-[11px] leading-[1.6] text-bone-mute">
+                    After signing in, use the current 6-digit FinWin code from your authenticator.
+                    If your phone is unavailable, use one of your saved backup codes instead.
+                  </p>
                 </div>
-
-                <label htmlFor="totp-code" className="label-eyebrow">Code</label>
-                <input
-                  id="totp-code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  value={totpCode}
-                  onChange={(event) => setTotpCode(event.target.value)}
-                  className="input-arch"
-                />
-                <Button
-                  type="submit"
-                  variant="ghost"
-                  disabled={isPending || (backupCodes.length > 0 && !backupCodesAcknowledged)}
-                  className="btn-brass mt-2 h-12 justify-center disabled:opacity-60"
-                >
-                  Verify code
-                </Button>
-              </form>
-            ) : null}
-
-            {backupCodes.length > 0 ? (
-              <div className="mt-6 flex flex-col gap-3 border-t border-[var(--stroke)] pt-6">
-                <div className="flex items-center justify-between">
-                  <span className="label-eyebrow-brass">Backup codes · one-time use</span>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={downloadBackupCodes}
-                    className="label-eyebrow h-auto px-2 py-1 text-bone-faint hover:text-brass-hi"
-                  >
-                    Download
-                  </Button>
-                </div>
-                <p className="text-[11px] leading-[1.6] text-bone-mute">
-                  Store these somewhere safe. You won&apos;t see them again.
-                </p>
-                <div className="grid grid-cols-2 gap-2">
-                  {backupCodes.map((code) => (
-                    <code key={code} className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-0)] px-3 py-2 text-[11px] text-bone-mute">
-                      {code}
-                    </code>
-                  ))}
-                </div>
-                <label className="flex items-center gap-3 text-[12px] text-bone-mute">
-                  <input
-                    type="checkbox"
-                    checked={backupCodesAcknowledged}
-                    onChange={(event) => setBackupCodesAcknowledged(event.target.checked)}
-                    className="size-4 accent-[var(--brass)]"
-                  />
-                  I&apos;ve saved these codes.
-                </label>
               </div>
-            ) : null}
+            ) : totpURI ? (
+              <div className="mt-6 flex flex-col gap-6 border-t border-[var(--stroke)] pt-6">
+                <section aria-labelledby="authenticator-step-scan" className="flex flex-col gap-4">
+                  <div className="flex items-start gap-3">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-[var(--stroke-brass-hi)] font-mono text-[10px] text-brass-hi">
+                      1
+                    </span>
+                    <div>
+                      <h3 id="authenticator-step-scan" className="label-eyebrow-brass">Scan the QR code</h3>
+                      <p className="mt-1 text-[11px] leading-[1.6] text-bone-mute">
+                        In Microsoft Authenticator, tap <strong className="font-medium text-bone">+</strong>, choose
+                        <strong className="font-medium text-bone"> Other account</strong>, then scan this code.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-center">
+                    <div className="rounded-[2px] bg-bone p-3">
+                      <QRCodeSVG value={totpURI} size={176} level="M" />
+                    </div>
+                  </div>
+
+                  <details className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-0)] px-3 py-2.5">
+                    <summary className="label-eyebrow cursor-pointer text-bone-faint transition-colors hover:text-brass-hi">
+                      Can&apos;t scan? Enter a setup key manually
+                    </summary>
+                    <div className="mt-3 flex flex-col gap-2">
+                      <p className="text-[11px] leading-[1.6] text-bone-mute">
+                        Add an account manually in your authenticator and use this private key.
+                      </p>
+                      <input
+                        readOnly
+                        value={totpSetupKey ?? ""}
+                        onFocus={(event) => event.currentTarget.select()}
+                        aria-label="Manual authenticator setup key"
+                        className="input-arch font-mono text-[11px] tracking-[0.08em]"
+                      />
+                      <p className="text-[10px] leading-[1.5] text-oxide-hi">
+                        Keep this key private. Anyone with it can generate your verification codes.
+                      </p>
+                    </div>
+                  </details>
+                </section>
+
+                <section aria-labelledby="authenticator-step-backup" className="flex flex-col gap-3 border-t border-[var(--stroke)] pt-6">
+                  <div className="flex items-start gap-3">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-[var(--stroke-brass-hi)] font-mono text-[10px] text-brass-hi">
+                      2
+                    </span>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between gap-3">
+                        <h3 id="authenticator-step-backup" className="label-eyebrow-brass">Save your backup codes</h3>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={downloadBackupCodes}
+                          className="label-eyebrow h-auto px-2 py-1 text-bone-faint hover:text-brass-hi"
+                        >
+                          Download
+                        </Button>
+                      </div>
+                      <p className="mt-1 text-[11px] leading-[1.6] text-bone-mute">
+                        Each code can sign you in once if you lose access to your authenticator app.
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2">
+                    {backupCodes.map((code) => (
+                      <code key={code} className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-0)] px-3 py-2 text-[11px] text-bone-mute">
+                        {code}
+                      </code>
+                    ))}
+                  </div>
+                  <label className="flex items-center gap-3 text-[12px] text-bone-mute">
+                    <input
+                      type="checkbox"
+                      checked={backupCodesAcknowledged}
+                      onChange={(event) => setBackupCodesAcknowledged(event.target.checked)}
+                      className="size-4 accent-[var(--brass)]"
+                    />
+                    I&apos;ve saved these codes somewhere safe.
+                  </label>
+                </section>
+
+                <form onSubmit={verifyTwoFactor} className="flex flex-col gap-3 border-t border-[var(--stroke)] pt-6">
+                  <div className="flex items-start gap-3">
+                    <span className="flex size-6 shrink-0 items-center justify-center rounded-full border border-[var(--stroke-brass-hi)] font-mono text-[10px] text-brass-hi">
+                      3
+                    </span>
+                    <div>
+                      <h3 className="label-eyebrow-brass">Verify and finish</h3>
+                      <p id="totp-code-help" className="mt-1 text-[11px] leading-[1.6] text-bone-mute">
+                        Enter the current 6-digit code shown for FinWin in your authenticator app.
+                      </p>
+                    </div>
+                  </div>
+
+                  <label htmlFor="totp-code" className="label-eyebrow mt-1">6-digit code</label>
+                  <input
+                    id="totp-code"
+                    inputMode="numeric"
+                    autoComplete="one-time-code"
+                    value={totpCode}
+                    onChange={(event) => setTotpCode(event.target.value)}
+                    aria-describedby="totp-code-help"
+                    placeholder="123456"
+                    maxLength={6}
+                    required
+                    className="input-arch font-mono tracking-[0.22em]"
+                  />
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    disabled={isPending || (backupCodes.length > 0 && !backupCodesAcknowledged)}
+                    className="btn-brass mt-2 h-12 justify-center disabled:opacity-60"
+                  >
+                    Enable two-factor authentication
+                  </Button>
+                  {!backupCodesAcknowledged ? (
+                    <p className="text-center text-[10px] leading-[1.5] text-bone-faint">
+                      Save and acknowledge your backup codes to finish setup.
+                    </p>
+                  ) : null}
+                </form>
+              </div>
+            ) : (
+              <div className="mt-5 flex flex-col gap-5">
+                <ol className="flex flex-col gap-3 border-y border-[var(--stroke)] py-4">
+                  {[
+                    ["Confirm your identity", "Enter your current FinWin password."],
+                    ["Connect your app", "Scan a QR code with Microsoft Authenticator or a similar app."],
+                    ["Verify one code", "Enter the 6-digit code from the app to turn protection on."],
+                  ].map(([title, description], index) => (
+                    <li key={title} className="flex items-start gap-3">
+                      <span className="flex size-5 shrink-0 items-center justify-center rounded-full border border-[var(--stroke)] font-mono text-[9px] text-bone-faint">
+                        {index + 1}
+                      </span>
+                      <div>
+                        <p className="text-[11px] font-medium text-bone">{title}</p>
+                        <p className="mt-0.5 text-[10px] leading-[1.5] text-bone-faint">{description}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+
+                <form onSubmit={enableTwoFactor} className="flex flex-col gap-3">
+                  <label htmlFor="two-factor-password" className="label-eyebrow">Current FinWin password</label>
+                  <input
+                    id="two-factor-password"
+                    type="password"
+                    value={password}
+                    onChange={(event) => setPassword(event.target.value)}
+                    autoComplete="current-password"
+                    aria-describedby="two-factor-password-help"
+                    className="input-arch"
+                  />
+                  <p id="two-factor-password-help" className="text-[10px] leading-[1.5] text-bone-faint">
+                    Required for password accounts. Leave blank if you only use social sign-in or a passkey.
+                  </p>
+                  <Button
+                    type="submit"
+                    variant="ghost"
+                    disabled={isPending}
+                    className="btn-brass mt-2 h-12 justify-center disabled:opacity-60"
+                  >
+                    Set up authenticator app
+                  </Button>
+                  <p className="text-center text-[10px] leading-[1.5] text-bone-faint">
+                    Two-factor authentication stays off until you verify a code.
+                  </p>
+                </form>
+              </div>
+            )}
           </section>
         </div>
       </div>
