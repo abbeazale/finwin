@@ -73,6 +73,11 @@ export function decryptPlaidAccessTokenFromRow(row: EncryptedPlaidAccessTokenRow
   return decryptPlaidAccessToken(row.accessTokenEncrypted, row.accessTokenKeyVersion);
 }
 
+/** Clears the module key cache so tests can reconfigure encryption keys. */
+export function resetPlaidCryptoKeyCacheForTests() {
+  keyConfigCache = null;
+}
+
 function getKeyConfig(): KeyConfig {
   keyConfigCache ??= loadKeyConfig();
   return keyConfigCache;

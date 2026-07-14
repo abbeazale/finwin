@@ -28,13 +28,13 @@ import {
   PLAID_PRIMARY_FALLBACK_MAP,
 } from "@/server/lib/category-map";
 import { DEFAULT_CATEGORY_NAME } from "@/server/lib/category-taxonomy";
-
-type SyncErrorReason =
-  | "login_required"
-  | "locked"
-  | "cursor_reset"
-  | "unknown"
-  | null;
+import {
+  CURSOR_RESET_ERROR_CODES,
+  USER_ACTION_ERROR_CODES,
+  classifyErrorReason,
+  normalizeTransactionAmount,
+  type SyncErrorReason,
+} from "@/server/plaid/sync-rules";
 
 type SyncResult = {
   added: number;
@@ -43,28 +43,6 @@ type SyncResult = {
   cursor: string | null;
   errorReason: SyncErrorReason;
 } & InvestmentSyncResult;
-
-// Plaid error codes that require the user to re-authenticate via Link update mode.
-const USER_ACTION_ERROR_CODES = new Set([
-  "ITEM_LOGIN_REQUIRED",
-  "ITEM_LOCKED",
-  "INSUFFICIENT_CREDENTIALS",
-  "USER_SETUP_REQUIRED",
-  "MFA_NOT_SUPPORTED",
-  "INVALID_MFA",
-  "NO_ACCOUNTS",
-]);
-
-// Plaid error codes that indicate a stale or invalid cursor.
-const CURSOR_RESET_ERROR_CODES = new Set([
-  "TRANSACTIONS_SYNC_MUTATION_DURING_PAGINATION",
-]);
-
-function normalizeTransactionAmount(providerAmount: number) {
-  // FinWin stores canonical account semantics:
-  // positive = money in, negative = money out.
-  return (-providerAmount).toFixed(2);
-}
 
 function resolveCategoryId(
   plaidTx: PlaidTransaction,
@@ -78,19 +56,6 @@ function resolveCategoryId(
     resolvedName = PLAID_PRIMARY_FALLBACK_MAP[primary];
   if (!resolvedName) resolvedName = DEFAULT_CATEGORY_NAME;
   return categoryIdByName.get(resolvedName) ?? null;
-}
-
-function classifyErrorReason(errorCode: string): SyncErrorReason {
-  if (
-    errorCode === "ITEM_LOGIN_REQUIRED" ||
-    errorCode === "INSUFFICIENT_CREDENTIALS"
-  ) {
-    return "login_required";
-  }
-  if (errorCode === "ITEM_LOCKED") {
-    return "locked";
-  }
-  return "unknown";
 }
 
 export async function syncConnection(

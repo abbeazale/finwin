@@ -19,6 +19,7 @@ import {
   DEFAULT_CATEGORY_GROUP_NAME,
   DEFAULT_CATEGORY_NAME,
 } from "@/server/lib/category-taxonomy";
+import { getChangeRatio, getSavingsRate } from "@/server/dashboard/aggregates";
 import { protectedProcedure, router } from "../trpc";
 
 const recentTransactionsInput = monthInputSchema.extend({
@@ -271,24 +272,4 @@ function getMonthDays(value: string) {
     const day = `${index + 1}`.padStart(2, "0");
     return `${year}-${`${month}`.padStart(2, "0")}-${day}`;
   });
-}
-
-function getSavingsRate(inflow: number, netCashflow: number) {
-  if (inflow <= 0) {
-    return null;
-  }
-
-  return netCashflow / inflow;
-}
-
-function getChangeRatio(
-  currentValue: number | null,
-  previousValue: number | null,
-  comparisonAvailable: boolean,
-) {
-  if (!comparisonAvailable || currentValue === null || previousValue === null || previousValue === 0) {
-    return null;
-  }
-
-  return (currentValue - previousValue) / Math.abs(previousValue);
 }

@@ -1,7 +1,7 @@
-import { createHash } from "node:crypto";
 import { importJWK, jwtVerify, decodeProtectedHeader, type JWK } from "jose";
 import type { JWKPublicKey } from "plaid";
 import { getPlaid } from "./client";
+import { verifyWebhookBodyHash } from "./webhook-body-hash";
 
 type PlaidWebhookVerificationKey = Awaited<ReturnType<typeof importJWK>>;
 type PlaidWebhookJwtPayload = {
@@ -81,9 +81,9 @@ export async function verifyPlaidWebhook(
     return { ok: false, reason: "missing body hash claim" };
   }
 
-  const expected = createHash("sha256").update(rawBody).digest("hex");
-  if (expected !== payload.request_body_sha256) {
-    return { ok: false, reason: "body hash mismatch" };
+  const bodyHash = verifyWebhookBodyHash(rawBody, payload.request_body_sha256);
+  if (!bodyHash.ok) {
+    return { ok: false, reason: bodyHash.reason };
   }
 
   return { ok: true };

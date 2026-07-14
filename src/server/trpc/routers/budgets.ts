@@ -19,6 +19,11 @@ import {
   refineFirstOfMonth,
 } from "@/server/lib/month";
 import { formatMoneyValue } from "@/server/lib/money";
+import {
+  getBudgetStatus,
+  partitionActualsByCurrency,
+  toBudgetSpendAmount,
+} from "@/server/budgets/rules";
 import { protectedProcedure, router } from "../trpc";
 
 const upsertBudgetInput = z
@@ -96,14 +101,11 @@ export const budgetsRouter = router({
       const budgetByCategory = new Map(
         budgetRows.map((row) => [row.categoryId, Number(row.amount)]),
       );
+      const { matching: matchingActualRows, excludedCurrencyTransactionCount } =
+        partitionActualsByCurrency(actualRows, budgetContext.currency);
       const actualByCategory = new Map(
-        actualRows
-          .filter((row) => row.currency === budgetContext.currency)
-          .map((row) => [row.categoryId, row.rawActual]),
+        matchingActualRows.map((row) => [row.categoryId, row.rawActual]),
       );
-      const excludedCurrencyTransactionCount = actualRows
-        .filter((row) => row.currency !== budgetContext.currency)
-        .reduce((total, row) => total + row.transactionCount, 0);
 
       let totalBudgeted = 0;
       let totalActual = 0;
@@ -126,7 +128,7 @@ export const budgetsRouter = router({
       for (const category of categoryRows) {
         const budgetAmount = budgetByCategory.get(category.categoryId) ?? null;
         const rawActual = actualByCategory.get(category.categoryId) ?? 0;
-        const actualAmount = Math.max(-rawActual, 0);
+        const actualAmount = toBudgetSpendAmount(rawActual);
         const remainingAmount = budgetAmount === null ? null : budgetAmount - actualAmount;
         const percentUsed =
           budgetAmount !== null && budgetAmount > 0
@@ -270,28 +272,4 @@ async function getBudgetableCategory(categoryId: string) {
     .limit(1);
 
   return category ?? null;
-}
-
-function getBudgetStatus({
-  budgetAmount,
-  actualAmount,
-  percentUsed,
-}: {
-  budgetAmount: number | null;
-  actualAmount: number;
-  percentUsed: number | null;
-}): BudgetStatus {
-  if (budgetAmount === null) {
-    return actualAmount > 0 ? "unbudgeted" : "no_budget";
-  }
-
-  if (actualAmount > budgetAmount) {
-    return "over";
-  }
-
-  if (percentUsed !== null && percentUsed >= 0.85) {
-    return "near_limit";
-  }
-
-  return "on_track";
 }
