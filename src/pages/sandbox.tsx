@@ -304,7 +304,7 @@ function TradeModal({ open, onClose, portfolioId, onPlaced }: { open: boolean; o
               <FieldLabel>Find a US stock</FieldLabel>
               <div className="relative">
                 <Search className="absolute left-3.5 top-1/2 size-4 -translate-y-1/2 text-bone-faint" />
-                <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} className="form-input form-input--lead-icon" placeholder="Apple or AAPL" />
+                <input autoFocus value={query} onChange={(event) => setQuery(event.target.value)} className="form-input form-input--lead-icon" placeholder="Intel or INTC" />
               </div>
               {searchQuery.isFetching ? <span className="text-[11px] text-bone-faint">Searching Finnhub…</span> : null}
               {searchQuery.data?.length ? (
