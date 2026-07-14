@@ -17,6 +17,7 @@ import {
   getMonthStartForTimeZone,
   shiftMonthStart,
 } from "@/lib/date";
+import { resolveProfileTimeZone } from "@/lib/locale";
 import {
   DashboardOverviewCards,
   LegendDot,
@@ -747,7 +748,7 @@ export const getServerSideProps: GetServerSideProps<DashboardProps> = async (
     return { redirect: { destination: "/onboarding", permanent: false } };
   }
 
-  const timeZone = profile?.timezone ?? "America/Toronto";
+  const timeZone = resolveProfileTimeZone(profile?.timezone);
   const currentMonth = getMonthStartForTimeZone(new Date(), timeZone);
   const initialMonth = await getInitialDashboardMonth(
     session.user.id,

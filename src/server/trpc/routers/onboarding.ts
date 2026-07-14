@@ -3,6 +3,7 @@ import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { user, userProfiles } from "@/db/schema";
 import { db } from "@/index";
+import { isSupportedOnboardingTimeZone } from "@/lib/locale";
 import { capitalizeNameWords } from "@/lib/name";
 import { protectedProcedure, router } from "../trpc";
 
@@ -11,9 +12,14 @@ const completeOnboardingInput = z.object({
   lastName: z.string().transform(capitalizeNameWords),
   age: z.coerce.number().int().min(13).max(120),
   currency: z.string().trim().toUpperCase().min(1),
-  timezone: z.string().trim().min(1),
+  timezone: z
+    .string()
+    .trim()
+    .min(1)
+    .refine(isSupportedOnboardingTimeZone, {
+      message: "Choose a valid timezone from the list.",
+    }),
 });
-
 export const onboardingRouter = router({
   complete: protectedProcedure
     .input(completeOnboardingInput)

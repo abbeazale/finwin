@@ -11,6 +11,7 @@ import {
 import { db } from "@/index";
 import type { BudgetStatus } from "@/lib/budget-status";
 import { getMonthStartForTimeZone } from "@/lib/date";
+import { resolveProfileTimeZone } from "@/lib/locale";
 import {
   getNextMonthStart,
   monthDateRegex,
@@ -246,7 +247,7 @@ async function getBudgetContext(userId: string) {
     .where(eq(userProfiles.userId, userId))
     .limit(1);
   const currency = profile?.currency ?? "CAD";
-  const timezone = profile?.timezone ?? "America/Toronto";
+  const timezone = resolveProfileTimeZone(profile?.timezone);
 
   return {
     currency,
