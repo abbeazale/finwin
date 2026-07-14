@@ -169,7 +169,6 @@ export default function SandboxPage() {
           open={tradeOpen}
           onClose={() => setTradeOpen(false)}
           portfolioId={portfolio.id}
-          cashBalance={portfolio.cashBalance}
           onPlaced={() => { setTradeOpen(false); void utils.sandbox.invalidate(); }}
         />
       ) : null}
@@ -272,7 +271,7 @@ function CreatePortfolioModal({ open, onClose, onCreated }: { open: boolean; onC
   );
 }
 
-function TradeModal({ open, onClose, portfolioId, cashBalance, onPlaced }: { open: boolean; onClose: () => void; portfolioId: string; cashBalance: string; onPlaced: () => void }) {
+function TradeModal({ open, onClose, portfolioId, onPlaced }: { open: boolean; onClose: () => void; portfolioId: string; onPlaced: () => void }) {
   const [query, setQuery] = useState("");
   const [symbol, setSymbol] = useState("");
   const [side, setSide] = useState<"buy" | "sell">("buy");
@@ -289,7 +288,6 @@ function TradeModal({ open, onClose, portfolioId, cashBalance, onPlaced }: { ope
     onError: (requestError) => setError(requestError.message),
   });
   const total = (Number(quantity) || 0) * (Number(effectivePrice) || 0);
-  const cashAfter = side === "buy" ? Number(cashBalance) - total : Number(cashBalance) + total;
   function reset() { setQuery(""); setSymbol(""); setSide("buy"); setQuantity("1"); setPrice(""); setExecutedAt(localDateTimeValue(new Date())); setNote(""); setError(null); }
   function handleClose() { reset(); onClose(); }
   function submit(event: FormEvent) {
@@ -354,10 +352,12 @@ function TradeModal({ open, onClose, portfolioId, cashBalance, onPlaced }: { ope
                 <FieldLabel>Note <span className="normal-case tracking-normal text-bone-faint">(optional)</span></FieldLabel>
                 <textarea maxLength={500} rows={2} value={note} onChange={(event) => setNote(event.target.value)} className="form-input resize-none" placeholder="What thesis are you testing?" />
               </label>
-              <div className="grid grid-cols-3 gap-px overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--stroke)] text-[12px]">
-                <div className="bg-[var(--ink-0)] p-4"><p className="text-[10px] uppercase tracking-[0.1em] text-bone-faint">Trade value</p><p className="mt-1.5 font-mono text-bone">{formatUsd(total)}</p></div>
-                <div className="bg-[var(--ink-0)] p-4"><p className="text-[10px] uppercase tracking-[0.1em] text-bone-faint">Cash before</p><p className="mt-1.5 font-mono text-bone">{formatUsd(cashBalance)}</p></div>
-                <div className="bg-[var(--ink-0)] p-4"><p className="text-[10px] uppercase tracking-[0.1em] text-bone-faint">Cash after</p><p className={`mt-1.5 font-mono ${cashAfter < 0 ? "text-oxide-hi" : "text-bone"}`}>{formatUsd(cashAfter)}</p></div>
+              <div className="rounded-md border border-[var(--stroke)] bg-[var(--ink-0)] p-4 text-[12px]">
+                <p className="text-[10px] uppercase tracking-[0.1em] text-bone-faint">Trade value</p>
+                <p className="mt-1.5 font-mono text-bone">{formatUsd(total)}</p>
+                <p className="mt-2 text-[11px] leading-relaxed text-bone-faint">
+                  Cash and share limits are validated by replaying the full timeline at this execution time.
+                </p>
               </div>
             </>
           )}

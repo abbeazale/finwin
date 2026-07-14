@@ -13,3 +13,15 @@ export function formatMoneyValue(value: number | null) {
 
   return value.toFixed(2);
 }
+
+/**
+ * Formats a finite number to a fixed-scale string. Returns `null` for null or
+ * non-finite input so callers can omit unavailable market fields cleanly.
+ */
+export function formatDecimalValue(value: number | null, scale = 2): string | null {
+  if (value === null || !Number.isFinite(value)) {
+    return null;
+  }
+
+  return value.toFixed(scale);
+}

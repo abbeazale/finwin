@@ -3,8 +3,10 @@ import { and, asc, eq } from "drizzle-orm";
 import { z } from "zod";
 import { sandboxPortfolios, sandboxTrades } from "@/db/schema";
 import { db } from "@/index";
+import { formatDecimalValue, formatMoneyValue } from "@/server/lib/money";
 import { getQuote, searchSymbols } from "@/server/market/quotes";
 import {
+  parseTradeSide,
   replaySandboxTrades,
   SandboxTimelineError,
   type SandboxTradeValue,
@@ -18,32 +20,23 @@ const positiveDecimal = z.coerce.number().finite().positive();
 
 export const sandboxRouter = router({
   listPortfolios: protectedProcedure.query(async ({ ctx }) => {
-    const portfolios = await db.select()
+    const portfolios = await db.select({
+      id: sandboxPortfolios.id,
+      name: sandboxPortfolios.name,
+      startingCash: sandboxPortfolios.startingCash,
+      createdAt: sandboxPortfolios.createdAt,
+      updatedAt: sandboxPortfolios.updatedAt,
+    })
       .from(sandboxPortfolios)
       .where(eq(sandboxPortfolios.userId, ctx.userId))
       .orderBy(asc(sandboxPortfolios.createdAt));
 
-    return Promise.all(portfolios.map(async (portfolio) => {
-      const trades = await getTradeValues(portfolio.id, ctx.userId);
-      const replay = replaySandboxTrades(Number(portfolio.startingCash), trades);
-      const openPositions = [...replay.positions.values()].filter((position) => position.quantity > 0);
-      const quotes = await Promise.all(openPositions.map((position) => getQuote(position.symbol)));
-      const marketValue = openPositions.reduce(
-        (total, position, index) => total + position.quantity * (quotes[index]?.price ?? 0),
-        0,
-      );
-
-      return {
-        id: portfolio.id,
-        name: portfolio.name,
-        startingCash: money(portfolio.startingCash),
-        cashBalance: money(replay.cashBalance),
-        marketValue: money(marketValue),
-        totalValue: money(replay.cashBalance + marketValue),
-        holdingCount: openPositions.length,
-        createdAt: portfolio.createdAt.toISOString(),
-        updatedAt: portfolio.updatedAt.toISOString(),
-      };
+    return portfolios.map((portfolio) => ({
+      id: portfolio.id,
+      name: portfolio.name,
+      startingCash: money(portfolio.startingCash),
+      createdAt: portfolio.createdAt.toISOString(),
+      updatedAt: portfolio.updatedAt.toISOString(),
     }));
   }),
 
@@ -184,8 +177,11 @@ export const sandboxRouter = router({
           .where(and(
             eq(sandboxPortfolios.id, input.portfolioId),
             eq(sandboxPortfolios.userId, ctx.userId),
-          )).limit(1);
+          ))
+          .limit(1)
+          .for("update");
         if (!portfolio) throw notFound("Portfolio");
+
         const rows = await tx.select().from(sandboxTrades)
           .where(and(
             eq(sandboxTrades.portfolioId, input.portfolioId),
@@ -227,12 +223,16 @@ export const sandboxRouter = router({
         .where(and(eq(sandboxTrades.id, input.id), eq(sandboxTrades.userId, ctx.userId)))
         .limit(1);
       if (!trade) throw notFound("Trade");
+
       const [portfolio] = await tx.select().from(sandboxPortfolios)
         .where(and(
           eq(sandboxPortfolios.id, trade.portfolioId),
           eq(sandboxPortfolios.userId, ctx.userId),
-        )).limit(1);
+        ))
+        .limit(1)
+        .for("update");
       if (!portfolio) throw notFound("Portfolio");
+
       const rows = await tx.select().from(sandboxTrades)
         .where(and(
           eq(sandboxTrades.portfolioId, trade.portfolioId),
@@ -257,7 +257,12 @@ export const sandboxRouter = router({
     .query(async ({ input }) => {
       const quote = await getQuote(input.symbol);
       if (!quote) throw new TRPCError({ code: "NOT_FOUND", message: "No live quote is available for that symbol." });
-      return { ...quote, price: decimal(quote.price, 4), change: decimal(quote.change, 4), changePercent: decimal(quote.changePercent, 2) };
+      return {
+        ...quote,
+        price: decimal(quote.price, 4),
+        change: decimal(quote.change, 4),
+        changePercent: decimal(quote.changePercent, 2),
+      };
     }),
 });
 
@@ -278,27 +283,63 @@ async function getTradeValues(portfolioId: string, userId: string) {
 }
 
 function toTradeValue(row: typeof sandboxTrades.$inferSelect): SandboxTradeValue {
-  return { id: row.id, symbol: row.symbol, side: row.side as "buy" | "sell", quantity: Number(row.quantity), price: Number(row.price), executedAt: row.executedAt, createdAt: row.createdAt };
+  return {
+    id: row.id,
+    symbol: row.symbol,
+    side: parseTradeSide(row.side),
+    quantity: Number(row.quantity),
+    price: Number(row.price),
+    executedAt: row.executedAt,
+    createdAt: row.createdAt,
+  };
 }
 
 function serializeTrade(row: typeof sandboxTrades.$inferSelect) {
-  return { id: row.id, portfolioId: row.portfolioId, symbol: row.symbol, side: row.side as "buy" | "sell", quantity: decimal(row.quantity, 8), price: decimal(row.price, 4), total: money(Number(row.quantity) * Number(row.price)), executedAt: row.executedAt.toISOString(), note: row.note, createdAt: row.createdAt.toISOString() };
+  return {
+    id: row.id,
+    portfolioId: row.portfolioId,
+    symbol: row.symbol,
+    side: parseTradeSide(row.side),
+    quantity: decimal(row.quantity, 8),
+    price: decimal(row.price, 4),
+    total: money(Number(row.quantity) * Number(row.price)),
+    executedAt: row.executedAt.toISOString(),
+    note: row.note,
+    createdAt: row.createdAt.toISOString(),
+  };
 }
 
 function validateTimeline(startingCash: number, trades: SandboxTradeValue[]) {
   try {
     replaySandboxTrades(startingCash, trades);
   } catch (error) {
-    if (error instanceof SandboxTimelineError) throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+    if (error instanceof SandboxTimelineError) {
+      throw new TRPCError({ code: "BAD_REQUEST", message: error.message });
+    }
     throw error;
   }
 }
 
-function money(value: string | number) { return Number(value).toFixed(2); }
-function decimal(value: string | number, scale: number) { return Number(value).toFixed(scale); }
-function notFound(subject: string) { return new TRPCError({ code: "NOT_FOUND", message: `${subject} not found.` }); }
+function money(value: string | number) {
+  return formatMoneyValue(Number(value));
+}
+
+function decimal(value: string | number, scale: number) {
+  const formatted = formatDecimalValue(Number(value), scale);
+  if (formatted === null) {
+    throw new Error(`Expected a finite decimal, received ${String(value)}`);
+  }
+  return formatted;
+}
+
+function notFound(subject: string) {
+  return new TRPCError({ code: "NOT_FOUND", message: `${subject} not found.` });
+}
+
 function mapPortfolioWriteError(error: unknown) {
-  const code = typeof error === "object" && error !== null && "code" in error ? String(error.code) : "";
+  const code = typeof error === "object" && error !== null && "code" in error
+    ? String(error.code)
+    : "";
   return code === "23505"
     ? new TRPCError({ code: "CONFLICT", message: "Portfolio names must be unique." })
     : new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Could not save the portfolio.", cause: error });

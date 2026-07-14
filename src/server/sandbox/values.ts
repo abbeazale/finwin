@@ -1,7 +1,9 @@
+export type SandboxTradeSide = "buy" | "sell";
+
 export type SandboxTradeValue = {
   id: string;
   symbol: string;
-  side: "buy" | "sell";
+  side: SandboxTradeSide;
   quantity: number;
   price: number;
   executedAt: Date;
@@ -30,6 +32,14 @@ export class SandboxTimelineError extends Error {
     super(message);
     this.name = "SandboxTimelineError";
   }
+}
+
+export function parseTradeSide(side: string): SandboxTradeSide {
+  if (side === "buy" || side === "sell") {
+    return side;
+  }
+
+  throw new Error(`Invalid sandbox trade side: ${side}`);
 }
 
 const EPSILON = 0.00000001;
