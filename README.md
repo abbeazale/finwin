@@ -1,6 +1,6 @@
 # FinWin
 
-FinWin is a Next.js personal finance workspace for imported transactions, monthly budgets, and deterministic dashboard analytics.
+FinWin is a Next.js personal finance workspace for imported transactions, monthly budgets, deterministic dashboard analytics, real investment accounts, and paper-trading scenarios.
 
 ## Stack
 
@@ -8,7 +8,9 @@ FinWin is a Next.js personal finance workspace for imported transactions, monthl
 - Better Auth with email/password, GitHub, Google, passkeys, and TOTP
 - tRPC v11 with TanStack Query
 - Drizzle ORM with Neon/Postgres
-- Plaid account linking, transaction sync, and webhook verification
+- Plaid account linking, transaction and investment sync, and webhook verification
+- Finnhub market quotes and symbol search
+- Open Exchange Rates conversion for investment reporting
 - Tailwind CSS/shadcn UI components
 
 ## Commands
@@ -32,10 +34,12 @@ bun run seed
 
 ## Routes
 
-- `/` redirects signed-out users to `/login`, incomplete profiles to `/onboarding`, and complete profiles to `/dashboard`.
+- `/` serves the signed-out marketing page with a live stock ticker, while signed-in users continue to onboarding or the dashboard.
 - `/dashboard` shows month-scoped cashflow, spending, recent transactions, and budget pressure.
 - `/transactions` lists imported transactions with filters and category reassignment.
 - `/budgets` manages monthly category budgets.
+- `/investments` shows linked investment accounts, holdings, and investment transactions.
+- `/sandbox` provides deterministic multi-portfolio paper trading with live quotes.
 - `/settings/connections` manages Plaid bank connections.
 - `/settings/security` manages passkeys and TOTP.
 
