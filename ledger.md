@@ -1,6 +1,92 @@
 # FinWin Ledger
 
+## 2026-07-14
+
+### Improve audit fully implemented
+
+- Completed remaining audit findings 5–12 on `improve-audit-batch-1` after the first batch (1–4, 7):
+  - dashboard aggregates scoped to profile currency with excluded-row notice
+  - transaction ledger offset pagination with previous/next
+  - recent strong-auth middleware for Plaid link/exchange/unlink/reactivate (+ `docs/spec/recent-auth.md`)
+  - chunked Plaid bank/investment upserts
+  - knip + lint zero-exit baseline restored
+  - landing ticker stale-while-revalidate + provider timeouts
+  - README fresh-clone setup, required/optional env tables, and verification sequence
+- Verified: `bunx tsc --noEmit`, `bun run lint`, `bun run knip`, `bun test` (53 pass).
+- Direction options from the audit (merchant rules, recurring detection, WorkOS) remain deferred product choices, not defects.
+
+### Session handoff
+
+- Branch `improve-audit-batch-1` holds the full audit implementation; not pushed.
+- Recommended human smoke: sign-in freshness for Connect bank, dashboard currency banner, ledger page 2+, cold `/` without waiting on Finnhub.
+- Personal docs outside the audit touch (ImproveAudit source, deslop notes, sandbox plan/spec) may still be uncommitted.
+
+### Improve audit batch 1 implemented
+
+- Implemented the recommended first planning batch from `docs/ImproveAudit/2026-07-14-codebase-audit.md` on branch `improve-audit-batch-1` (5 commits, no co-authored trailers):
+  1. Better Auth upgrade past GHSA-g38m-r43w-p2q7
+  2. Onboarding timezone correction and validation
+  3. Plaid webhook body limit
+  4. Non-destructive `bun run db:migrate`
+  5. Critical-path characterization suite
+- Follow-on findings 5–12 were completed later the same day (see entry above).
+
+### Deslop implementation complete
+
+- Implemented the four recommended passes from `docs/deslop.md` in order, with one commit per pass:
+  - `1642430` — stop tracking the real ngrok configuration, ignore local tunnel credentials, and add a safe example
+  - `7187a3f` — remove stale agent product plans and `CLAUDE.md`, refresh repository truth, and clean configuration/dependency residue
+  - `ee76d0a` — centralize protected-page session handling, month/decimal helpers, profile-currency budgets, and sandbox JSX formatting
+  - `dfe18e7` — split budget/dashboard presentation responsibilities and investment Plaid sync from bank transaction sync
+- Budget totals now use the profile currency, exclude other-currency transactions without implying FX conversion, and surface the excluded count. The initial month uses the saved profile timezone.
+- Protected client pages share `useRequireSession()` and suppress protected queries until a session exists.
+- `src/server/plaid/sync.ts` retains stable investment-sync re-exports while implementation lives in `sync-investments.ts`.
+- Updated `README.md`, `docs/plan.md`, and `docs/resources.md`; `docs/` changes remain uncommitted by project policy.
+- Verification was intentionally limited to compilation and runtime startup per request: `bunx tsc --noEmit`, `bun run build`, production server startup, and `GET /` returning 200.
+- Account-side ngrok token rotation remains required. The repository copy is removed, but the dashboard browser was unavailable and the local CLI has no ngrok API key configured.
+
+### Session handoff
+
+- Four ordered deslop commits are complete on branch `Deslop`.
+- Personal `docs/` files and pre-existing ledger notes remain uncommitted.
+- Recommended human verification: budget month/currency behavior, protected-page redirects, sandbox modals/tables, dashboard panels, and both Plaid bank and investment sync paths.
+
 ## 2026-07-11
+
+### Sandbox listPortfolios 500 fixed
+
+- Diagnosed `sandbox.listPortfolios` returning 500: the configured database migration journal stopped at `0005`, so `sandbox_portfolios` and `sandbox_trades` did not exist even though the earlier CLI migration command appeared to run.
+- Applied pending migrations `0006` and `0007` through Drizzle's runtime migrator.
+- Verified both sandbox tables, all cash/side/quantity/price check constraints, and migration journal rows now exist; a direct empty portfolio query succeeds.
+- No application code change was required. Refresh `/sandbox` (or restart the dev server if it retained the prior error state).
+
+### Sandbox trading shipped
+
+- Implemented the paper-trading sandbox end to end from `docs/spec/sandbox-trading.md` and `docs/plan/sandbox-trading.md`.
+- Added dedicated portfolio/trade tables, ownership indexes, cascade deletion, numeric constraints, and migrations `0006`/`0007`; migrations apply without schema drift.
+- Added arbitrary Finnhub quotes and cached common-stock search while preserving the landing ticker behavior.
+- Added deterministic timeline replay with average-cost positions, cash enforcement, no shorting, realized/unrealized P&L, and replay validation for inserts and deletes.
+- Added the protected `sandbox` tRPC router for portfolio CRUD, trades, live quotes/search, and derived portfolio summaries.
+- Added `/sandbox` with multi-portfolio selection, portfolio creation/rename/delete, summary metrics, holdings, missing-quote handling, trade history, and a live-quote-prefilled editable/backdated trade flow. Enabled Sandbox in dashboard navigation.
+- Verified `drizzle-kit generate` reports no drift, migrations apply, focused replay scenarios pass, live Finnhub `AAPL` quote/search pass, `bunx tsc --noEmit`, `bun run lint`, `bun run knip`, and `bun run build`.
+- Browser automation was unavailable (no browser backend exposed), so a signed-in local click-through remains recommended.
+
+### Session handoff
+
+- Sandbox implementation is complete and available at `/sandbox`.
+- No code or docs were committed. Existing personal `docs/` changes and the pre-existing `ledger.md` edit remain in the worktree.
+- Recommended final human smoke test: sign in, create a portfolio, buy AAPL, backdate a sell, verify P&L, try an over-cash/over-position trade, and delete a trade that would strand a later sell.
+
+### Sandbox trading spec + plan drafted
+
+- Drafted `docs/spec/sandbox-trading.md` and `docs/plan/sandbox-trading.md` for a paper-trading sandbox (manual stocks + hypothetical trades).
+- Product decisions locked with the user:
+  - trade form pre-fills the live Finnhub quote, price and execution date editable (backdated what-if trades supported)
+  - multiple named portfolios per user, each with its own starting cash (default 100k)
+  - buys constrained by available cash; no shorting/margin; fractional shares allowed; USD-only in v1
+- Storage: new `sandbox_portfolios` + `sandbox_trades` tables only — Plaid investing tables are not reusable (NOT NULL Plaid IDs, require `bank_accounts`). Holdings, cash, and P&L are always derived by replaying trades, never stored; mutations validated by full timeline replay (no negative cash/position at any point).
+- Reuse plan: extend `src/server/market/quotes.ts` for arbitrary-symbol quotes + Finnhub `/search`; new `sandbox` tRPC router; `src/pages/sandbox.tsx` modeled on `/investments`; enable a Sandbox nav item.
+- No code written yet — implementation starts at plan Phase 1 (schema).
 
 ### Landing page stock ticker shipped
 
