@@ -3,7 +3,6 @@
 ## Key Files
 
 - `README.md`
-- `.agents/implementationplan.md` — original phased plan (reference only; ledger is canonical)
 - `src/db/schema.ts` — full Drizzle schema (transactions, budgets, investments, categories, bank accounts/connections, auth tables)
 - `src/server/trpc/routers/_app.ts` — tRPC root router; add new routers here
 - `src/server/trpc/routers/onboarding.ts` — profile completion mutation used by `/onboarding`
@@ -11,21 +10,29 @@
 - `src/server/trpc/routers/dashboard.ts` — dashboard overview, cashflow, spending-by-category, and recent transaction queries
 - `src/server/trpc/routers/investments.ts` — protected investment account, holding, transaction, and sync procedures
 - `src/server/trpc/routers/plaid.ts` — all Plaid procedures
+- `src/server/trpc/routers/sandbox.ts` — protected paper-trading portfolio, trade, quote, and search procedures
 - `src/server/trpc/routers/transactions.ts` — transaction listing query plus category reassignment mutation for `/transactions`
 - `src/server/lib/category-taxonomy.ts` — canonical category/group names, default category constants, and seed taxonomy
 - `src/server/investments/values.ts` — investment display math, gain/loss suppression, and cash-impact helpers
 - `src/server/investments/fx.ts` — Open Exchange Rates refresh/cache helper and USD FX lookup
+- `src/server/market/quotes.ts` — Finnhub quote/search client with cache and stale fallback
+- `src/server/sandbox/values.ts` — deterministic trade replay, cash, holdings, and P&L calculations
 - `src/server/lib/category-map.ts` — Plaid PFC → our category name mapping (TS const)
 - `src/server/plaid/crypto.ts` — application-layer AES-256-GCM encryption/decryption for Plaid access tokens
-- `src/server/plaid/sync.ts` — Plaid transaction sync with auto-categorization
+- `src/server/plaid/sync.ts` — Plaid bank transaction sync and stable investment-sync re-exports
+- `src/server/plaid/sync-investments.ts` — Plaid security, holding, and investment transaction sync
 - `src/lib/budget-status.ts` — shared budget status type and labels
 - `src/lib/name.ts` — shared name normalization helper
 - `src/components/dashboard/nav.ts` — shared dashboard nav items and active-route helper
+- `src/components/dashboard/metrics.tsx` — dashboard metric cards, formatting, and deterministic signal copy
+- `src/components/budgets/budget-components.tsx` — budget category cards, add-category UI, chart modal, and presentation helpers
+- `src/server/dashboard/initial-month.ts` — server-only initial dashboard month selection
 - `src/styles/globals.css` — global theme tokens and reusable CSS primitives
-- `src/pages/index.tsx` — root redirect into login, onboarding, or dashboard
+- `src/pages/index.tsx` — signed-out marketing page with live stock ticker and signed-in routing
 - `src/pages/dashboard.tsx` — main dashboard; Budget Progress now reads from `budgets.summary`
 - `src/pages/budgets.tsx` — monthly budgets desk with Recharts via the retained shadcn chart wrapper
 - `src/pages/investments.tsx` — read-only real investment accounts surface
+- `src/pages/sandbox.tsx` — multi-portfolio paper-trading sandbox
 - `src/pages/transactions.tsx` — production transaction ledger view with filters, uncategorized nudge, and inline category reassignment
 - `src/pages/settings/security.tsx` — passkey enrollment and TOTP setup surface
 - `src/pages/two-factor.tsx` — TOTP / backup-code challenge page for password sign-in when 2FA is enabled
@@ -58,6 +65,7 @@
 - `bun run lint`
 - `bun run knip` — unused-file/export scan; Tailwind and shadcn tooling are intentionally ignored in `knip.json`
 - `bunx madge --circular --extensions ts,tsx --ts-config tsconfig.json src` — circular dependency scan
+- `bun run db:migrate` — non-destructive Drizzle migrator; apply pending migrations and verify journal completeness
 - `bun run dbreset` — drops and remigrates the DB (non-production only)
 - `bun run seed` — idempotent category seed; run once against a fresh DB before testing sync
 
@@ -70,6 +78,7 @@
 - Plaid — account linking, cursor-based transaction sync, webhook verification (ES256 JWT)
 - Plaid token encryption — server-side AES-256-GCM with versioned env-provided keys
 - Plaid Investments — securities, holdings, and investment transaction import
+- Finnhub — landing ticker, sandbox quotes, and symbol search via `FINNHUB_API_KEY`
 - Open Exchange Rates — investment FX cache for USD aggregation via `OER_KEY`; internal refresh route uses optional `FX_REFRESH_SECRET`
 - tRPC v11 + TanStack Query v5 — all app data routes; webhook stays as plain Next API route
 - Zod v4 — tRPC input validation
@@ -78,17 +87,18 @@
 ## Router Conventions
 
 - Product pages → `src/pages/` (Pages Router). New pages go here.
-- Root route → `src/pages/index.tsx`, currently a server-side redirect.
+- Root route → `src/pages/index.tsx`, marketing for signed-out visitors and routing for signed-in users.
 - tRPC API → `src/pages/api/trpc/[trpc].ts`
 - Plaid webhook → `src/pages/api/plaid/webhook.ts` (REST, raw body required)
 - Internal FX refresh → `src/pages/api/internal/fx/refresh.ts` (`POST`, bearer `FX_REFRESH_SECRET` required in production)
 - App data mutations/queries → add procedures to `src/server/trpc/routers/`
-- Current product pages include `/dashboard`, `/transactions`, `/budgets`, `/settings/connections`, `/settings/security`, and `/two-factor`
+- Current product pages include `/dashboard`, `/transactions`, `/budgets`, `/investments`, `/sandbox`, `/settings/connections`, `/settings/security`, and `/two-factor`.
 - `/investments` is the read-only real investment accounts page.
 
 ## Notes
 
-- Run `bun run seed` after `bun run dbreset` — migrations don't seed categories.
+- Prefer `bun run db:migrate` for retained databases; reserve `bun run dbreset` for disposable local data.
+- Run `bun run seed` after a fresh migrate or `dbreset` — migrations don't seed categories.
 - tRPC context carries `userId: string | null`; all protected procedures enforce non-null via `protectedProcedure`.
 - Canonical product sign convention: positive = money in, negative = money out.
 - Plaid raw provider amounts may use the opposite convention; sync should normalize before persistence.

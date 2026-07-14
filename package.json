@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "bun test",
     "knip": "knip",
+    "db:migrate": "tsx scripts/db-migrate.ts",
     "dbreset": "tsx scripts/db-reset.ts",
     "seed": "tsx scripts/seed-categories.ts"
   },

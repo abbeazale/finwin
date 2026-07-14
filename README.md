@@ -13,6 +13,29 @@ FinWin is a Next.js personal finance workspace for imported transactions, monthl
 - Open Exchange Rates conversion for investment reporting
 - Tailwind CSS/shadcn UI components
 
+## Setup
+
+1. Copy `.env.example` to `.env` and fill required values.
+2. Set `DATABASE_URL` to a Neon/Postgres connection string.
+3. Generate a Plaid token encryption key (32 random bytes, base64) and put it in
+   `PLAID_TOKEN_ENCRYPTION_KEYS` with matching `PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION`.
+4. Apply schema migrations with the non-destructive migrator below.
+5. Seed categories once on a fresh database.
+
+```bash
+cp .env.example .env
+# edit .env
+bun install
+bun run db:migrate
+bun run seed
+```
+
+Safe encryption-key generation example:
+
+```bash
+openssl rand -base64 32
+```
+
 ## Commands
 
 ```bash
@@ -21,17 +44,35 @@ bun run dev
 bunx tsc --noEmit
 bun run lint
 bun run knip
+bun test
 bunx madge --circular --extensions ts,tsx --ts-config tsconfig.json src
 bun run build
 ```
 
-Database reset and seed commands for non-production disposable data:
+### Database
+
+Prefer the non-destructive migrator for retained or production data. It applies
+pending Drizzle migrations from `drizzle/` and verifies the journal reached the
+latest expected tag:
+
+```bash
+bun run db:migrate
+```
+
+Deployment ordering: run `bun run db:migrate` against the target database before
+shipping app code that depends on new tables or columns. If migrate fails partway,
+fix the SQL error, keep the database, and re-run `bun run db:migrate` after the
+fix; do not use `dbreset` against retained data.
+
+Destructive reset and seed commands for non-production disposable data only:
 
 ```bash
 bun run dbreset
 bun run seed
 ```
 
+`dbreset` drops the `drizzle` and `public` schemas, reapplies every migration,
+and is refused when `NODE_ENV=production`.
 ## Routes
 
 - `/` serves the signed-out marketing page with a live stock ticker, while signed-in users continue to onboarding or the dashboard.
