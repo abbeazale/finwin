@@ -43,6 +43,20 @@
       "when": 1777615975174,
       "tag": "0005_vengeful_firelord",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1783794175158,
+      "tag": "0006_green_franklin_richards",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1783794632074,
+      "tag": "0007_gigantic_grey_gargoyle",
+      "breakpoints": true
     }
   ]
 }

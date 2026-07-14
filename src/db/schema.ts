@@ -1,5 +1,6 @@
 import {
   boolean,
+  check,
   date,
   index,
   integer,
@@ -11,6 +12,7 @@ import {
   uuid,
   varchar,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 export const user = pgTable(
   "user",
@@ -339,6 +341,55 @@ export const currencyRates = pgTable(
       table.baseCurrency,
       table.quoteCurrency,
     ),
+  ]),
+);
+
+export const sandboxPortfolios = pgTable(
+  "sandbox_portfolios",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    startingCash: numeric("starting_cash", { precision: 14, scale: 2 }).notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ([
+    check("sandbox_portfolios_starting_cash_check", sql`${table.startingCash} >= 0`),
+    index("sandbox_portfolios_user_id_idx").on(table.userId),
+    uniqueIndex("sandbox_portfolios_user_name_unique").on(table.userId, table.name),
+  ]),
+);
+
+export const sandboxTrades = pgTable(
+  "sandbox_trades",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    portfolioId: uuid("portfolio_id")
+      .notNull()
+      .references(() => sandboxPortfolios.id, { onDelete: "cascade" }),
+    userId: text("user_id")
+      .notNull()
+      .references(() => user.id, { onDelete: "cascade" }),
+    symbol: text("symbol").notNull(),
+    side: text("side").notNull(),
+    quantity: numeric("quantity", { precision: 18, scale: 8 }).notNull(),
+    price: numeric("price", { precision: 12, scale: 4 }).notNull(),
+    executedAt: timestamp("executed_at", { withTimezone: true }).notNull(),
+    note: text("note"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ([
+    check("sandbox_trades_side_check", sql`${table.side} in ('buy', 'sell')`),
+    check("sandbox_trades_quantity_check", sql`${table.quantity} > 0`),
+    check("sandbox_trades_price_check", sql`${table.price} >= 0`),
+    index("sandbox_trades_portfolio_executed_at_idx").on(
+      table.portfolioId,
+      table.executedAt,
+    ),
+    index("sandbox_trades_user_id_idx").on(table.userId),
   ]),
 );
 
