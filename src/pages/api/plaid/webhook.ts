@@ -8,18 +8,14 @@ import {
   syncInvestmentHoldings,
   syncInvestmentTransactions,
 } from "@/server/plaid/sync";
+import {
+  RequestBodyTooLargeError,
+  readBoundedRawBody,
+} from "@/server/plaid/raw-body";
 import { verifyPlaidWebhook } from "@/server/plaid/webhook-verify";
 
 // Next's default body parser would strip whitespace and break request_body_sha256.
 export const config = { api: { bodyParser: false } };
-
-async function readRawBody(req: NextApiRequest): Promise<string> {
-  const chunks: Buffer[] = [];
-  for await (const chunk of req) {
-    chunks.push(typeof chunk === "string" ? Buffer.from(chunk) : chunk);
-  }
-  return Buffer.concat(chunks).toString("utf8");
-}
 
 const plaidWebhookPayloadSchema = z.object({
   webhook_type: z.string(),
@@ -42,7 +38,15 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
     return res.status(405).end();
   }
 
-  const rawBody = await readRawBody(req);
+  let rawBody: string;
+  try {
+    rawBody = await readBoundedRawBody(req);
+  } catch (err) {
+    if (err instanceof RequestBodyTooLargeError) {
+      return res.status(413).json({ error: "Request body too large." });
+    }
+    throw err;
+  }
 
   const signature = req.headers["plaid-verification"];
   const signatureHeader = Array.isArray(signature) ? signature[0] : signature;
