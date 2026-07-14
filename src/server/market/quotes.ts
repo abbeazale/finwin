@@ -1,7 +1,9 @@
 import { z } from "zod";
 
 const FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote";
+const FINNHUB_SEARCH_URL = "https://finnhub.io/api/v1/search";
 const CACHE_TTL_MS = 5 * 60 * 1000;
+const SEARCH_CACHE_TTL_MS = 60 * 1000;
 
 // Largest US stocks by market cap; static because rankings shift too slowly
 // to justify a second API for them.
@@ -16,6 +18,15 @@ const finnhubQuoteSchema = z.object({
   dp: z.number().nullable(), // percent change vs previous close
 });
 
+const finnhubSearchSchema = z.object({
+  result: z.array(z.object({
+    description: z.string(),
+    displaySymbol: z.string(),
+    symbol: z.string(),
+    type: z.string(),
+  })),
+});
+
 export type TickerQuote = {
   symbol: string;
   price: number;
@@ -23,8 +34,13 @@ export type TickerQuote = {
   changePercent: number;
 };
 
-let cachedQuotes: TickerQuote[] = [];
-let cachedAt = 0;
+export type SymbolSearchResult = {
+  symbol: string;
+  description: string;
+};
+
+const quoteCache = new Map<string, { quote: TickerQuote; cachedAt: number }>();
+const searchCache = new Map<string, { results: SymbolSearchResult[]; cachedAt: number }>();
 
 async function fetchQuote(symbol: string, apiKey: string): Promise<TickerQuote | null> {
   const response = await fetch(
@@ -50,31 +66,73 @@ async function fetchQuote(symbol: string, apiKey: string): Promise<TickerQuote |
   };
 }
 
-export async function getTickerQuotes(): Promise<TickerQuote[]> {
+export async function getQuote(symbol: string): Promise<TickerQuote | null> {
+  const normalizedSymbol = symbol.trim().toUpperCase();
   const apiKey = process.env.FINNHUB_API_KEY;
-  if (!apiKey) {
-    return [];
+  if (!apiKey || !normalizedSymbol) {
+    return null;
   }
 
-  const now = Date.now();
-  if (cachedQuotes.length > 0 && now - cachedAt < CACHE_TTL_MS) {
-    return cachedQuotes;
+  const cached = quoteCache.get(normalizedSymbol);
+  if (cached && Date.now() - cached.cachedAt < CACHE_TTL_MS) {
+    return cached.quote;
   }
 
   try {
-    const results = await Promise.all(
-      TICKER_SYMBOLS.map((symbol) => fetchQuote(symbol, apiKey)),
-    );
-    const quotes = results.filter((quote): quote is TickerQuote => quote !== null);
+    const quote = await fetchQuote(normalizedSymbol, apiKey);
+    if (quote) {
+      quoteCache.set(normalizedSymbol, { quote, cachedAt: Date.now() });
+      return quote;
+    }
+  } catch {
+    // Existing positions should remain readable when Finnhub is unavailable.
+  }
 
-    if (quotes.length > 0) {
-      cachedQuotes = quotes;
-      cachedAt = now;
+  return cached?.quote ?? null;
+}
+
+export async function searchSymbols(query: string): Promise<SymbolSearchResult[]> {
+  const normalizedQuery = query.trim().toLowerCase();
+  const apiKey = process.env.FINNHUB_API_KEY;
+  if (!apiKey || normalizedQuery.length < 1) {
+    return [];
+  }
+
+  const cached = searchCache.get(normalizedQuery);
+  if (cached && Date.now() - cached.cachedAt < SEARCH_CACHE_TTL_MS) {
+    return cached.results;
+  }
+
+  try {
+    const response = await fetch(
+      `${FINNHUB_SEARCH_URL}?q=${encodeURIComponent(normalizedQuery)}&token=${encodeURIComponent(apiKey)}`,
+      { headers: { accept: "application/json" } },
+    );
+    if (!response.ok) {
+      return cached?.results ?? [];
     }
 
-    return cachedQuotes;
+    const parsed = finnhubSearchSchema.safeParse(await response.json());
+    if (!parsed.success) {
+      return cached?.results ?? [];
+    }
+
+    const results = parsed.data.result
+      .filter((result) => result.type.toLowerCase() === "common stock")
+      .filter((result) => /^[A-Z][A-Z0-9.-]{0,14}$/.test(result.symbol.toUpperCase()))
+      .map((result) => ({
+        symbol: result.symbol.toUpperCase(),
+        description: result.description,
+      }))
+      .slice(0, 10);
+    searchCache.set(normalizedQuery, { results, cachedAt: Date.now() });
+    return results;
   } catch {
-    // Serve stale quotes (or nothing) rather than failing the landing page.
-    return cachedQuotes;
+    return cached?.results ?? [];
   }
+}
+
+export async function getTickerQuotes(): Promise<TickerQuote[]> {
+  const results = await Promise.all(TICKER_SYMBOLS.map((symbol) => getQuote(symbol)));
+  return results.filter((quote): quote is TickerQuote => quote !== null);
 }

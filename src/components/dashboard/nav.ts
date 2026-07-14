@@ -1,6 +1,7 @@
 import {
   LayoutDashboard,
   LineChart,
+  FlaskConical,
   Settings,
   Target,
   Wallet,
@@ -18,6 +19,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "Transactions", icon: Wallet, href: "/transactions" },
   { label: "Budgets", icon: Target, href: "/budgets" },
   { label: "Investments", icon: LineChart, href: "/investments" },
+  { label: "Sandbox", icon: FlaskConical, href: "/sandbox" },
   { label: "Settings", icon: Settings, href: "/settings/connections" },
 ];
 
