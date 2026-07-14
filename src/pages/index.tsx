@@ -6,7 +6,7 @@ import {
   getUserProfile,
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
-import { getTickerQuotes, type TickerQuote } from "@/server/market/quotes";
+import { getTickerQuotesForLanding, type TickerQuote } from "@/server/market/quotes";
 
 const pillars = [
   {
@@ -447,7 +447,7 @@ export const getServerSideProps: GetServerSideProps<HomeProps> = async (context)
   const session = await getPageSession(context);
 
   if (!session) {
-    return { props: { quotes: await getTickerQuotes() } };
+    return { props: { quotes: getTickerQuotesForLanding() } };
   }
 
   const profile = await getUserProfile(session.user.id);
