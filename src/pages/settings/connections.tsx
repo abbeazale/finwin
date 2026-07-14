@@ -1,22 +1,20 @@
 import Link from "next/link";
-import { useRouter } from "next/router";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ArrowLeft, Building2, Plug, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { useSession } from "@/lib/auth-client";
+import { useRequireSession } from "@/hooks/use-require-session";
 import { ConnectBank } from "@/components/connect-bank";
+import { PageStatus } from "@/components/page-status";
 import { Button } from "@/components/ui/button";
 
 export default function ConnectionsSettings() {
-  const router = useRouter();
   const [message, setMessage] = useState<string | null>(null);
 
-  const { data: session, isPending: sessionLoading } = useSession();
-  useEffect(() => {
-    if (!sessionLoading && !session) router.push("/login");
-  }, [session, sessionLoading, router]);
+  const { session, isPending: sessionLoading } = useRequireSession();
 
-  const connectionsQuery = trpc.plaid.listConnections.useQuery();
+  const connectionsQuery = trpc.plaid.listConnections.useQuery(undefined, {
+    enabled: Boolean(session),
+  });
   const { data: connections = [], isLoading } = connectionsQuery;
 
   const unlinkMutation = trpc.plaid.unlinkConnection.useMutation({
@@ -34,12 +32,10 @@ export default function ConnectionsSettings() {
   }
 
   if (isLoading || sessionLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-ink-0 text-bone-mute">
-        Loading…
-      </div>
-    );
+    return <PageStatus label="Checking bank wiring…" />;
   }
+
+  if (!session) return <PageStatus label="Redirecting…" />;
 
   return (
     <div className="relative min-h-screen bg-ink-0 text-bone">

@@ -16,7 +16,12 @@ import { Button } from "@/components/ui/button";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
 import { formatCurrency } from "@/lib/currency";
-import { formatMonthHeading, parseLocalDate, shiftMonthStart } from "@/lib/date";
+import {
+  formatMonthHeading,
+  getMonthStartForTimeZone,
+  parseLocalDate,
+  shiftMonthStart,
+} from "@/lib/date";
 import { useRouter } from "next/router";
 import { useState, useTransition } from "react";
 import {
@@ -784,18 +789,6 @@ function getSignalCopy({
     : "Budget pressure is still loading.";
 
   return `${headline} ${topLane} ${budgetSignal}`;
-}
-
-function getMonthStartForTimeZone(date: Date, timeZone: string) {
-  const parts = new Intl.DateTimeFormat("en-CA", {
-    timeZone,
-    year: "numeric",
-    month: "2-digit",
-  }).formatToParts(date);
-  const year = parts.find((part) => part.type === "year")?.value ?? "1970";
-  const month = parts.find((part) => part.type === "month")?.value ?? "01";
-
-  return `${year}-${month}-01`;
 }
 
 async function getInitialDashboardMonth(userId: string, currentMonth: string) {

@@ -17,3 +17,15 @@ export function shiftMonthStart(value: string, offset: number) {
   const shifted = new Date(Date.UTC(year, month - 1 + offset, 1));
   return `${shifted.getUTCFullYear()}-${String(shifted.getUTCMonth() + 1).padStart(2, "0")}-01`;
 }
+
+export function getMonthStartForTimeZone(date: Date, timeZone: string) {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+  }).formatToParts(date);
+  const year = parts.find((part) => part.type === "year")?.value ?? "1970";
+  const month = parts.find((part) => part.type === "month")?.value ?? "01";
+
+  return `${year}-${month}-01`;
+}

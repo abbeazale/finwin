@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { useRouter } from "next/router";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,7 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageStatus } from "@/components/page-status";
-import { useSession } from "@/lib/auth-client";
+import { useRequireSession } from "@/hooks/use-require-session";
 import { formatCurrency } from "@/lib/currency";
 import { parseLocalDate } from "@/lib/date";
 import { trpc, type RouterInputs, type RouterOutputs } from "@/lib/trpc";
@@ -31,9 +30,8 @@ function isPendingFilterValue(value: string): value is PendingFilterValue {
 }
 
 export default function TransactionsPage() {
-  const router = useRouter();
   const utils = trpc.useUtils();
-  const { data: session, isPending: sessionLoading } = useSession();
+  const { session, isPending: sessionLoading } = useRequireSession();
 
   const [accountId, setAccountId] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilterValue>("all");
@@ -42,12 +40,6 @@ export default function TransactionsPage() {
   const [dateTo, setDateTo] = useState("");
   const [includeInactiveAccounts, setIncludeInactiveAccounts] = useState(false);
   const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!sessionLoading && !session) {
-      router.push("/login");
-    }
-  }, [router, session, sessionLoading]);
 
   const deferredFilters = useDeferredValue({
     accountId: accountId || undefined,

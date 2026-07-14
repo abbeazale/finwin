@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { shiftMonthStart } from "@/lib/date";
 
 const MONTH_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -10,22 +11,12 @@ function isFirstOfMonth(value: string) {
 
 /** Returns the first day of the month after `value` (input must be `YYYY-MM-DD`). */
 export function getNextMonthStart(value: string) {
-  const [year, month] = value.split("-").map(Number);
-  const nextDate = new Date(Date.UTC(year, month, 1));
-  const nextYear = nextDate.getUTCFullYear();
-  const nextMonth = `${nextDate.getUTCMonth() + 1}`.padStart(2, "0");
-
-  return `${nextYear}-${nextMonth}-01`;
+  return shiftMonthStart(value, 1);
 }
 
 /** Returns the first day of the month before `value` (input must be `YYYY-MM-DD`). */
 export function getPreviousMonthStart(value: string) {
-  const [year, month] = value.split("-").map(Number);
-  const previousDate = new Date(Date.UTC(year, month - 2, 1));
-  const previousYear = previousDate.getUTCFullYear();
-  const previousMonth = `${previousDate.getUTCMonth() + 1}`.padStart(2, "0");
-
-  return `${previousYear}-${previousMonth}-01`;
+  return shiftMonthStart(value, -1);
 }
 
 /**

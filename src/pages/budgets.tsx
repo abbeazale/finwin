@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { useRouter } from "next/router";
 import { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
@@ -12,7 +11,7 @@ import {
   X,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
-import { useSession } from "@/lib/auth-client";
+import { useRequireSession } from "@/hooks/use-require-session";
 import { BUDGET_STATUS_LABELS } from "@/lib/budget-status";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 import {
@@ -54,22 +53,19 @@ const STATUS_BAR: Record<SummaryRow["status"], string> = {
 };
 
 export default function BudgetsPage() {
-  const router = useRouter();
   const utils = trpc.useUtils();
-  const { data: session, isPending: sessionLoading } = useSession();
-  const [month, setMonth] = useState(getCurrentMonthStart());
+  const { session, isPending: sessionLoading } = useRequireSession();
+  const [selectedMonth, setSelectedMonth] = useState<string | null>(null);
   const [pageError, setPageError] = useState<string | null>(null);
   const [chartModalOpen, setChartModalOpen] = useState(false);
-
-  useEffect(() => {
-    if (!sessionLoading && !session) {
-      router.push("/login");
-    }
-  }, [router, session, sessionLoading]);
+  const budgetContextQuery = trpc.budgets.context.useQuery(undefined, {
+    enabled: Boolean(session),
+  });
+  const month = selectedMonth ?? budgetContextQuery.data?.currentMonth ?? getCurrentMonthStart();
 
   const summaryQuery = trpc.budgets.summary.useQuery(
     { month },
-    { enabled: Boolean(session) },
+    { enabled: Boolean(session && budgetContextQuery.data) },
   );
   const upsertBudget = trpc.budgets.upsertMonthlyBudget.useMutation({
     onMutate: () => setPageError(null),
@@ -95,10 +91,11 @@ export default function BudgetsPage() {
       dateFrom: month,
       dateTo: getLastDayOfMonth(month),
       includeInactiveAccounts: true,
+      currency: budgetContextQuery.data?.currency,
       sortBy: "amount_asc",
       limit: 5,
     },
-    { enabled: Boolean(session) },
+    { enabled: Boolean(session && budgetContextQuery.data) },
   );
 
   const topSpends = useMemo(() => {
@@ -106,6 +103,7 @@ export default function BudgetsPage() {
   }, [topSpendQuery.data]);
 
   const summary = summaryQuery.data;
+  const currency = summary?.currency ?? budgetContextQuery.data?.currency ?? "CAD";
 
   const allChartData = useMemo(() => {
     const rows = summary?.groups.flatMap((group) => group.rows) ?? [];
@@ -125,7 +123,11 @@ export default function BudgetsPage() {
 
   const chartData = useMemo(() => allChartData.slice(0, 6), [allChartData]);
 
-  if (sessionLoading || (summaryQuery.isLoading && !summary)) {
+  if (
+    sessionLoading ||
+    budgetContextQuery.isLoading ||
+    (summaryQuery.isLoading && !summary)
+  ) {
     return <PageStatus label="Balancing the month…" />;
   }
 
@@ -184,7 +186,7 @@ export default function BudgetsPage() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setMonth(shiftMonthStart(month, -1))}
+                onClick={() => setSelectedMonth(shiftMonthStart(month, -1))}
                 className="size-9 rounded text-bone-mute shadow-none hover:bg-[var(--ink-3)] hover:text-bone"
               >
                 <ArrowLeft className="size-3.5" />
@@ -197,7 +199,7 @@ export default function BudgetsPage() {
                 type="button"
                 variant="ghost"
                 size="icon-sm"
-                onClick={() => setMonth(shiftMonthStart(month, 1))}
+                onClick={() => setSelectedMonth(shiftMonthStart(month, 1))}
                 className="size-9 rounded text-bone-mute shadow-none hover:bg-[var(--ink-3)] hover:text-bone"
               >
                 <ArrowRight className="size-3.5" />
@@ -206,10 +208,22 @@ export default function BudgetsPage() {
           </div>
         </header>
 
-        {(summaryQuery.error || pageError) ? (
+        {(budgetContextQuery.error || summaryQuery.error || pageError) ? (
           <p className="mb-8 flex items-center gap-3 rounded-md border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
             <CircleAlert className="size-3.5 shrink-0" />
-            {summaryQuery.error?.message ?? pageError ?? "Unknown error."}
+            {budgetContextQuery.error?.message ??
+              summaryQuery.error?.message ??
+              pageError ??
+              "Unknown error."}
+          </p>
+        ) : null}
+
+        {summary && summary.excludedCurrencyTransactionCount > 0 ? (
+          <p className="mb-8 flex items-center gap-3 rounded-md border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-2.5 text-[12px] text-brass-hi">
+            <CircleAlert className="size-3.5 shrink-0" />
+            {summary.excludedCurrencyTransactionCount} transaction
+            {summary.excludedCurrencyTransactionCount === 1 ? "" : "s"} in other currencies
+            {" "}excluded; this budget is reported in {currency} without FX conversion.
           </p>
         ) : null}
 
@@ -226,15 +240,15 @@ export default function BudgetsPage() {
                   <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
                     <SummaryMetric
                       label="Budgeted"
-                      value={formatMoney(Number(summary.totals.totalBudgeted))}
+                      value={formatMoney(Number(summary.totals.totalBudgeted), currency)}
                     />
                     <SummaryMetric
                       label="Actual"
-                      value={formatMoney(Number(summary.totals.totalActual))}
+                      value={formatMoney(Number(summary.totals.totalActual), currency)}
                     />
                     <SummaryMetric
                       label="Remaining"
-                      value={formatSignedMoney(Number(summary.totals.totalRemaining))}
+                      value={formatSignedMoney(Number(summary.totals.totalRemaining), currency)}
                       tone={Number(summary.totals.totalRemaining) < 0 ? "oxide" : "sage"}
                     />
                     <SummaryMetric
@@ -275,7 +289,7 @@ export default function BudgetsPage() {
                               </p>
                             </div>
                             <span className="num shrink-0 text-[13px] tabular-nums text-bone">
-                              {formatMoney(Math.abs(Number(tx.amount)))}
+                              {formatMoney(Math.abs(Number(tx.amount)), currency)}
                             </span>
                           </li>
                         ))}
@@ -366,6 +380,7 @@ export default function BudgetsPage() {
                             key={row.categoryId}
                             row={row}
                             month={month}
+                            currency={currency}
                             onSave={(amount) => {
                               upsertBudget.mutate({
                                 categoryId: row.categoryId,
@@ -399,6 +414,7 @@ export default function BudgetsPage() {
                     {unbudgetedRows.length > 0 ? (
                         <AddCategorySection
                           unbudgetedRows={unbudgetedRows}
+                          currency={currency}
                           onSave={(categoryId, amount) => {
                             upsertBudget.mutate({ categoryId, month, amount });
                           }}
@@ -428,6 +444,7 @@ export default function BudgetsPage() {
 function BudgetCategoryCard({
   row,
   month,
+  currency,
   onSave,
   onDelete,
   isSaving,
@@ -435,6 +452,7 @@ function BudgetCategoryCard({
 }: {
   row: SummaryRow;
   month: string;
+  currency: string;
   onSave: (amount: number) => void;
   onDelete: () => void;
   isSaving: boolean;
@@ -455,6 +473,7 @@ function BudgetCategoryCard({
       dateFrom: month,
       dateTo: getLastDayOfMonth(month),
       includeInactiveAccounts: true,
+      currency,
       limit: 5,
     },
     { enabled: true },
@@ -504,9 +523,9 @@ function BudgetCategoryCard({
           <div>
             <p className="text-[14.5px] font-[450] text-bone">{row.categoryName}</p>
             <p className="mt-1 text-[12px] text-bone-mute">
-              Actual {formatMoney(actualAmount)}
+              Actual {formatMoney(actualAmount, currency)}
               {remainingAmount !== null
-                ? ` · Remaining ${formatSignedMoney(remainingAmount)}`
+                ? ` · Remaining ${formatSignedMoney(remainingAmount, currency)}`
                 : ""}
             </p>
           </div>
@@ -599,7 +618,7 @@ function BudgetCategoryCard({
           <>
             {budgetAmount !== null ? (
               <p className="mt-3 text-[11px] text-bone-faint">
-                Target {formatMoney(budgetAmount)} · {formatMonthHeading(month)}
+                Target {formatMoney(budgetAmount, currency)} · {formatMonthHeading(month)}
               </p>
             ) : null}
 
@@ -628,7 +647,7 @@ function BudgetCategoryCard({
                         <p className="text-[11px] text-bone-faint">{tx.date}</p>
                       </div>
                       <span className="num shrink-0 text-[12px] tabular-nums text-bone-mute">
-                        {formatMoney(Math.abs(Number(tx.amount)))}
+                        {formatMoney(Math.abs(Number(tx.amount)), currency)}
                       </span>
                     </li>
                   ))}
@@ -651,10 +670,12 @@ function BudgetCategoryCard({
 
 function AddCategorySection({
   unbudgetedRows,
+  currency,
   onSave,
   isSaving,
 }: {
   unbudgetedRows: SummaryRow[];
+  currency: string;
   onSave: (categoryId: string, amount: number) => void;
   isSaving: boolean;
 }) {
@@ -735,7 +756,7 @@ function AddCategorySection({
               <option key={row.categoryId} value={row.categoryId}>
                 {row.categoryName}
                 {Number(row.actualAmount) > 0
-                  ? ` (${formatMoney(Number(row.actualAmount))} spent)`
+                  ? ` (${formatMoney(Number(row.actualAmount), currency)} spent)`
                   : ""}
               </option>
             ))}
@@ -942,13 +963,13 @@ function getLastDayOfMonth(monthStart: string) {
   return `${year}-${String(month).padStart(2, "0")}-${String(lastDay.getDate()).padStart(2, "0")}`;
 }
 
-function formatMoney(value: number) {
-  return formatCurrency(value, "CAD");
+function formatMoney(value: number, currency: string) {
+  return formatCurrency(value, currency);
 }
 
-function formatSignedMoney(value: number) {
+function formatSignedMoney(value: number, currency: string) {
   const sign = value > 0 ? "+" : value < 0 ? "−" : "";
-  return `${sign}${formatMoney(Math.abs(value))}`;
+  return `${sign}${formatMoney(Math.abs(value), currency)}`;
 }
 
 function abbreviateCategory(value: string) {

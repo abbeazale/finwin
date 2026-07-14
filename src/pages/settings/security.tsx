@@ -1,16 +1,16 @@
 import Link from "next/link";
-import { useRouter } from "next/router";
-import { FormEvent, useEffect, useState, useTransition } from "react";
+import { FormEvent, useState, useTransition } from "react";
 import { ArrowLeft, KeyRound, ShieldCheck } from "lucide-react";
 import { QRCodeSVG } from "qrcode.react";
-import { authClient, useSession } from "@/lib/auth-client";
+import { authClient } from "@/lib/auth-client";
+import { useRequireSession } from "@/hooks/use-require-session";
+import { PageStatus } from "@/components/page-status";
 import { Button } from "@/components/ui/button";
 
 type Notice = { kind: "success" | "error"; text: string };
 
 export default function SecuritySettings() {
-  const router = useRouter();
-  const { data: session, isPending: sessionLoading } = useSession();
+  const { session, isPending: sessionLoading } = useRequireSession();
   const [passkeyName, setPasskeyName] = useState("");
   const [password, setPassword] = useState("");
   const [totpCode, setTotpCode] = useState("");
@@ -19,10 +19,6 @@ export default function SecuritySettings() {
   const [backupCodesAcknowledged, setBackupCodesAcknowledged] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [isPending, startTransition] = useTransition();
-
-  useEffect(() => {
-    if (!sessionLoading && !session) void router.push("/login");
-  }, [router, session, sessionLoading]);
 
   function addPasskey() {
     setNotice(null);
@@ -114,13 +110,8 @@ export default function SecuritySettings() {
     URL.revokeObjectURL(url);
   }
 
-  if (sessionLoading) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-ink-0 text-bone-mute">
-        Loading...
-      </div>
-    );
-  }
+  if (sessionLoading) return <PageStatus label="Preparing security controls…" />;
+  if (!session) return <PageStatus label="Redirecting…" />;
 
   return (
     <div className="relative min-h-screen bg-ink-0 text-bone">

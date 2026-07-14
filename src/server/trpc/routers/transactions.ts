@@ -14,6 +14,7 @@ const listTransactionsInput = z.object({
   dateFrom: z.string().regex(monthDateRegex).optional(),
   dateTo: z.string().regex(monthDateRegex).optional(),
   includeInactiveAccounts: z.boolean().default(false),
+  currency: z.string().trim().toUpperCase().min(1).optional(),
   sortBy: z.enum(["date_desc", "amount_asc"]).default("date_desc"),
   limit: z.number().int().min(1).max(250).default(100),
 }).refine(
@@ -58,6 +59,10 @@ export const transactionsRouter = router({
 
       if (input.dateTo) {
         filteredConditions.push(lte(transactions.date, input.dateTo));
+      }
+
+      if (input.currency) {
+        filteredConditions.push(eq(transactions.currency, input.currency));
       }
 
       if (input.uncategorizedOnly) {
