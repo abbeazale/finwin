@@ -298,6 +298,16 @@ export default function Dashboard({
               </p>
             ) : null}
 
+            {overview && overview.excludedCurrencyTransactionCount > 0 ? (
+              <p className="mb-6 flex items-center gap-3 rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-2.5 text-[12px] text-brass-hi">
+                <span className="h-1.5 w-1.5 rounded-full bg-brass" />
+                {overview.excludedCurrencyTransactionCount} transaction
+                {overview.excludedCurrencyTransactionCount === 1 ? "" : "s"} in
+                other currencies excluded; this dashboard is reported in{" "}
+                {currency} without FX conversion.
+              </p>
+            ) : null}
+
             <DashboardOverviewCards
               cards={overviewCards}
               comparisonAvailable={overview?.comparisonAvailable ?? false}

@@ -1,9 +1,5 @@
 /**
- * Dashboard overview aggregation rules as currently implemented.
- *
- * Characterized behavior: amounts are summed across all currencies with no
- * currency filter. Callers that format with the profile currency therefore
- * display a mixed-currency sum under a single currency label.
+ * Dashboard overview aggregation for amounts already scoped to one currency.
  */
 export function aggregateOverviewAmounts(
   amounts: number[],
@@ -19,6 +15,16 @@ export function aggregateOverviewAmounts(
   }
 
   return { inflow, outflow, netCashflow };
+}
+
+export function countExcludedCurrencyRows(
+  rows: Array<{ currency: string }>,
+  profileCurrency: string,
+) {
+  return rows.reduce(
+    (total, row) => total + (row.currency === profileCurrency ? 0 : 1),
+    0,
+  );
 }
 
 export function getSavingsRate(inflow: number, netCashflow: number) {

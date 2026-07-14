@@ -20,6 +20,7 @@ import {
   DEFAULT_CATEGORY_NAME,
 } from "@/server/lib/category-taxonomy";
 import { getChangeRatio, getSavingsRate } from "@/server/dashboard/aggregates";
+import { getProfileCurrency } from "@/server/dashboard/profile-currency";
 import { protectedProcedure, router } from "../trpc";
 
 const recentTransactionsInput = monthInputSchema.extend({
@@ -35,16 +36,19 @@ export const dashboardRouter = router({
     .input(monthInputSchema)
     .query(async ({ ctx, input }) => {
       const comparisonMonth = getPreviousMonthStart(input.month);
+      const currency = await getProfileCurrency(ctx.userId);
 
       const [current, previous] = await Promise.all([
-        getOverviewSnapshot(ctx.userId, input.month),
-        getOverviewSnapshot(ctx.userId, comparisonMonth),
+        getOverviewSnapshot(ctx.userId, input.month, currency),
+        getOverviewSnapshot(ctx.userId, comparisonMonth, currency),
       ]);
 
       const comparisonAvailable = previous.qualifyingRowCount > 0;
 
       return {
         month: input.month,
+        currency,
+        excludedCurrencyTransactionCount: current.excludedCurrencyTransactionCount,
         comparisonMonth,
         comparisonAvailable,
         totals: {
@@ -73,6 +77,7 @@ export const dashboardRouter = router({
     .input(monthInputSchema)
     .query(async ({ ctx, input }) => {
       const nextMonth = getNextMonthStart(input.month);
+      const currency = await getProfileCurrency(ctx.userId);
       const rows = await db
         .select({
           date: transactions.date,
@@ -89,6 +94,7 @@ export const dashboardRouter = router({
         .where(
           and(
             eq(transactions.userId, ctx.userId),
+            eq(transactions.currency, currency),
             gte(transactions.date, input.month),
             lt(transactions.date, nextMonth),
             getOverviewInclusionCondition(),
@@ -110,6 +116,7 @@ export const dashboardRouter = router({
 
       return {
         month: input.month,
+        currency,
         days,
       };
     }),
@@ -117,6 +124,7 @@ export const dashboardRouter = router({
     .input(spendingByCategoryInput)
     .query(async ({ ctx, input }) => {
       const nextMonth = getNextMonthStart(input.month);
+      const currency = await getProfileCurrency(ctx.userId);
       const rows = await db
         .select({
           categoryId: categories.id,
@@ -130,6 +138,7 @@ export const dashboardRouter = router({
         .where(
           and(
             eq(transactions.userId, ctx.userId),
+            eq(transactions.currency, currency),
             gte(transactions.date, input.month),
             lt(transactions.date, nextMonth),
             getSpendingByCategoryCondition(),
@@ -158,6 +167,7 @@ export const dashboardRouter = router({
 
       return {
         month: input.month,
+        currency,
         totals: {
           totalTrackedSpend: formatMoneyValue(totalTrackedSpend),
           categoryCount: normalizedRows.length,
@@ -175,6 +185,7 @@ export const dashboardRouter = router({
     .input(recentTransactionsInput)
     .query(async ({ ctx, input }) => {
       const nextMonth = getNextMonthStart(input.month);
+      const currency = await getProfileCurrency(ctx.userId);
       const rows = await db
         .select({
           id: transactions.id,
@@ -199,6 +210,7 @@ export const dashboardRouter = router({
         .where(
           and(
             eq(transactions.userId, ctx.userId),
+            eq(transactions.currency, currency),
             gte(transactions.date, input.month),
             lt(transactions.date, nextMonth),
           ),
@@ -208,6 +220,7 @@ export const dashboardRouter = router({
 
       return {
         month: input.month,
+        currency,
         rows: rows.map((row) => ({
           ...row,
           amount: row.amount.toString(),
@@ -218,32 +231,43 @@ export const dashboardRouter = router({
     }),
 });
 
-async function getOverviewSnapshot(userId: string, month: string) {
+async function getOverviewSnapshot(userId: string, month: string, currency: string) {
   const nextMonth = getNextMonthStart(month);
+  const monthScope = and(
+    eq(transactions.userId, userId),
+    gte(transactions.date, month),
+    lt(transactions.date, nextMonth),
+    getOverviewInclusionCondition(),
+  );
 
-  const [row] = await db
-    .select({
-      qualifyingRowCount: sql<number>`count(*)`.mapWith(Number),
-      inflow: sql<number>`
-        coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)
-      `.mapWith(Number),
-      outflow: sql<number>`
-        coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)
-      `.mapWith(Number),
-      netCashflow: sql<number>`coalesce(sum(${transactions.amount}), 0)`.mapWith(Number),
-    })
-    .from(transactions)
-    .leftJoin(categories, eq(transactions.categoryId, categories.id))
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        gte(transactions.date, month),
-        lt(transactions.date, nextMonth),
-        getOverviewInclusionCondition(),
-      ),
-    );
+  const [[row], [{ excludedCurrencyTransactionCount }]] = await Promise.all([
+    db
+      .select({
+        qualifyingRowCount: sql<number>`count(*)`.mapWith(Number),
+        inflow: sql<number>`
+          coalesce(sum(case when ${transactions.amount} > 0 then ${transactions.amount} else 0 end), 0)
+        `.mapWith(Number),
+        outflow: sql<number>`
+          coalesce(sum(case when ${transactions.amount} < 0 then -${transactions.amount} else 0 end), 0)
+        `.mapWith(Number),
+        netCashflow: sql<number>`coalesce(sum(${transactions.amount}), 0)`.mapWith(Number),
+      })
+      .from(transactions)
+      .leftJoin(categories, eq(transactions.categoryId, categories.id))
+      .where(and(monthScope, eq(transactions.currency, currency))),
+    db
+      .select({
+        excludedCurrencyTransactionCount: sql<number>`count(*)`.mapWith(Number),
+      })
+      .from(transactions)
+      .leftJoin(categories, eq(transactions.categoryId, categories.id))
+      .where(and(monthScope, ne(transactions.currency, currency))),
+  ]);
 
-  return row;
+  return {
+    ...row,
+    excludedCurrencyTransactionCount,
+  };
 }
 
 function getOverviewInclusionCondition() {

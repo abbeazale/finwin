@@ -1,20 +1,35 @@
 import { describe, expect, test } from "bun:test";
 import {
   aggregateOverviewAmounts,
+  countExcludedCurrencyRows,
   getChangeRatio,
   getSavingsRate,
 } from "./aggregates";
 
 describe("aggregateOverviewAmounts", () => {
-  test("sums mixed-currency amounts without filtering by currency", () => {
-    // Characterized current dashboard behavior: CAD and USD magnitudes are
-    // added together before the UI labels the result with the profile currency.
+  test("sums scoped amounts into inflow, outflow, and net", () => {
     const totals = aggregateOverviewAmounts([100, -40, 25, -10]);
     expect(totals).toEqual({
       inflow: 125,
       outflow: 50,
       netCashflow: 75,
     });
+  });
+});
+
+describe("countExcludedCurrencyRows", () => {
+  test("counts rows outside the profile currency", () => {
+    expect(
+      countExcludedCurrencyRows(
+        [
+          { currency: "CAD" },
+          { currency: "USD" },
+          { currency: "CAD" },
+          { currency: "EUR" },
+        ],
+        "CAD",
+      ),
+    ).toBe(2);
   });
 });
 
