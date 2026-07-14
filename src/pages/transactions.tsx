@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { useDeferredValue, useState } from "react";
+import { useDeferredValue, useEffect, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -19,6 +19,7 @@ type CategoryFilterValue = "all" | "uncategorized" | string;
 type PendingFilterValue = NonNullable<RouterInputs["transactions"]["list"]["pending"]>;
 
 const PENDING_FILTER_VALUES = ["all", "pending", "posted"] as const satisfies readonly PendingFilterValue[];
+const PAGE_SIZE = 100;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   month: "short",
@@ -39,6 +40,7 @@ export default function TransactionsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [includeInactiveAccounts, setIncludeInactiveAccounts] = useState(false);
+  const [offset, setOffset] = useState(0);
   const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
 
   const deferredFilters = useDeferredValue({
@@ -52,8 +54,20 @@ export default function TransactionsPage() {
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     includeInactiveAccounts,
-    limit: 100,
+    limit: PAGE_SIZE,
+    offset,
   });
+
+  useEffect(() => {
+    setOffset(0);
+  }, [
+    accountId,
+    categoryFilter,
+    pending,
+    dateFrom,
+    dateTo,
+    includeInactiveAccounts,
+  ]);
 
   const transactionsQuery = trpc.transactions.list.useQuery(deferredFilters, {
     enabled: Boolean(session),
@@ -72,6 +86,9 @@ export default function TransactionsPage() {
 
   const { data, error, isLoading, isFetching } = transactionsQuery;
   const transactions = data?.rows ?? [];
+  const totalCount = data?.totalCount ?? 0;
+  const rangeStart = totalCount === 0 ? 0 : (data?.offset ?? 0) + 1;
+  const rangeEnd = (data?.offset ?? 0) + transactions.length;
   const categoryGroups = groupCategories(data?.categories ?? []);
   const hasFilters =
     Boolean(accountId) ||
@@ -88,6 +105,7 @@ export default function TransactionsPage() {
     setDateFrom("");
     setDateTo("");
     setIncludeInactiveAccounts(false);
+    setOffset(0);
   }
 
   if (sessionLoading || (isLoading && !data)) {
@@ -431,11 +449,38 @@ export default function TransactionsPage() {
             </ul>
           )}
 
-          <div className="flex items-center justify-between border-t border-[var(--stroke)] px-5 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--stroke)] px-5 py-3">
             <span className="label-eyebrow">
-              Showing {transactions.length} of {data?.totalCount ?? 0}
+              Showing {rangeStart}-{rangeEnd} of {totalCount}
             </span>
-            <span className="label-eyebrow">End of tape</span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
+                disabled={offset <= 0 || isFetching}
+                onClick={() => setOffset((current) => Math.max(0, current - PAGE_SIZE))}
+              >
+                <ArrowLeft className="size-3.5" />
+                Previous
+              </Button>
+              {data?.hasMore ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
+                  disabled={isFetching}
+                  onClick={() => setOffset((current) => current + PAGE_SIZE)}
+                >
+                  Next
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              ) : (
+                <span className="label-eyebrow">End of tape</span>
+              )}
+            </div>
           </div>
         </section>
       </div>
