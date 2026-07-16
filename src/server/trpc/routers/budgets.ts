@@ -1,9 +1,17 @@
 import { TRPCError } from "@trpc/server";
 import { and, asc, eq, gte, lt, sql } from "drizzle-orm";
 import { z } from "zod";
-import { budgets, categories, categoryGroups, transactions } from "@/db/schema";
+import {
+  budgets,
+  categories,
+  categoryGroups,
+  transactions,
+  userProfiles,
+} from "@/db/schema";
 import { db } from "@/index";
 import type { BudgetStatus } from "@/lib/budget-status";
+import { getMonthStartForTimeZone } from "@/lib/date";
+import { resolveProfileTimeZone } from "@/lib/locale";
 import {
   getNextMonthStart,
   monthDateRegex,
@@ -11,6 +19,11 @@ import {
   refineFirstOfMonth,
 } from "@/server/lib/month";
 import { formatMoneyValue } from "@/server/lib/money";
+import {
+  getBudgetStatus,
+  partitionActualsByCurrency,
+  toBudgetSpendAmount,
+} from "@/server/budgets/rules";
 import { protectedProcedure, router } from "../trpc";
 
 const upsertBudgetInput = z
@@ -29,12 +42,13 @@ const deleteBudgetInput = z
   .superRefine(refineFirstOfMonth);
 
 export const budgetsRouter = router({
+  context: protectedProcedure.query(async ({ ctx }) => getBudgetContext(ctx.userId)),
   summary: protectedProcedure
     .input(monthInputSchema)
     .query(async ({ ctx, input }) => {
       const nextMonth = getNextMonthStart(input.month);
 
-      const [categoryRows, budgetRows, actualRows] = await Promise.all([
+      const [categoryRows, budgetRows, actualRows, budgetContext] = await Promise.all([
         db
           .select({
             categoryId: categories.id,
@@ -66,7 +80,9 @@ export const budgetsRouter = router({
         db
           .select({
             categoryId: categories.id,
+            currency: transactions.currency,
             rawActual: sql<number>`coalesce(sum(${transactions.amount}), 0)`.mapWith(Number),
+            transactionCount: sql<number>`count(*)`.mapWith(Number),
           })
           .from(transactions)
           .innerJoin(categories, eq(transactions.categoryId, categories.id))
@@ -78,14 +94,17 @@ export const budgetsRouter = router({
               lt(transactions.date, nextMonth),
             ),
           )
-          .groupBy(categories.id),
+          .groupBy(categories.id, transactions.currency),
+        getBudgetContext(ctx.userId),
       ]);
 
       const budgetByCategory = new Map(
         budgetRows.map((row) => [row.categoryId, Number(row.amount)]),
       );
+      const { matching: matchingActualRows, excludedCurrencyTransactionCount } =
+        partitionActualsByCurrency(actualRows, budgetContext.currency);
       const actualByCategory = new Map(
-        actualRows.map((row) => [row.categoryId, row.rawActual]),
+        matchingActualRows.map((row) => [row.categoryId, row.rawActual]),
       );
 
       let totalBudgeted = 0;
@@ -109,7 +128,7 @@ export const budgetsRouter = router({
       for (const category of categoryRows) {
         const budgetAmount = budgetByCategory.get(category.categoryId) ?? null;
         const rawActual = actualByCategory.get(category.categoryId) ?? 0;
-        const actualAmount = Math.max(-rawActual, 0);
+        const actualAmount = toBudgetSpendAmount(rawActual);
         const remainingAmount = budgetAmount === null ? null : budgetAmount - actualAmount;
         const percentUsed =
           budgetAmount !== null && budgetAmount > 0
@@ -154,6 +173,8 @@ export const budgetsRouter = router({
 
       return {
         month: input.month,
+        currency: budgetContext.currency,
+        excludedCurrencyTransactionCount,
         totals: {
           totalBudgeted: formatMoneyValue(totalBudgeted),
           totalActual: formatMoneyValue(totalActual),
@@ -218,6 +239,24 @@ export const budgetsRouter = router({
     }),
 });
 
+async function getBudgetContext(userId: string) {
+  const [profile] = await db
+    .select({
+      currency: userProfiles.currency,
+      timezone: userProfiles.timezone,
+    })
+    .from(userProfiles)
+    .where(eq(userProfiles.userId, userId))
+    .limit(1);
+  const currency = profile?.currency ?? "CAD";
+  const timezone = resolveProfileTimeZone(profile?.timezone);
+
+  return {
+    currency,
+    currentMonth: getMonthStartForTimeZone(new Date(), timezone),
+  };
+}
+
 async function getBudgetableCategory(categoryId: string) {
   const [category] = await db
     .select({
@@ -233,28 +272,4 @@ async function getBudgetableCategory(categoryId: string) {
     .limit(1);
 
   return category ?? null;
-}
-
-function getBudgetStatus({
-  budgetAmount,
-  actualAmount,
-  percentUsed,
-}: {
-  budgetAmount: number | null;
-  actualAmount: number;
-  percentUsed: number | null;
-}): BudgetStatus {
-  if (budgetAmount === null) {
-    return actualAmount > 0 ? "unbudgeted" : "no_budget";
-  }
-
-  if (actualAmount > budgetAmount) {
-    return "over";
-  }
-
-  if (percentUsed !== null && percentUsed >= 0.85) {
-    return "near_limit";
-  }
-
-  return "on_track";
 }

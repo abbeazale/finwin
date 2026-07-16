@@ -1,4 +1,4 @@
-export type SandboxTradeSide = "buy" | "sell";
+type SandboxTradeSide = "buy" | "sell";
 
 export type SandboxTradeValue = {
   id: string;
@@ -18,7 +18,7 @@ type SandboxPosition = {
   realizedGain: number;
 };
 
-export type SandboxReplay = {
+type SandboxReplay = {
   cashBalance: number;
   realizedGain: number;
   positions: Map<string, SandboxPosition>;

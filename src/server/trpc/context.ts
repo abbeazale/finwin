@@ -5,6 +5,7 @@ import { toRequestHeaders } from "@/lib/request-headers";
 
 export type Context = {
   userId: string | null;
+  sessionCreatedAt: Date | null;
 };
 
 export async function createContext(
@@ -13,5 +14,11 @@ export async function createContext(
   const session = await auth.api.getSession({
     headers: toRequestHeaders(opts.req.headers),
   });
-  return { userId: session?.user.id ?? null };
+
+  return {
+    userId: session?.user.id ?? null,
+    sessionCreatedAt: session?.session.createdAt
+      ? new Date(session.session.createdAt)
+      : null,
+  };
 }

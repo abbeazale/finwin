@@ -1,3 +1,5 @@
+import { formatDecimalValue } from "@/server/lib/money";
+
 export type InvestmentValueResult = {
   price: number | null;
   priceCurrency: string | null;
@@ -33,11 +35,6 @@ export function getDisplayAccountName(nickname: string | null, providerName: str
 export function toNumber(value: string | null): number | null {
   if (value === null) return null;
   return Number(value);
-}
-
-export function formatDecimal(value: number | null, scale = 2) {
-  if (value === null || !Number.isFinite(value)) return null;
-  return value.toFixed(scale);
 }
 
 function getMarketValue(quantity: number, institutionPrice: number) {
@@ -176,7 +173,7 @@ export function summarizeInvestmentValues(values: InvestmentValueResult[]): Inve
   const totalValue = included.reduce((sum, value) => sum + (value.marketValueUsd ?? 0), 0);
   if (!costBasisAvailable) {
     return {
-      totalValueUsd: formatDecimal(totalValue),
+      totalValueUsd: formatDecimalValue(totalValue),
       totalCostBasisUsd: null,
       totalGainLossUsd: null,
       totalGainLossPct: null,
@@ -190,9 +187,9 @@ export function summarizeInvestmentValues(values: InvestmentValueResult[]): Inve
   const totalGainLoss = totalValue - totalCostBasis;
 
   return {
-    totalValueUsd: formatDecimal(totalValue),
-    totalCostBasisUsd: formatDecimal(totalCostBasis),
-    totalGainLossUsd: formatDecimal(totalGainLoss),
+    totalValueUsd: formatDecimalValue(totalValue),
+    totalCostBasisUsd: formatDecimalValue(totalCostBasis),
+    totalGainLossUsd: formatDecimalValue(totalGainLoss),
     totalGainLossPct: totalCostBasis > 0 ? totalGainLoss / totalCostBasis : null,
     costBasisAvailable,
     excludedHoldingCount,

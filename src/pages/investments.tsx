@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { useRouter } from "next/router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
   ArrowLeft,
   CircleAlert,
@@ -9,7 +8,7 @@ import {
   ShieldAlert,
   WalletCards,
 } from "lucide-react";
-import { useSession } from "@/lib/auth-client";
+import { useRequireSession } from "@/hooks/use-require-session";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { PageStatus } from "@/components/page-status";
@@ -23,18 +22,11 @@ type InvestmentTransaction =
 const ALL_ACCOUNTS = "all";
 
 export default function InvestmentsPage() {
-  const router = useRouter();
   const utils = trpc.useUtils();
-  const { data: session, isPending: sessionLoading } = useSession();
+  const { session, isPending: sessionLoading } = useRequireSession();
   const [selectedAccountId, setSelectedAccountId] = useState(ALL_ACCOUNTS);
   const [includeInactive, setIncludeInactive] = useState(false);
   const [pageError, setPageError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!sessionLoading && !session) {
-      router.push("/login");
-    }
-  }, [router, session, sessionLoading]);
 
   const accountsQuery = trpc.investments.getAccounts.useQuery(
     { includeInactive },

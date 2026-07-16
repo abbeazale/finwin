@@ -57,6 +57,13 @@
       "when": 1783794632074,
       "tag": "0007_gigantic_grey_gargoyle",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784059235054,
+      "tag": "0008_auth_two_factor_lockout",
+      "breakpoints": true
     }
   ]
 }

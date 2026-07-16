@@ -13,34 +13,12 @@ import {
   getUserProfile,
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
+import { COMMON_CURRENCIES, COMMON_TIMEZONES, resolveProfileTimeZone } from "@/lib/locale";
 import { capitalizeNameWords } from "@/lib/name";
 import { trpc } from "@/lib/trpc";
 import type { GetServerSideProps, InferGetServerSidePropsType } from "next";
 import { useRouter } from "next/router";
 import { FormEvent, useState } from "react";
-
-const COMMON_CURRENCIES = [
-  { value: "CAD", label: "CAD — Canadian Dollar", helper: "Amounts displayed in Canadian Dollar ($)" },
-  { value: "USD", label: "USD — US Dollar", helper: "Amounts displayed in US Dollar ($)" },
-  { value: "EUR", label: "EUR — Euro", helper: "Amounts displayed in Euro (€)" },
-  { value: "GBP", label: "GBP — British Pound", helper: "Amounts displayed in British Pound (£)" },
-  { value: "AUD", label: "AUD — Australian Dollar", helper: "Amounts displayed in Australian Dollar ($)" },
-];
-
-const COMMON_TIMEZONES = [
-  { value: "America/Toronto", label: "Eastern Time — Toronto", helper: "America/Toronto" },
-  { value: "America/Vancouver", label: "Pacific Time — Vancouver", helper: "America/Vancouver" },
-  { value: "America/New_York", label: "Eastern Time — New York", helper: "America/New_York" },
-  { value: "America/Los_Angeles", label: "Pacific Time — Los Angeles", helper: "America/Los_Angeles" },
-  { value: "Europe/London", label: "GMT/BST — London", helper: "Europe/London" },
-  { value: "Asia/Dubai", label: "Gulf Time — Dubai", helper: "Asia/Dubai" },
-  { value: "Asia/Dhaka", label: "Bangladesh Standard Time — Dhaka", helper: "Asia/Dhaka" },
-  { value: "Asia/Bangkok", label: "Indochina Time — Bangkok", helper: "Asia/Bangkok" },
-  { value: "Asia/Singapore", label: "Singapore Time — Singapore", helper: "Asia/Singapore" },
-  { value: "Asia/Philippines", label: "China Standard Time — Shanghai", helper: "Asia/Shanghai" },
-  { value: "Asia/Tokyo", label: "Japan Standard Time — Tokyo", helper: "Asia/Tokyo" },
-  { value: "Asia/Seoul", label: "Korea Standard Time — Seoul", helper: "Asia/Seoul" },
-];
 
 function splitDisplayName(name: string | null | undefined) {
   const normalizedName = name?.trim().replace(/\s+/g, " ") ?? "";
@@ -311,7 +289,7 @@ export const getServerSideProps: GetServerSideProps<{
       initialLastName: capitalizeNameWords(profile?.lastName ?? parsedName.lastName),
       initialAge: profile?.age ? String(profile.age) : "",
       initialCurrency: profile?.currency ?? "CAD",
-      initialTimezone: profile?.timezone ?? "America/Toronto",
+      initialTimezone: resolveProfileTimeZone(profile?.timezone),
     },
   };
 };

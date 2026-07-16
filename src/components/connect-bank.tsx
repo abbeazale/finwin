@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
+import Link from "next/link";
 import { usePlaidLink } from "react-plaid-link";
 import { Plus, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { isRecentAuthRequiredMessage } from "@/lib/recent-auth";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 
 export type ConnectBankResult = Pick<
@@ -17,6 +19,11 @@ type ConnectBankProps = {
   onConnected?: (result: ConnectBankResult) => void;
   onReconnected?: (connectionId: string) => void;
 };
+
+function getErrorMessage(error: unknown) {
+  if (error instanceof Error) return error.message;
+  return "Request failed";
+}
 
 export function ConnectBank({
   connectionId,
@@ -40,7 +47,6 @@ export function ConnectBank({
       setError(null);
       try {
         if (isUpdate && connectionId) {
-          // Update mode: no public_token exchange; just flip status.
           await reactivateConnection.mutateAsync({ id: connectionId });
           onReconnected?.(connectionId);
           return;
@@ -48,7 +54,7 @@ export function ConnectBank({
         const data = await exchangeToken.mutateAsync({ publicToken: public_token });
         onConnected?.({ connectionId: data.connectionId, accountCount: data.accountCount });
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Request failed");
+        setError(getErrorMessage(e));
       } finally {
         setLoading(false);
         setLinkToken(null);
@@ -76,15 +82,15 @@ export function ConnectBank({
       const data = await createLinkToken.mutateAsync(connectionId ? { connectionId } : {});
       setLinkToken(data.link_token);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Link token request failed");
+      setError(getErrorMessage(e));
     } finally {
       setLoading(false);
     }
   }
 
   const buttonClass = className ?? (isUpdate ? "btn-ghost" : "btn-brass");
-
   const Icon = isUpdate ? RotateCw : Plus;
+  const needsRecentAuth = isRecentAuthRequiredMessage(error ?? undefined);
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -98,7 +104,22 @@ export function ConnectBank({
         <Icon className="size-3.5" />
         {loading ? "Connecting…" : label ?? (isUpdate ? "Reconnect" : "Connect bank")}
       </Button>
-      {error ? <span className="text-[11px] text-oxide-hi">{error}</span> : null}
+      {error ? (
+        <span className="max-w-xs text-right text-[11px] text-oxide-hi">
+          {error}
+          {needsRecentAuth ? (
+            <>
+              {" "}
+              <Link
+                href="/login?returnTo=/settings/connections"
+                className="underline underline-offset-2 hover:text-bone"
+              >
+                Sign in again
+              </Link>
+            </>
+          ) : null}
+        </span>
+      ) : null}
     </div>
   );
 }

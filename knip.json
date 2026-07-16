@@ -8,5 +8,5 @@
     "scripts/*.ts"
   ],
   "project": ["src/**/*.{ts,tsx}"],
-  "ignoreDependencies": ["postcss", "shadcn", "tailwindcss", "tw-animate-css"]
+  "ignoreDependencies": ["shadcn", "tailwindcss", "tw-animate-css"]
 }

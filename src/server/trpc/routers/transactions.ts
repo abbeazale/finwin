@@ -14,8 +14,10 @@ const listTransactionsInput = z.object({
   dateFrom: z.string().regex(monthDateRegex).optional(),
   dateTo: z.string().regex(monthDateRegex).optional(),
   includeInactiveAccounts: z.boolean().default(false),
+  currency: z.string().trim().toUpperCase().min(1).optional(),
   sortBy: z.enum(["date_desc", "amount_asc"]).default("date_desc"),
   limit: z.number().int().min(1).max(250).default(100),
+  offset: z.number().int().min(0).default(0),
 }).refine(
   (value) => !value.dateFrom || !value.dateTo || value.dateFrom <= value.dateTo,
   {
@@ -60,6 +62,10 @@ export const transactionsRouter = router({
         filteredConditions.push(lte(transactions.date, input.dateTo));
       }
 
+      if (input.currency) {
+        filteredConditions.push(eq(transactions.currency, input.currency));
+      }
+
       if (input.uncategorizedOnly) {
         filteredConditions.push(isNull(transactions.categoryId));
       } else if (input.categoryId) {
@@ -96,7 +102,8 @@ export const transactionsRouter = router({
               ? [asc(transactions.amount), desc(transactions.date), desc(transactions.createdAt)]
               : [desc(transactions.date), desc(transactions.createdAt)]),
           )
-          .limit(input.limit),
+          .limit(input.limit)
+          .offset(input.offset),
         db
           .select({
             totalCount: sql<number>`count(*)`.mapWith(Number),
@@ -139,12 +146,18 @@ export const transactionsRouter = router({
           .orderBy(asc(categoryGroups.sortOrder), asc(categories.sortOrder), asc(categories.name)),
       ]);
 
+      const nextOffset = input.offset + rows.length;
+      const hasMore = nextOffset < totalCount;
+
       return {
         rows: rows.map((row) => ({
           ...row,
           amount: row.amount.toString(),
         })),
         totalCount,
+        limit: input.limit,
+        offset: input.offset,
+        hasMore,
         uncategorizedCount,
         accounts,
         categories: categoryRows,

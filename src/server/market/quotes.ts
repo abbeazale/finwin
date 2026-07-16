@@ -4,6 +4,7 @@ const FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote";
 const FINNHUB_SEARCH_URL = "https://finnhub.io/api/v1/search";
 const CACHE_TTL_MS = 5 * 60 * 1000;
 const SEARCH_CACHE_TTL_MS = 60 * 1000;
+const PROVIDER_TIMEOUT_MS = 1_500;
 
 // Largest US stocks by market cap; static because rankings shift too slowly
 // to justify a second API for them.
@@ -34,18 +35,33 @@ export type TickerQuote = {
   changePercent: number;
 };
 
-export type SymbolSearchResult = {
+type SymbolSearchResult = {
   symbol: string;
   description: string;
 };
 
 const quoteCache = new Map<string, { quote: TickerQuote; cachedAt: number }>();
 const searchCache = new Map<string, { results: SymbolSearchResult[]; cachedAt: number }>();
+let tickerSnapshot: { quotes: TickerQuote[]; cachedAt: number } | null = null;
+let tickerRefreshInFlight: Promise<void> | null = null;
+
+async function fetchWithTimeout(url: string, timeoutMs: number = PROVIDER_TIMEOUT_MS) {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  try {
+    return await fetch(url, {
+      headers: { accept: "application/json" },
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function fetchQuote(symbol: string, apiKey: string): Promise<TickerQuote | null> {
-  const response = await fetch(
+  const response = await fetchWithTimeout(
     `${FINNHUB_QUOTE_URL}?symbol=${encodeURIComponent(symbol)}&token=${encodeURIComponent(apiKey)}`,
-    { headers: { accept: "application/json" } },
   );
 
   if (!response.ok) {
@@ -104,9 +120,8 @@ export async function searchSymbols(query: string): Promise<SymbolSearchResult[]
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithTimeout(
       `${FINNHUB_SEARCH_URL}?q=${encodeURIComponent(normalizedQuery)}&token=${encodeURIComponent(apiKey)}`,
-      { headers: { accept: "application/json" } },
     );
     if (!response.ok) {
       return cached?.results ?? [];
@@ -132,7 +147,45 @@ export async function searchSymbols(query: string): Promise<SymbolSearchResult[]
   }
 }
 
-export async function getTickerQuotes(): Promise<TickerQuote[]> {
-  const results = await Promise.all(TICKER_SYMBOLS.map((symbol) => getQuote(symbol)));
-  return results.filter((quote): quote is TickerQuote => quote !== null);
+async function refreshTickerSnapshot() {
+  if (tickerRefreshInFlight) {
+    await tickerRefreshInFlight;
+    return;
+  }
+
+  tickerRefreshInFlight = (async () => {
+    const results = await Promise.all(TICKER_SYMBOLS.map((symbol) => getQuote(symbol)));
+    const quotes = results.filter((quote): quote is TickerQuote => quote !== null);
+    if (quotes.length > 0) {
+      tickerSnapshot = { quotes, cachedAt: Date.now() };
+    }
+  })();
+
+  try {
+    await tickerRefreshInFlight;
+  } finally {
+    tickerRefreshInFlight = null;
+  }
+}
+
+/**
+ * Landing-page quotes: never block TTFB on a cold Finnhub fan-out.
+ * Fresh or stale snapshots are returned immediately; refresh runs in the background.
+ * Cold instances return [] so the page can use its static marquee fallback.
+ */
+export function getTickerQuotesForLanding(): TickerQuote[] {
+  const now = Date.now();
+  const snapshot = tickerSnapshot;
+
+  if (snapshot && now - snapshot.cachedAt < CACHE_TTL_MS) {
+    return snapshot.quotes;
+  }
+
+  void refreshTickerSnapshot();
+
+  if (snapshot) {
+    return snapshot.quotes;
+  }
+
+  return [];
 }

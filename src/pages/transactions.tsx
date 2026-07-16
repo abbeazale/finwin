@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { useRouter } from "next/router";
-import { useDeferredValue, useEffect, useState } from "react";
+import { useDeferredValue, useState } from "react";
 import {
   ArrowLeft,
   ArrowRight,
@@ -11,7 +10,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageStatus } from "@/components/page-status";
-import { useSession } from "@/lib/auth-client";
+import { useRequireSession } from "@/hooks/use-require-session";
 import { formatCurrency } from "@/lib/currency";
 import { parseLocalDate } from "@/lib/date";
 import { trpc, type RouterInputs, type RouterOutputs } from "@/lib/trpc";
@@ -20,6 +19,7 @@ type CategoryFilterValue = "all" | "uncategorized" | string;
 type PendingFilterValue = NonNullable<RouterInputs["transactions"]["list"]["pending"]>;
 
 const PENDING_FILTER_VALUES = ["all", "pending", "posted"] as const satisfies readonly PendingFilterValue[];
+const PAGE_SIZE = 100;
 
 const DATE_FORMATTER = new Intl.DateTimeFormat("en-CA", {
   month: "short",
@@ -30,10 +30,27 @@ function isPendingFilterValue(value: string): value is PendingFilterValue {
   return PENDING_FILTER_VALUES.some((option) => option === value);
 }
 
+function buildFilterKey(input: {
+  accountId: string;
+  categoryFilter: CategoryFilterValue;
+  pending: PendingFilterValue;
+  dateFrom: string;
+  dateTo: string;
+  includeInactiveAccounts: boolean;
+}) {
+  return [
+    input.accountId,
+    input.categoryFilter,
+    input.pending,
+    input.dateFrom,
+    input.dateTo,
+    input.includeInactiveAccounts ? "1" : "0",
+  ].join("|");
+}
+
 export default function TransactionsPage() {
-  const router = useRouter();
   const utils = trpc.useUtils();
-  const { data: session, isPending: sessionLoading } = useSession();
+  const { session, isPending: sessionLoading } = useRequireSession();
 
   const [accountId, setAccountId] = useState("");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilterValue>("all");
@@ -41,13 +58,19 @@ export default function TransactionsPage() {
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [includeInactiveAccounts, setIncludeInactiveAccounts] = useState(false);
+  const [pageOffset, setPageOffset] = useState(0);
+  const [offsetFilterKey, setOffsetFilterKey] = useState("");
   const [categoryMessage, setCategoryMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (!sessionLoading && !session) {
-      router.push("/login");
-    }
-  }, [router, session, sessionLoading]);
+  const filterKey = buildFilterKey({
+    accountId,
+    categoryFilter,
+    pending,
+    dateFrom,
+    dateTo,
+    includeInactiveAccounts,
+  });
+  const offset = offsetFilterKey === filterKey ? pageOffset : 0;
 
   const deferredFilters = useDeferredValue({
     accountId: accountId || undefined,
@@ -60,7 +83,8 @@ export default function TransactionsPage() {
     dateFrom: dateFrom || undefined,
     dateTo: dateTo || undefined,
     includeInactiveAccounts,
-    limit: 100,
+    limit: PAGE_SIZE,
+    offset,
   });
 
   const transactionsQuery = trpc.transactions.list.useQuery(deferredFilters, {
@@ -80,6 +104,9 @@ export default function TransactionsPage() {
 
   const { data, error, isLoading, isFetching } = transactionsQuery;
   const transactions = data?.rows ?? [];
+  const totalCount = data?.totalCount ?? 0;
+  const rangeStart = totalCount === 0 ? 0 : (data?.offset ?? 0) + 1;
+  const rangeEnd = (data?.offset ?? 0) + transactions.length;
   const categoryGroups = groupCategories(data?.categories ?? []);
   const hasFilters =
     Boolean(accountId) ||
@@ -89,6 +116,11 @@ export default function TransactionsPage() {
     Boolean(dateTo) ||
     includeInactiveAccounts;
 
+  function goToOffset(nextOffset: number) {
+    setOffsetFilterKey(filterKey);
+    setPageOffset(nextOffset);
+  }
+
   function resetFilters() {
     setAccountId("");
     setCategoryFilter("all");
@@ -96,6 +128,8 @@ export default function TransactionsPage() {
     setDateFrom("");
     setDateTo("");
     setIncludeInactiveAccounts(false);
+    setOffsetFilterKey("");
+    setPageOffset(0);
   }
 
   if (sessionLoading || (isLoading && !data)) {
@@ -439,11 +473,38 @@ export default function TransactionsPage() {
             </ul>
           )}
 
-          <div className="flex items-center justify-between border-t border-[var(--stroke)] px-5 py-3">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--stroke)] px-5 py-3">
             <span className="label-eyebrow">
-              Showing {transactions.length} of {data?.totalCount ?? 0}
+              Showing {rangeStart}-{rangeEnd} of {totalCount}
             </span>
-            <span className="label-eyebrow">End of tape</span>
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
+                disabled={offset <= 0 || isFetching}
+                onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
+              >
+                <ArrowLeft className="size-3.5" />
+                Previous
+              </Button>
+              {data?.hasMore ? (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
+                  disabled={isFetching}
+                  onClick={() => goToOffset(offset + PAGE_SIZE)}
+                >
+                  Next
+                  <ArrowRight className="size-3.5" />
+                </Button>
+              ) : (
+                <span className="label-eyebrow">End of tape</span>
+              )}
+            </div>
           </div>
         </section>
       </div>
