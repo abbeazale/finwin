@@ -102,6 +102,22 @@ critical production advisories; G1.3 owns remediation of known high-severity
 findings and tightening that threshold. Configure the GitHub `Release gate` job
 as a required check on `main` so pull requests cannot merge when it fails.
 
+### Provider error logging
+
+Provider failures are emitted through a typed whitelist containing only the
+operation, correlation ID, safe provider error code, connection ID, and provider
+request ID. Headers, request/response bodies, tokens, credentials, messages, and
+stacks are never copied into the event. `bun run provider-logs:check` forces an
+Axios-shaped Plaid failure through the logger and fails if the output changes or
+contains secret-bearing values.
+
+FinWin configures no third-party server log exporter; provider events go only to
+process stdout/stderr, whose retention is controlled by the hosting platform.
+Because the previous raw Axios logging could have reached hosted logs, deployment
+acceptance requires rotating the Plaid client secret, updating every runtime
+environment atomically, redeploying, and verifying Link plus sync. Do not revoke
+the old secret before the replacement is installed in each active environment.
+
 ### Release runbook
 
 - **Owner:** `@abbeazale` is the release owner until ownership is explicitly

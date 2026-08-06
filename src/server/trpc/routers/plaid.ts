@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/index";
 import { bankAccounts, bankConnections, transactions } from "@/db/schema";
 import { getPlaid } from "@/server/plaid/client";
+import { logProviderError } from "@/server/observability/provider-error";
 import {
   decryptPlaidAccessTokenFromRow,
   encryptPlaidAccessToken,
@@ -71,7 +72,11 @@ export const plaidRouter = router({
         });
         return { link_token: data.link_token, expiration: data.expiration };
       } catch (err) {
-        console.error("plaid linkTokenCreate failed", getPlaidErrorData(err) ?? err);
+        logProviderError(err, {
+          operation: "plaid-link-token-create",
+          correlationId: ctx.correlationId,
+          connectionId: input.connectionId,
+        });
         throw createPlaidLinkTokenError(err);
       }
     }),
@@ -125,7 +130,11 @@ export const plaidRouter = router({
           const r = await syncConnection(connection.id);
           initialSync = { added: r.added, modified: r.modified, removed: r.removed };
         } catch (err) {
-          console.error("initial sync failed (non-fatal)", err);
+          logProviderError(err, {
+            operation: "plaid-initial-sync",
+            correlationId: ctx.correlationId,
+            connectionId: connection.id,
+          });
         }
 
         return {
@@ -135,7 +144,10 @@ export const plaidRouter = router({
         };
       } catch (err) {
         if (err instanceof TRPCError) throw err;
-        console.error("plaid exchange failed", getPlaidErrorData(err) ?? err);
+        logProviderError(err, {
+          operation: "plaid-token-exchange",
+          correlationId: ctx.correlationId,
+        });
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to exchange public token." });
       }
     }),
@@ -168,7 +180,11 @@ export const plaidRouter = router({
         return { results };
       } catch (err) {
         if (err instanceof TRPCError) throw err;
-        console.error("plaid sync failed", getPlaidErrorData(err) ?? err);
+        logProviderError(err, {
+          operation: "plaid-transaction-sync",
+          correlationId: ctx.correlationId,
+          connectionId: input.connectionId,
+        });
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Sync failed." });
       }
     }),
@@ -241,10 +257,11 @@ export const plaidRouter = router({
         const accessToken = decryptPlaidAccessTokenFromRow(connection);
         await getPlaid().itemRemove({ access_token: accessToken });
       } catch (err) {
-        console.error(
-          "plaid itemRemove failed (continuing with local unlink)",
-          getPlaidErrorData(err) ?? err,
-        );
+        logProviderError(err, {
+          operation: "plaid-item-remove",
+          correlationId: ctx.correlationId,
+          connectionId: connection.id,
+        });
       }
 
       await db.transaction(async (tx) => {

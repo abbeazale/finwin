@@ -1,5 +1,9 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { refreshOpenExchangeRates } from "@/server/investments/fx";
+import {
+  createCorrelationId,
+  logProviderError,
+} from "@/server/observability/provider-error";
 
 type RefreshResponse =
   | Awaited<ReturnType<typeof refreshOpenExchangeRates>>
@@ -9,6 +13,9 @@ export default async function handler(
   req: NextApiRequest,
   res: NextApiResponse<RefreshResponse>,
 ) {
+  const correlationId = createCorrelationId(req.headers["x-correlation-id"]);
+  res.setHeader("x-correlation-id", correlationId);
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed." });
@@ -30,7 +37,10 @@ export default async function handler(
     const result = await refreshOpenExchangeRates();
     return res.status(result.refreshed ? 200 : 503).json(result);
   } catch (error) {
-    console.error("fx refresh failed", error);
+    logProviderError(error, {
+      operation: "open-exchange-rates-refresh",
+      correlationId,
+    });
     return res.status(500).json({ error: "FX refresh failed." });
   }
 }
