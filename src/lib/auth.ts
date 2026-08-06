@@ -20,10 +20,8 @@ const betterAuthApiKey = env.betterAuthApiKey;
 
 export const auth = betterAuth({
   appName: "FinWin",
-  secret:
-    env.betterAuthSecret ??
-    env.legacyAuthSecret ??
-    betterAuthApiKey,
+  secret: env.betterAuthSecret,
+  secrets: env.betterAuthSecrets,
   baseURL: authBaseURL,
   trustedOrigins: [
     "https://finwin.abbeazale.tech",
@@ -33,6 +31,9 @@ export const auth = betterAuth({
     provider: "pg",
     schema,
   }),
+  account: {
+    encryptOAuthTokens: true,
+  },
   plugins: [
     dash({ apiKey: betterAuthApiKey }),
     passkey({

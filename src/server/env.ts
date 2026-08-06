@@ -8,6 +8,7 @@ const deploymentEnvironmentSchema = z.enum([
 ]);
 const databaseEnvironmentSchema = deploymentEnvironmentSchema;
 const plaidEnvironmentSchema = z.enum(["sandbox", "development", "production"]);
+const LOCAL_AUTH_SECRET = "finwin-local-development-secret-never-use-in-deployment";
 
 const optionalString = z.preprocess(
   (value) => (typeof value === "string" && value.trim() === "" ? undefined : value),
@@ -22,7 +23,7 @@ const rawEnvironmentSchema = z.object({
   BETTER_AUTH_URL: optionalString,
   BETTER_AUTH_API_KEY: optionalString,
   BETTER_AUTH_SECRET: optionalString,
-  AUTH_SECRET: optionalString,
+  BETTER_AUTH_SECRETS: optionalString,
   GITHUB_CLIENT_ID: optionalString,
   GITHUB_CLIENT_SECRET: optionalString,
   GOOGLE_CLIENT_ID: optionalString,
@@ -41,6 +42,7 @@ const rawEnvironmentSchema = z.object({
 type RawEnvironment = z.infer<typeof rawEnvironmentSchema>;
 export type EnvironmentSource = Record<string, string | undefined>;
 type DeploymentEnvironment = z.infer<typeof deploymentEnvironmentSchema>;
+type BetterAuthSecret = { version: number; value: string };
 
 type ServerEnvironment = {
   deployment: DeploymentEnvironment;
@@ -48,8 +50,8 @@ type ServerEnvironment = {
   databaseUrl: string;
   betterAuthUrl: string;
   betterAuthApiKey: string;
-  betterAuthSecret: string | undefined;
-  legacyAuthSecret: string | undefined;
+  betterAuthSecret: string;
+  betterAuthSecrets: BetterAuthSecret[];
   githubClientId: string;
   githubClientSecret: string;
   googleClientId: string;
@@ -178,6 +180,59 @@ function validateEncryptionKeys(raw: RawEnvironment, issues: string[]) {
   );
 }
 
+function isBase64Key(value: string) {
+  const decoded = Buffer.from(value, "base64");
+  return (
+    decoded.length === 32 &&
+    decoded.toString("base64").replace(/=+$/, "") === value.replace(/=+$/, "")
+  );
+}
+
+function parseBetterAuthSecrets(
+  rawValue: string | undefined,
+  legacySecret: string,
+  deployment: DeploymentEnvironment,
+  issues: string[],
+): BetterAuthSecret[] {
+  if (!rawValue) {
+    addIssue(
+      issues,
+      deployment !== "local",
+      "BETTER_AUTH_SECRETS is required outside local development.",
+    );
+    return legacySecret ? [{ version: 1, value: legacySecret }] : [];
+  }
+
+  const secrets: BetterAuthSecret[] = [];
+  const seenVersions = new Set<number>();
+  const seenValues = new Set<string>();
+  for (const entry of rawValue.split(",")) {
+    const separator = entry.indexOf(":");
+    const version = Number(entry.slice(0, separator));
+    const value = entry.slice(separator + 1).trim();
+    if (separator < 1 || !Number.isInteger(version) || version < 0 || !value) {
+      issues.push("BETTER_AUTH_SECRETS entries must use <non-negative-version>:<secret>.");
+      continue;
+    }
+    addIssue(issues, seenVersions.has(version), `BETTER_AUTH_SECRETS contains duplicate version ${version}.`);
+    addIssue(issues, seenValues.has(value), "BETTER_AUTH_SECRETS cannot reuse a key across versions.");
+    seenVersions.add(version);
+    seenValues.add(value);
+    secrets.push({ version, value });
+  }
+
+  if (deployment !== "local") {
+    for (const secret of secrets) {
+      addIssue(
+        issues,
+        !isBase64Key(secret.value),
+        `Better Auth secret version ${secret.version} must be a base64-encoded 32-byte key.`,
+      );
+    }
+  }
+  return secrets;
+}
+
 export function parseServerEnvironment(source: EnvironmentSource): ServerEnvironment {
   const parsed = rawEnvironmentSchema.safeParse(source);
   if (!parsed.success) {
@@ -192,6 +247,20 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
   const databaseUrl = requireValue(raw, "DATABASE_URL", issues);
   const betterAuthUrl = requireValue(raw, "BETTER_AUTH_URL", issues);
   const betterAuthApiKey = requireValue(raw, "BETTER_AUTH_API_KEY", issues);
+  const betterAuthSecret = raw.BETTER_AUTH_SECRET ?? (
+    deployment === "local" ? LOCAL_AUTH_SECRET : ""
+  );
+  addIssue(
+    issues,
+    deployment !== "local" && !raw.BETTER_AUTH_SECRET,
+    "BETTER_AUTH_SECRET is required outside local development.",
+  );
+  const betterAuthSecrets = parseBetterAuthSecrets(
+    raw.BETTER_AUTH_SECRETS,
+    betterAuthSecret,
+    deployment,
+    issues,
+  );
   const githubClientId = requireValue(raw, "GITHUB_CLIENT_ID", issues);
   const githubClientSecret = requireValue(raw, "GITHUB_CLIENT_SECRET", issues);
   const googleClientId = requireValue(raw, "GOOGLE_CLIENT_ID", issues);
@@ -242,13 +311,33 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
   if (deployment !== "local") {
     addIssue(
       issues,
-      !raw.BETTER_AUTH_SECRET || raw.BETTER_AUTH_SECRET.length < 32,
-      "BETTER_AUTH_SECRET must be at least 32 characters outside local development.",
+      !isBase64Key(betterAuthSecret),
+      "BETTER_AUTH_SECRET must be a base64-encoded 32-byte key outside local development.",
     );
     addIssue(
       issues,
       !raw.FX_REFRESH_SECRET || raw.FX_REFRESH_SECRET.length < 32,
       "FX_REFRESH_SECRET must be at least 32 characters outside local development.",
+    );
+  }
+
+  const providerSecrets = [
+    betterAuthApiKey,
+    githubClientSecret,
+    googleClientSecret,
+    plaidSecret,
+    raw.FX_REFRESH_SECRET,
+    raw.FINNHUB_API_KEY,
+    raw.OER_KEY,
+  ].filter((value): value is string => Boolean(value));
+  for (const authSecret of new Set([
+    betterAuthSecret,
+    ...betterAuthSecrets.map((secret) => secret.value),
+  ])) {
+    addIssue(
+      issues,
+      providerSecrets.includes(authSecret),
+      "Better Auth secrets must be independent from API and provider secrets.",
     );
   }
 
@@ -267,8 +356,8 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
     databaseUrl,
     betterAuthUrl: new URL(betterAuthUrl).origin,
     betterAuthApiKey,
-    betterAuthSecret: raw.BETTER_AUTH_SECRET,
-    legacyAuthSecret: raw.AUTH_SECRET,
+    betterAuthSecret,
+    betterAuthSecrets,
     githubClientId,
     githubClientSecret,
     googleClientId,

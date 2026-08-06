@@ -46,7 +46,8 @@ Required to boot auth, database, and bank linking:
 | `DATABASE_ENVIRONMENT` | Data boundary; must match `FINWIN_ENV` |
 | `BETTER_AUTH_URL` | Public app origin (e.g. `http://localhost:3000`) |
 | `BETTER_AUTH_API_KEY` | Better Auth dashboard/plugin API key |
-| `BETTER_AUTH_SECRET` | Session signing secret; at least 32 characters outside local development |
+| `BETTER_AUTH_SECRET` | Independent legacy/fallback auth key; base64-encoded 32 bytes outside local |
+| `BETTER_AUTH_SECRETS` | Versioned auth keys, current first (for example `2:new,1:old`) |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth |
 | `DATABASE_URL` | Neon/Postgres connection string |
@@ -74,6 +75,36 @@ production, HTTPS origins/webhook,
 and non-local secrets. Vercel previews infer `preview`, but setting `FINWIN_ENV`
 explicitly is recommended. Run `bun run env:check` to exercise the environment
 and preview-isolation policy.
+
+### Better Auth secret and OAuth-token migration
+
+Better Auth uses only `BETTER_AUTH_SECRET`; it never falls back to the Dash API
+key, `AUTH_SECRET`, or a provider credential. Outside local development, the
+singular and versioned secrets must be base64-encoded 32-byte keys and must not
+match Dash, GitHub, Google, Plaid, FX, Finnhub, or Open Exchange Rates secrets.
+
+For the first versioned deployment, keep the current auth secret as both the
+legacy fallback and version 1:
+
+```bash
+BETTER_AUTH_SECRET=<existing-secret>
+BETTER_AUTH_SECRETS=1:<existing-secret>
+```
+
+Deploy with `account.encryptOAuthTokens` enabled, then run the idempotent
+`bun run auth:encrypt-oauth-tokens` migration against that environment. It
+encrypts existing Google/GitHub access, refresh, and ID tokens in place without
+logging their values; new and refreshed tokens are encrypted automatically.
+
+For later rotation, generate a new 32-byte key and prepend it while retaining
+the previous versions: `BETTER_AUTH_SECRETS=2:<new>,1:<old>`. Keep singular
+`BETTER_AUTH_SECRET=<old>` during the legacy migration window. Existing sessions
+remain valid under Better Auth's versioned-secret handling; legacy TOTP/backup
+data uses the singular fallback until it is rewritten or re-enrolled. Run
+`bun run auth:check`, deploy, verify password/OAuth/passkey/TOTP sign-in, then
+remove an old version only after its sessions have expired and dependent legacy
+data has been migrated. A rollback restores the prior secret ordering and keeps
+all listed decryption keys.
 
 ### Database
 
