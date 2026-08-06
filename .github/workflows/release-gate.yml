@@ -1,0 +1,49 @@
+name: Release gate
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  release-gate:
+    name: Release gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      BETTER_AUTH_URL: http://localhost:3000
+      BETTER_AUTH_API_KEY: ci-better-auth-api-key
+      BETTER_AUTH_SECRET: ci-better-auth-session-secret-at-least-32-characters
+      GITHUB_CLIENT_ID: ci-github-client-id
+      GITHUB_CLIENT_SECRET: ci-github-client-secret
+      GOOGLE_CLIENT_ID: ci-google-client-id
+      GOOGLE_CLIENT_SECRET: ci-google-client-secret
+      DATABASE_URL: postgresql://finwin:finwin@localhost:5432/finwin_ci
+      PLAID_CLIENT_ID: ci-plaid-client-id
+      PLAID_SECRET: ci-plaid-secret
+      PLAID_ENV: sandbox
+      PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION: ci
+      PLAID_TOKEN_ENCRYPTION_KEYS: '{"ci":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="}'
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pinned Bun
+        uses: oven-sh/setup-bun@v2
+
+      - name: Install frozen dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run release gate
+        run: bun run verify
+
+      # Production database migrations are intentionally excluded. They are a
+      # separately approved release stage owned by the release operator.

@@ -15,10 +15,12 @@ FinWin is a Next.js personal finance workspace for imported transactions, monthl
 
 ## Fresh clone setup
 
+Install the exact Bun version declared by `packageManager` in `package.json`, then:
+
 ```bash
 cp .env.example .env
 # edit .env (see Environment below)
-bun install
+bun install --frozen-lockfile
 bun run db:migrate
 bun run seed
 bun run dev
@@ -90,13 +92,33 @@ fresh migrate or reset — migrations do not seed categories.
 ## Verification
 
 ```bash
-bunx tsc --noEmit
-bun run lint
-bun run knip
-bun test
-bunx madge --circular --extensions ts,tsx --ts-config tsconfig.json src
-bun run build
+bun install --frozen-lockfile
+bun run verify
 ```
+
+`verify` is the release gate: typecheck, lint, tests, unused-code analysis,
+production dependency audit, and a production build. The dependency policy blocks
+critical production advisories; G1.3 owns remediation of known high-severity
+findings and tightening that threshold. Configure the GitHub `Release gate` job
+as a required check on `main` so pull requests cannot merge when it fails.
+
+### Release runbook
+
+- **Owner:** `@abbeazale` is the release owner until ownership is explicitly
+  handed off. The owner confirms the required `Release gate` check passed on the
+  exact commit being deployed.
+- **Migration approval:** production migrations are never run by CI. The release
+  owner reviews the pending Drizzle SQL and explicitly approves and runs
+  `bun run db:migrate` as a separate release stage before dependent application
+  code is deployed.
+- **Rollback decision:** the release owner rolls back when the deployment is
+  unhealthy, a required smoke check fails, or a new critical user/data-integrity
+  regression appears. Re-deploy the last known-good application commit. Prefer a
+  forward database fix; never run `dbreset` or blindly reverse a production
+  migration.
+- **Post-deploy smoke:** confirm `/` returns successfully, sign in, load the
+  dashboard, open transactions and budgets, and verify the latest Plaid sync
+  state. Record the deployed commit and smoke result with the release.
 
 ## Commands
 
@@ -106,12 +128,13 @@ bun run dev
 bun run db:migrate
 bun run dbreset
 bun run seed
-bunx tsc --noEmit
+bun run typecheck
 bun run lint
 bun run knip
 bun test
-bunx madge --circular --extensions ts,tsx --ts-config tsconfig.json src
+bun run audit:prod
 bun run build
+bun run verify
 ```
 
 ## Routes
