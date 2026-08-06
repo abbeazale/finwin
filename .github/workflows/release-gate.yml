@@ -23,7 +23,8 @@ jobs:
       DATABASE_ENVIRONMENT: local
       BETTER_AUTH_URL: http://localhost:3000
       BETTER_AUTH_API_KEY: ci-better-auth-api-key
-      BETTER_AUTH_SECRET: ci-better-auth-session-secret-at-least-32-characters
+      BETTER_AUTH_SECRET: AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=
+      BETTER_AUTH_SECRETS: 1:AgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgI=
       GITHUB_CLIENT_ID: ci-github-client-id
       GITHUB_CLIENT_SECRET: ci-github-client-secret
       GOOGLE_CLIENT_ID: ci-google-client-id

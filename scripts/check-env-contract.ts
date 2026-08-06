@@ -3,13 +3,16 @@ import {
   parseServerEnvironment,
 } from "../src/server/env";
 
+const authSecretV1 = Buffer.alloc(32, 2).toString("base64");
+
 const base = {
   FINWIN_ENV: "local",
   DATABASE_ENVIRONMENT: "local",
   DATABASE_URL: "postgresql://finwin:finwin@localhost:5432/finwin",
   BETTER_AUTH_URL: "http://localhost:3000",
   BETTER_AUTH_API_KEY: "dash-local-key",
-  BETTER_AUTH_SECRET: "local-auth-secret-at-least-32-characters",
+  BETTER_AUTH_SECRET: authSecretV1,
+  BETTER_AUTH_SECRETS: `1:${authSecretV1}`,
   GITHUB_CLIENT_ID: "github-client-id",
   GITHUB_CLIENT_SECRET: "github-client-secret",
   GOOGLE_CLIENT_ID: "google-client-id",
@@ -86,7 +89,25 @@ expectInvalid(
     PLAID_ENV: "production",
     PLAID_WEBHOOK_URL: "https://finwin.example/api/plaid/webhook",
   },
-  "BETTER_AUTH_SECRET must be at least 32 characters",
+  "BETTER_AUTH_SECRET must be a base64-encoded 32-byte key",
+);
+expectInvalid(
+  "production versioned secret requirement",
+  {
+    FINWIN_ENV: "production",
+    DATABASE_ENVIRONMENT: "production",
+    DATABASE_URL: "postgresql://finwin:finwin@production.db.example/finwin",
+    BETTER_AUTH_URL: "https://finwin.example",
+    BETTER_AUTH_SECRETS: undefined,
+    PLAID_ENV: "production",
+    PLAID_WEBHOOK_URL: "https://finwin.example/api/plaid/webhook",
+  },
+  "BETTER_AUTH_SECRETS is required outside local development",
+);
+expectInvalid(
+  "auth and provider secret isolation",
+  { BETTER_AUTH_API_KEY: authSecretV1 },
+  "Better Auth secrets must be independent from API and provider secrets",
 );
 
-console.log("Environment contracts and preview isolation checks passed.");
+console.log("Environment, preview isolation, and auth secret checks passed.");
