@@ -1,5 +1,6 @@
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { z } from "zod";
+import { getServerEnvironment, resetServerEnvironmentForTests } from "@/server/env";
 
 const ALGORITHM = "aes-256-gcm";
 const IV_LENGTH_BYTES = 12;
@@ -76,6 +77,7 @@ export function decryptPlaidAccessTokenFromRow(row: EncryptedPlaidAccessTokenRow
 /** Clears the module key cache so tests can reconfigure encryption keys. */
 export function resetPlaidCryptoKeyCacheForTests() {
   keyConfigCache = null;
+  resetServerEnvironmentForTests();
 }
 
 function getKeyConfig(): KeyConfig {
@@ -84,16 +86,9 @@ function getKeyConfig(): KeyConfig {
 }
 
 function loadKeyConfig(): KeyConfig {
-  const currentKeyVersion = process.env.PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION;
-  const rawKeys = process.env.PLAID_TOKEN_ENCRYPTION_KEYS;
-
-  if (!currentKeyVersion) {
-    throw new Error("PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION must be set.");
-  }
-
-  if (!rawKeys) {
-    throw new Error("PLAID_TOKEN_ENCRYPTION_KEYS must be set.");
-  }
+  const env = getServerEnvironment();
+  const currentKeyVersion = env.plaidTokenEncryptionCurrentKeyVersion;
+  const rawKeys = env.plaidTokenEncryptionKeys;
 
   let parsedJson;
   try {

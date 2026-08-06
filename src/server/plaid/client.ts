@@ -1,21 +1,16 @@
 import { Configuration, PlaidApi, PlaidEnvironments } from "plaid";
+import { getServerEnvironment } from "@/server/env";
 
 let cached: PlaidApi | null = null;
 
 export function getPlaid(): PlaidApi {
   if (cached) return cached;
 
-  const clientId = process.env.PLAID_CLIENT_ID;
-  const secret = process.env.PLAID_SECRET;
-  const env = process.env.PLAID_ENV ?? "sandbox";
+  const env = getServerEnvironment();
 
-  if (!clientId || !secret) {
-    throw new Error("PLAID_CLIENT_ID and PLAID_SECRET must be set");
-  }
-
-  const basePath = PlaidEnvironments[env];
+  const basePath = PlaidEnvironments[env.plaidEnvironment];
   if (!basePath) {
-    throw new Error(`Invalid PLAID_ENV "${env}" — expected sandbox | development | production`);
+    throw new Error(`Invalid PLAID_ENV "${env.plaidEnvironment}".`);
   }
 
   cached = new PlaidApi(
@@ -23,8 +18,8 @@ export function getPlaid(): PlaidApi {
       basePath,
       baseOptions: {
         headers: {
-          "PLAID-CLIENT-ID": clientId,
-          "PLAID-SECRET": secret,
+          "PLAID-CLIENT-ID": env.plaidClientId,
+          "PLAID-SECRET": env.plaidSecret,
           "Plaid-Version": "2020-09-14",
         },
       },

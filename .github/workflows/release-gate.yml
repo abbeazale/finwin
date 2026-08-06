@@ -19,6 +19,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     env:
+      FINWIN_ENV: local
+      DATABASE_ENVIRONMENT: local
       BETTER_AUTH_URL: http://localhost:3000
       BETTER_AUTH_API_KEY: ci-better-auth-api-key
       BETTER_AUTH_SECRET: ci-better-auth-session-secret-at-least-32-characters

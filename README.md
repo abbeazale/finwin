@@ -42,9 +42,11 @@ Required to boot auth, database, and bank linking:
 
 | Variable | Purpose |
 |---|---|
+| `FINWIN_ENV` | Explicit runtime contract: `local`, `preview`, `staging`, or `production` |
+| `DATABASE_ENVIRONMENT` | Data boundary; must match `FINWIN_ENV` |
 | `BETTER_AUTH_URL` | Public app origin (e.g. `http://localhost:3000`) |
 | `BETTER_AUTH_API_KEY` | Better Auth dashboard/plugin API key |
-| `BETTER_AUTH_SECRET` or `AUTH_SECRET` | Session signing secret (falls back to API key if unset) |
+| `BETTER_AUTH_SECRET` | Session signing secret; at least 32 characters outside local development |
 | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | GitHub OAuth |
 | `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google OAuth |
 | `DATABASE_URL` | Neon/Postgres connection string |
@@ -62,6 +64,16 @@ Optional integrations (features degrade without them):
 | `OER_KEY` | Investment FX conversion to USD |
 | `FX_REFRESH_SECRET` | Bearer token for `POST /api/internal/fx/refresh` |
 | `NEON_DB_PASSWORD` | Convenience only; app uses `DATABASE_URL` |
+
+`src/server/env.ts` is the single server-side environment contract and is
+validated before Next.js builds or starts. Local development uses a local data
+scope and an explicitly selected Plaid environment; previews require an isolated
+preview database plus Plaid sandbox; staging requires a staging database plus
+Plaid development; production requires the production database scope, Plaid
+production, HTTPS origins/webhook,
+and non-local secrets. Vercel previews infer `preview`, but setting `FINWIN_ENV`
+explicitly is recommended. Run `bun run env:check` to exercise the environment
+and preview-isolation policy.
 
 ### Database
 
@@ -97,10 +109,14 @@ bun run verify
 ```
 
 `verify` is the release gate: typecheck, lint, tests, unused-code analysis,
-production dependency audit, and a production build. The dependency policy blocks
-critical production advisories; G1.3 owns remediation of known high-severity
-findings and tightening that threshold. Configure the GitHub `Release gate` job
-as a required check on `main` so pull requests cannot merge when it fails.
+production dependency audit, and a production build. `audit:prod` rejects every
+advisory that is neither patched nor listed in `config/audit-exceptions.json`.
+Exceptions must name an owner, evidence, compensating control, and expiry; expired
+or stale entries fail CI. The current two moderate exceptions expire 2026-09-30:
+Hono's Windows static-file handler is installed only through development/optional
+tooling, and esbuild's affected development server is never started by FinWin.
+Configure the GitHub `Release gate` job as a required check on `main` so pull
+requests cannot merge when it fails.
 
 ### Provider error logging
 
@@ -154,6 +170,7 @@ bun run typecheck
 bun run lint
 bun run knip
 bun test
+bun run env:check
 bun run audit:prod
 bun run build
 bun run verify
