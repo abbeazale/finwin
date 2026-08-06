@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { getServerEnvironment } from "@/server/env";
 
 const FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote";
 const FINNHUB_SEARCH_URL = "https://finnhub.io/api/v1/search";
@@ -84,7 +85,7 @@ async function fetchQuote(symbol: string, apiKey: string): Promise<TickerQuote |
 
 export async function getQuote(symbol: string): Promise<TickerQuote | null> {
   const normalizedSymbol = symbol.trim().toUpperCase();
-  const apiKey = process.env.FINNHUB_API_KEY;
+  const apiKey = getServerEnvironment().finnhubApiKey;
   if (!apiKey || !normalizedSymbol) {
     return null;
   }
@@ -109,7 +110,7 @@ export async function getQuote(symbol: string): Promise<TickerQuote | null> {
 
 export async function searchSymbols(query: string): Promise<SymbolSearchResult[]> {
   const normalizedQuery = query.trim().toLowerCase();
-  const apiKey = process.env.FINNHUB_API_KEY;
+  const apiKey = getServerEnvironment().finnhubApiKey;
   if (!apiKey || normalizedQuery.length < 1) {
     return [];
   }
