@@ -109,10 +109,14 @@ bun run verify
 ```
 
 `verify` is the release gate: typecheck, lint, tests, unused-code analysis,
-production dependency audit, and a production build. The dependency policy blocks
-critical production advisories; G1.3 owns remediation of known high-severity
-findings and tightening that threshold. Configure the GitHub `Release gate` job
-as a required check on `main` so pull requests cannot merge when it fails.
+production dependency audit, and a production build. `audit:prod` rejects every
+advisory that is neither patched nor listed in `config/audit-exceptions.json`.
+Exceptions must name an owner, evidence, compensating control, and expiry; expired
+or stale entries fail CI. The current two moderate exceptions expire 2026-09-30:
+Hono's Windows static-file handler is installed only through development/optional
+tooling, and esbuild's affected development server is never started by FinWin.
+Configure the GitHub `Release gate` job as a required check on `main` so pull
+requests cannot merge when it fails.
 
 ### Release runbook
 
