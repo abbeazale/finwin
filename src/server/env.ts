@@ -21,6 +21,8 @@ const rawEnvironmentSchema = z.object({
   DATABASE_ENVIRONMENT: databaseEnvironmentSchema.optional(),
   DATABASE_URL: optionalString,
   BETTER_AUTH_URL: optionalString,
+  FINWIN_CANONICAL_ORIGIN: optionalString,
+  AUTH_TRUSTED_ORIGINS: optionalString,
   BETTER_AUTH_API_KEY: optionalString,
   BETTER_AUTH_SECRET: optionalString,
   BETTER_AUTH_SECRETS: optionalString,
@@ -49,6 +51,12 @@ type ServerEnvironment = {
   databaseEnvironment: DeploymentEnvironment;
   databaseUrl: string;
   betterAuthUrl: string;
+  canonicalOrigin: string;
+  authTrustedOrigins: string[];
+  githubOAuthCallbackUrl: string;
+  googleOAuthCallbackUrl: string;
+  passkeyRpId: string;
+  secureCookies: boolean;
   betterAuthApiKey: string;
   betterAuthSecret: string;
   betterAuthSecrets: BetterAuthSecret[];
@@ -98,12 +106,63 @@ function validateOrigin(name: string, value: string, deployment: DeploymentEnvir
     );
     addIssue(
       issues,
+      Boolean(url.username || url.password),
+      `${name} cannot contain credentials.`,
+    );
+    addIssue(
+      issues,
       deployment !== "local" && url.protocol !== "https:",
       `${name} must use HTTPS outside local development.`,
     );
   } catch {
     issues.push(`${name} must be a valid absolute URL.`);
   }
+}
+
+function normalizeOrigin(value: string) {
+  try {
+    return new URL(value).origin;
+  } catch {
+    return value;
+  }
+}
+
+function parseTrustedOrigins(
+  rawValue: string | undefined,
+  authOrigin: string,
+  deployment: DeploymentEnvironment,
+  issues: string[],
+) {
+  if (!rawValue) {
+    addIssue(
+      issues,
+      deployment !== "local",
+      "AUTH_TRUSTED_ORIGINS is required outside local development.",
+    );
+    return authOrigin ? [authOrigin] : [];
+  }
+
+  const origins = rawValue.split(",").map((origin) => origin.trim()).filter(Boolean);
+  addIssue(issues, origins.length === 0, "AUTH_TRUSTED_ORIGINS cannot be empty.");
+  addIssue(
+    issues,
+    new Set(origins).size !== origins.length,
+    "AUTH_TRUSTED_ORIGINS cannot contain duplicates.",
+  );
+  for (const origin of origins) {
+    addIssue(
+      issues,
+      origin.includes("*"),
+      "AUTH_TRUSTED_ORIGINS cannot contain wildcard origins.",
+    );
+    validateOrigin("AUTH_TRUSTED_ORIGINS entry", origin, deployment, issues);
+  }
+  addIssue(
+    issues,
+    Boolean(authOrigin) && !origins.includes(authOrigin),
+    "AUTH_TRUSTED_ORIGINS must include BETTER_AUTH_URL.",
+  );
+  return origins;
 }
 
 function validateDatabaseUrl(value: string, deployment: DeploymentEnvironment, issues: string[]) {
@@ -246,6 +305,14 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
   const databaseEnvironment = raw.DATABASE_ENVIRONMENT ?? "local";
   const databaseUrl = requireValue(raw, "DATABASE_URL", issues);
   const betterAuthUrl = requireValue(raw, "BETTER_AUTH_URL", issues);
+  const authOrigin = normalizeOrigin(betterAuthUrl);
+  const canonicalOrigin = normalizeOrigin(raw.FINWIN_CANONICAL_ORIGIN ?? authOrigin);
+  const authTrustedOrigins = parseTrustedOrigins(
+    raw.AUTH_TRUSTED_ORIGINS,
+    authOrigin,
+    deployment,
+    issues,
+  );
   const betterAuthApiKey = requireValue(raw, "BETTER_AUTH_API_KEY", issues);
   const betterAuthSecret = raw.BETTER_AUTH_SECRET ?? (
     deployment === "local" ? LOCAL_AUTH_SECRET : ""
@@ -276,6 +343,12 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
   const plaidTokenEncryptionKeys = requireValue(raw, "PLAID_TOKEN_ENCRYPTION_KEYS", issues);
 
   validateOrigin("BETTER_AUTH_URL", betterAuthUrl, deployment, issues);
+  validateOrigin(
+    "FINWIN_CANONICAL_ORIGIN",
+    raw.FINWIN_CANONICAL_ORIGIN ?? canonicalOrigin,
+    deployment,
+    issues,
+  );
   validateDatabaseUrl(databaseUrl, deployment, issues);
   validateEncryptionKeys(raw, issues);
   addIssue(
@@ -289,6 +362,24 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
       issues,
       raw.VERCEL_ENV !== undefined && raw.VERCEL_ENV !== "production",
       "FINWIN_ENV=production requires VERCEL_ENV=production when VERCEL_ENV is set.",
+    );
+  }
+
+  if (deployment === "production") {
+    addIssue(
+      issues,
+      !raw.FINWIN_CANONICAL_ORIGIN,
+      "FINWIN_CANONICAL_ORIGIN is required in production.",
+    );
+    addIssue(
+      issues,
+      canonicalOrigin !== authOrigin,
+      "BETTER_AUTH_URL must match FINWIN_CANONICAL_ORIGIN in production.",
+    );
+    addIssue(
+      issues,
+      authTrustedOrigins.length !== 1 || authTrustedOrigins[0] !== canonicalOrigin,
+      "Production AUTH_TRUSTED_ORIGINS must contain only FINWIN_CANONICAL_ORIGIN.",
     );
   }
 
@@ -354,7 +445,13 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
     deployment,
     databaseEnvironment,
     databaseUrl,
-    betterAuthUrl: new URL(betterAuthUrl).origin,
+    betterAuthUrl: authOrigin,
+    canonicalOrigin,
+    authTrustedOrigins,
+    githubOAuthCallbackUrl: `${authOrigin}/api/auth/callback/github`,
+    googleOAuthCallbackUrl: `${authOrigin}/api/auth/callback/google`,
+    passkeyRpId: new URL(authOrigin).hostname,
+    secureCookies: deployment !== "local",
     betterAuthApiKey,
     betterAuthSecret,
     betterAuthSecrets,

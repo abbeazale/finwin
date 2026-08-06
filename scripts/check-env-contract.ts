@@ -51,12 +51,14 @@ expectValid("preview contract", {
   DATABASE_ENVIRONMENT: "preview",
   DATABASE_URL: "postgresql://finwin:finwin@preview.db.example/finwin",
   BETTER_AUTH_URL: "https://preview.finwin.example",
+  AUTH_TRUSTED_ORIGINS: "https://preview.finwin.example",
 });
 expectValid("staging contract", {
   FINWIN_ENV: "staging",
   DATABASE_ENVIRONMENT: "staging",
   DATABASE_URL: "postgresql://finwin:finwin@staging.db.example/finwin",
   BETTER_AUTH_URL: "https://staging.finwin.example",
+  AUTH_TRUSTED_ORIGINS: "https://staging.finwin.example",
   PLAID_ENV: "development",
   PLAID_WEBHOOK_URL: "https://staging.finwin.example/api/plaid/webhook",
 });
@@ -65,6 +67,8 @@ expectValid("production contract", {
   DATABASE_ENVIRONMENT: "production",
   DATABASE_URL: "postgresql://finwin:finwin@production.db.example/finwin",
   BETTER_AUTH_URL: "https://finwin.example",
+  FINWIN_CANONICAL_ORIGIN: "https://finwin.example",
+  AUTH_TRUSTED_ORIGINS: "https://finwin.example",
   PLAID_ENV: "production",
   PLAID_WEBHOOK_URL: "https://finwin.example/api/plaid/webhook",
 });
@@ -85,6 +89,8 @@ expectInvalid(
     DATABASE_ENVIRONMENT: "production",
     DATABASE_URL: "postgresql://finwin:finwin@production.db.example/finwin",
     BETTER_AUTH_URL: "https://finwin.example",
+    FINWIN_CANONICAL_ORIGIN: "https://finwin.example",
+    AUTH_TRUSTED_ORIGINS: "https://finwin.example",
     BETTER_AUTH_SECRET: "short",
     PLAID_ENV: "production",
     PLAID_WEBHOOK_URL: "https://finwin.example/api/plaid/webhook",
@@ -98,6 +104,8 @@ expectInvalid(
     DATABASE_ENVIRONMENT: "production",
     DATABASE_URL: "postgresql://finwin:finwin@production.db.example/finwin",
     BETTER_AUTH_URL: "https://finwin.example",
+    FINWIN_CANONICAL_ORIGIN: "https://finwin.example",
+    AUTH_TRUSTED_ORIGINS: "https://finwin.example",
     BETTER_AUTH_SECRETS: undefined,
     PLAID_ENV: "production",
     PLAID_WEBHOOK_URL: "https://finwin.example/api/plaid/webhook",
@@ -109,5 +117,24 @@ expectInvalid(
   { BETTER_AUTH_API_KEY: authSecretV1 },
   "Better Auth secrets must be independent from API and provider secrets",
 );
+expectInvalid(
+  "production canonical origin mismatch",
+  {
+    FINWIN_ENV: "production",
+    DATABASE_ENVIRONMENT: "production",
+    DATABASE_URL: "postgresql://finwin:finwin@production.db.example/finwin",
+    BETTER_AUTH_URL: "https://deployment.finwin.example",
+    FINWIN_CANONICAL_ORIGIN: "https://finwin.example",
+    AUTH_TRUSTED_ORIGINS: "https://deployment.finwin.example",
+    PLAID_ENV: "production",
+    PLAID_WEBHOOK_URL: "https://finwin.example/api/plaid/webhook",
+  },
+  "BETTER_AUTH_URL must match FINWIN_CANONICAL_ORIGIN in production",
+);
+expectInvalid(
+  "wildcard trusted origin",
+  { AUTH_TRUSTED_ORIGINS: "https://*.finwin.example,http://localhost:3000" },
+  "AUTH_TRUSTED_ORIGINS cannot contain wildcard origins",
+);
 
-console.log("Environment, preview isolation, and auth secret checks passed.");
+console.log("Environment, origin, preview isolation, and auth secret checks passed.");

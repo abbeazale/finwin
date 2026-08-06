@@ -45,6 +45,8 @@ Required to boot auth, database, and bank linking:
 | `FINWIN_ENV` | Explicit runtime contract: `local`, `preview`, `staging`, or `production` |
 | `DATABASE_ENVIRONMENT` | Data boundary; must match `FINWIN_ENV` |
 | `BETTER_AUTH_URL` | Public app origin (e.g. `http://localhost:3000`) |
+| `FINWIN_CANONICAL_ORIGIN` | Required production origin; must equal `BETTER_AUTH_URL` |
+| `AUTH_TRUSTED_ORIGINS` | Comma-separated exact auth origins; no wildcards |
 | `BETTER_AUTH_API_KEY` | Better Auth dashboard/plugin API key |
 | `BETTER_AUTH_SECRET` | Independent legacy/fallback auth key; base64-encoded 32 bytes outside local |
 | `BETTER_AUTH_SECRETS` | Versioned auth keys, current first (for example `2:new,1:old`) |
@@ -75,6 +77,43 @@ production, HTTPS origins/webhook,
 and non-local secrets. Vercel previews infer `preview`, but setting `FINWIN_ENV`
 explicitly is recommended. Run `bun run env:check` to exercise the environment
 and preview-isolation policy.
+
+### Canonical identity boundary and response headers
+
+Production has one identity origin. Set `BETTER_AUTH_URL`,
+`FINWIN_CANONICAL_ORIGIN`, and the sole `AUTH_TRUSTED_ORIGINS` entry to the
+same HTTPS origin. Preview and staging must also provide an explicit trusted
+origin that includes their environment-specific `BETTER_AUTH_URL`; wildcard
+origins are rejected.
+
+Register these exact provider callbacks, derived from the canonical origin:
+
+```text
+GitHub: <canonical-origin>/api/auth/callback/github
+Google: <canonical-origin>/api/auth/callback/google
+```
+
+The passkey RP ID is the canonical hostname and its expected origin is the
+canonical origin. Better Auth cookies are forced `Secure`, `HttpOnly`, and
+`SameSite=Lax` outside local development. Next.js suppresses `X-Powered-By`
+and applies CSP, clickjacking protection, MIME sniffing protection, a strict
+referrer policy, a restrictive permissions policy, and production HSTS to all
+routes.
+
+After deploying the custom domain, run:
+
+```bash
+bun run security:check:deployed -- https://finwin.abbeazale.com
+```
+
+Then use a fresh browser profile on that same domain to verify password login,
+GitHub and Google OAuth, passkey registration/sign-in, TOTP, and one
+recent-auth-protected bank action. Confirm auth cookies have `Secure`,
+`HttpOnly`, `SameSite=Lax`, and a `__Secure-` prefix. Complete this smoke test
+before promoting the deployment; a local or generated Vercel domain is not a
+substitute because OAuth redirects, cookies, and WebAuthn are origin-bound.
+`https://finwin.abbeazale.tech` currently redirects to the canonical `.com`
+origin and must not be registered as a second identity origin.
 
 ### Better Auth secret and OAuth-token migration
 
