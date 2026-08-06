@@ -111,6 +111,12 @@ stacks are never copied into the event. `bun run provider-logs:check` forces an
 Axios-shaped Plaid failure through the logger and fails if the output changes or
 contains secret-bearing values.
 
+Better Auth warnings and failures use the same approach: only severity, a
+classified event code, and a generated correlation ID are emitted. Its raw
+message and opaque logger arguments are discarded because database errors can
+contain OAuth state, PKCE verifiers, token values, and query parameters. The
+logging check exercises this failure shape as well.
+
 FinWin configures no third-party server log exporter; provider events go only to
 process stdout/stderr, whose retention is controlled by the hosting platform.
 Because the previous raw Axios logging could have reached hosted logs, deployment

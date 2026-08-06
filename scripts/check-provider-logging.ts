@@ -2,6 +2,10 @@ import {
   logProviderError,
   type ProviderErrorEvent,
 } from "../src/server/observability/provider-error";
+import {
+  createBetterAuthLogger,
+  type AuthErrorEvent,
+} from "../src/server/observability/auth-error";
 
 const secrets = {
   clientId: "plaid-client-id-that-must-not-leak",
@@ -59,4 +63,31 @@ if (serialized !== expected) {
   throw new Error(`Provider log whitelist changed unexpectedly: ${serialized}`);
 }
 
-console.log("Provider failure logging is useful and secret-free.");
+let capturedAuthEvent: AuthErrorEvent | undefined;
+const authLogger = createBetterAuthLogger((event) => {
+  capturedAuthEvent = event;
+});
+authLogger.log(
+  "error",
+  `Failed query containing ${secrets.body}`,
+  new Error(`oauth_state=${secrets.accessToken}&code_verifier=${secrets.secret}`),
+  { headers: { authorization: secrets.clientId } },
+);
+
+if (!capturedAuthEvent) throw new Error("Forced auth failure did not emit a log event.");
+const serializedAuthEvent = JSON.stringify(capturedAuthEvent);
+for (const secret of Object.values(secrets)) {
+  if (serializedAuthEvent.includes(secret)) {
+    throw new Error("Better Auth log contains secret-bearing input.");
+  }
+}
+if (
+  capturedAuthEvent.operation !== "better-auth" ||
+  capturedAuthEvent.severity !== "error" ||
+  capturedAuthEvent.eventCode !== "INTERNAL_ERROR" ||
+  !capturedAuthEvent.correlationId
+) {
+  throw new Error("Better Auth log whitelist changed unexpectedly.");
+}
+
+console.log("Provider and auth failure logging is useful and secret-free.");

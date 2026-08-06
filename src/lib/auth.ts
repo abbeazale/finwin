@@ -5,6 +5,7 @@ import { passkey } from "@better-auth/passkey";
 import { db } from "@/index";
 import * as schema from "@/db/schema";
 import { dash } from "@better-auth/infra";
+import { createBetterAuthLogger } from "@/server/observability/auth-error";
 
 const authBaseURL = process.env.BETTER_AUTH_URL?.replace(/\/$/, "");
 
@@ -26,6 +27,7 @@ const betterAuthApiKey = requiredAuthEnv("BETTER_AUTH_API_KEY");
 
 export const auth = betterAuth({
   appName: "FinWin",
+  logger: createBetterAuthLogger(),
   secret:
     process.env.BETTER_AUTH_SECRET ??
     process.env.AUTH_SECRET ??
