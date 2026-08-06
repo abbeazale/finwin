@@ -4,6 +4,10 @@ import { z } from "zod";
 import { db } from "@/index";
 import { bankConnections } from "@/db/schema";
 import {
+  createCorrelationId,
+  logProviderError,
+} from "@/server/observability/provider-error";
+import {
   syncConnection,
   syncInvestmentHoldings,
   syncInvestmentTransactions,
@@ -33,6 +37,9 @@ const SYNC_CODES = new Set([
 ]);
 
 export default async function handler(req: NextApiRequest, res: NextApiResponse) {
+  const correlationId = createCorrelationId(req.headers["x-correlation-id"]);
+  res.setHeader("x-correlation-id", correlationId);
+
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).end();
@@ -77,7 +84,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
 
   if (!connection) {
     // Ack so Plaid stops retrying; we just don't know this item.
-    console.warn("plaid webhook for unknown item_id:", payload.item_id);
+    logProviderError(undefined, {
+      operation: "plaid-webhook-connection-lookup",
+      correlationId,
+      errorCode: "CONNECTION_NOT_FOUND",
+    });
     return res.status(200).json({ ok: true });
   }
 
@@ -111,7 +122,11 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       }
     }
   } catch (err) {
-    console.error("plaid webhook handler error", err);
+    logProviderError(err, {
+      operation: "plaid-webhook-sync",
+      correlationId,
+      connectionId: connection.id,
+    });
     // Still 200 so Plaid doesn't hammer us; we have logs.
   }
 
