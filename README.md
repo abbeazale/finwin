@@ -179,10 +179,36 @@ bun run verify
 ```
 
 `verify` is the release gate: typecheck, lint, tests, unused-code analysis,
-production dependency audit, and a production build. The dependency policy blocks
-critical production advisories; G1.3 owns remediation of known high-severity
-findings and tightening that threshold. Configure the GitHub `Release gate` job
-as a required check on `main` so pull requests cannot merge when it fails.
+production dependency audit, and a production build. `audit:prod` rejects every
+advisory that is neither patched nor listed in `config/audit-exceptions.json`.
+Exceptions must name an owner, evidence, compensating control, and expiry; expired
+or stale entries fail CI. The current two moderate exceptions expire 2026-09-30:
+Hono's Windows static-file handler is installed only through development/optional
+tooling, and esbuild's affected development server is never started by FinWin.
+Configure the GitHub `Release gate` job as a required check on `main` so pull
+requests cannot merge when it fails.
+
+### Provider error logging
+
+Provider failures are emitted through a typed whitelist containing only the
+operation, correlation ID, safe provider error code, connection ID, and provider
+request ID. Headers, request/response bodies, tokens, credentials, messages, and
+stacks are never copied into the event. `bun run provider-logs:check` forces an
+Axios-shaped Plaid failure through the logger and fails if the output changes or
+contains secret-bearing values.
+
+Better Auth warnings and failures use the same approach: only severity, a
+classified event code, and a generated correlation ID are emitted. Its raw
+message and opaque logger arguments are discarded because database errors can
+contain OAuth state, PKCE verifiers, token values, and query parameters. The
+logging check exercises this failure shape as well.
+
+FinWin configures no third-party server log exporter; provider events go only to
+process stdout/stderr, whose retention is controlled by the hosting platform.
+Because the previous raw Axios logging could have reached hosted logs, deployment
+acceptance requires rotating the Plaid client secret, updating every runtime
+environment atomically, redeploying, and verifying Link plus sync. Do not revoke
+the old secret before the replacement is installed in each active environment.
 
 ### Release runbook
 

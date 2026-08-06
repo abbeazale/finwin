@@ -1,0 +1,20 @@
+[
+  {
+    "advisory": "GHSA-frvp-7c67-39w9",
+    "package": "@hono/node-server",
+    "severity": "moderate",
+    "owner": "@abbeazale",
+    "expires": "2026-09-30",
+    "evidence": "Installed only through the shadcn development CLI and Prisma optional/development packages; FinWin has no Hono server or serveStatic call.",
+    "compensatingControl": "Production runs Next.js on Linux and does not ship or invoke Hono's Windows static-file middleware."
+  },
+  {
+    "advisory": "GHSA-67mh-4wv8-2f99",
+    "package": "esbuild",
+    "severity": "moderate",
+    "owner": "@abbeazale",
+    "expires": "2026-09-30",
+    "evidence": "The affected esbuild development server is present through build-time drizzle-kit/tsx tooling; FinWin never starts esbuild's serve API.",
+    "compensatingControl": "Release artifacts are produced by next build and served by next start; development tooling is not part of the production request path."
+  }
+]
