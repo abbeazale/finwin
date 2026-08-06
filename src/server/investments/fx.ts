@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
 import { currencyRates } from "@/db/schema";
 import { db } from "@/index";
+import { getServerEnvironment } from "@/server/env";
 import type { FxRateLookup } from "./values";
 
 const OER_LATEST_URL = "https://openexchangerates.org/api/latest.json";
@@ -15,7 +16,7 @@ const oerLatestSchema = z.object({
 });
 
 export async function refreshOpenExchangeRates() {
-  const appId = process.env.OER_KEY;
+  const appId = getServerEnvironment().openExchangeRatesKey;
   if (!appId) {
     return { refreshed: false, reason: "missing_key" as const, rateCount: 0 };
   }

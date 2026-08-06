@@ -3,15 +3,13 @@ import "dotenv/config";
 import { Pool, neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { migrate } from "drizzle-orm/neon-serverless/migrator";
+import { getServerEnvironment } from "../src/server/env";
 
-const databaseUrl = process.env.DATABASE_URL;
+const env = getServerEnvironment();
+const databaseUrl = env.databaseUrl;
 
-if (!databaseUrl || typeof databaseUrl !== "string") {
-  throw new Error("DATABASE_URL is not set.");
-}
-
-if (process.env.NODE_ENV === "production") {
-  throw new Error("Refusing to reset the database in production.");
+if (env.deployment !== "local") {
+  throw new Error("Refusing to reset a non-local database.");
 }
 
 async function resetDatabase() {

@@ -5,16 +5,10 @@ import { passkey } from "@better-auth/passkey";
 import { db } from "@/index";
 import * as schema from "@/db/schema";
 import { dash } from "@better-auth/infra";
+import { getServerEnvironment } from "@/server/env";
 
-const authBaseURL = process.env.BETTER_AUTH_URL?.replace(/\/$/, "");
-
-function requiredAuthEnv(name: string) {
-  const value = process.env[name];
-  if (!value) {
-    throw new Error(`${name} is required to configure authentication.`);
-  }
-  return value;
-}
+const env = getServerEnvironment();
+const authBaseURL = env.betterAuthUrl;
 
 function getAuthHost() {
   if (!authBaseURL) return undefined;
@@ -22,15 +16,15 @@ function getAuthHost() {
   return new URL(authBaseURL).hostname;
 }
 
-const betterAuthApiKey = requiredAuthEnv("BETTER_AUTH_API_KEY");
+const betterAuthApiKey = env.betterAuthApiKey;
 
 export const auth = betterAuth({
   appName: "FinWin",
   secret:
-    process.env.BETTER_AUTH_SECRET ??
-    process.env.AUTH_SECRET ??
+    env.betterAuthSecret ??
+    env.legacyAuthSecret ??
     betterAuthApiKey,
-  baseURL: process.env.BETTER_AUTH_URL,
+  baseURL: authBaseURL,
   trustedOrigins: [
     "https://finwin.abbeazale.tech",
     "https://finwin-vert.vercel.app",
@@ -60,12 +54,12 @@ export const auth = betterAuth({
   },
   socialProviders: {
     github: {
-      clientId: requiredAuthEnv("GITHUB_CLIENT_ID"),
-      clientSecret: requiredAuthEnv("GITHUB_CLIENT_SECRET"),
+      clientId: env.githubClientId,
+      clientSecret: env.githubClientSecret,
     },
     google: {
-      clientId: requiredAuthEnv("GOOGLE_CLIENT_ID"),
-      clientSecret: requiredAuthEnv("GOOGLE_CLIENT_SECRET"),
+      clientId: env.googleClientId,
+      clientSecret: env.googleClientSecret,
     },
   },
 });

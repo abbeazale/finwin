@@ -5,6 +5,7 @@ import { z } from "zod";
 import { db } from "@/index";
 import { bankAccounts, bankConnections, transactions } from "@/db/schema";
 import { getPlaid } from "@/server/plaid/client";
+import { getServerEnvironment } from "@/server/env";
 import {
   decryptPlaidAccessTokenFromRow,
   encryptPlaidAccessToken,
@@ -19,7 +20,7 @@ function createPlaidLinkTokenError(err: unknown) {
   if (plaidError?.error_code === "INVALID_API_KEYS") {
     return new TRPCError({
       code: "INTERNAL_SERVER_ERROR",
-      message: `Plaid rejected the configured API keys for PLAID_ENV=${process.env.PLAID_ENV ?? "sandbox"}. Check PLAID_CLIENT_ID, PLAID_SECRET, and PLAID_ENV.`,
+      message: `Plaid rejected the configured API keys for PLAID_ENV=${getServerEnvironment().plaidEnvironment}. Check PLAID_CLIENT_ID, PLAID_SECRET, and PLAID_ENV.`,
     });
   }
 
@@ -66,7 +67,7 @@ export const plaidRouter = router({
           products: updateAccessToken ? [] : [Products.Transactions, Products.Investments],
           country_codes: [CountryCode.Us, CountryCode.Ca],
           language: "en",
-          webhook: process.env.PLAID_WEBHOOK_URL || undefined,
+          webhook: getServerEnvironment().plaidWebhookUrl,
           access_token: updateAccessToken,
         });
         return { link_token: data.link_token, expiration: data.expiration };

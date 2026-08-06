@@ -11,8 +11,9 @@
     "lint": "eslint",
     "test": "bun test",
     "knip": "knip",
+    "env:check": "tsx scripts/check-env-contract.ts",
     "audit:prod": "bun audit --prod --audit-level=critical",
-    "verify": "bun run typecheck && bun run lint && bun run test && bun run knip && bun run audit:prod && bun run build",
+    "verify": "bun run env:check && bun run typecheck && bun run lint && bun run test && bun run knip && bun run audit:prod && bun run build",
     "db:migrate": "tsx scripts/db-migrate.ts",
     "dbreset": "tsx scripts/db-reset.ts",
     "seed": "tsx scripts/seed-categories.ts"
