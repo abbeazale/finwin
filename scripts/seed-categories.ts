@@ -4,9 +4,9 @@ import { drizzle } from "drizzle-orm/neon-serverless";
 import { eq, and } from "drizzle-orm";
 import { categoryGroups, categories } from "../src/db/schema";
 import { CATEGORY_TAXONOMY } from "../src/server/lib/category-taxonomy";
+import { getServerEnvironment } from "../src/server/env";
 
-const databaseUrl = process.env.DATABASE_URL;
-if (!databaseUrl) throw new Error("DATABASE_URL is not set.");
+const databaseUrl = getServerEnvironment().databaseUrl;
 
 const pool = new Pool({ connectionString: databaseUrl });
 const db = drizzle(pool);

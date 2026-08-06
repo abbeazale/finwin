@@ -1,5 +1,6 @@
 import type { NextApiRequest, NextApiResponse } from "next";
 import { refreshOpenExchangeRates } from "@/server/investments/fx";
+import { getServerEnvironment } from "@/server/env";
 
 type RefreshResponse =
   | Awaited<ReturnType<typeof refreshOpenExchangeRates>>
@@ -14,8 +15,9 @@ export default async function handler(
     return res.status(405).json({ error: "Method not allowed." });
   }
 
-  const refreshSecret = process.env.FX_REFRESH_SECRET;
-  if (!refreshSecret && process.env.NODE_ENV === "production") {
+  const env = getServerEnvironment();
+  const refreshSecret = env.fxRefreshSecret;
+  if (!refreshSecret && env.deployment !== "local") {
     return res.status(503).json({ error: "FX refresh secret is not configured." });
   }
 

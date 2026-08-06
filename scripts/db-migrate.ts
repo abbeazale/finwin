@@ -5,12 +5,9 @@ import { resolve } from "node:path";
 import { Pool, neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-serverless";
 import { migrate } from "drizzle-orm/neon-serverless/migrator";
+import { getServerEnvironment } from "../src/server/env";
 
-const databaseUrl = process.env.DATABASE_URL;
-
-if (!databaseUrl || typeof databaseUrl !== "string") {
-  throw new Error("DATABASE_URL is not set.");
-}
+const databaseUrl = getServerEnvironment().databaseUrl;
 
 type JournalEntry = {
   idx: number;
