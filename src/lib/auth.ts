@@ -11,12 +11,6 @@ import { getServerEnvironment } from "@/server/env";
 const env = getServerEnvironment();
 const authBaseURL = env.betterAuthUrl;
 
-function getAuthHost() {
-  if (!authBaseURL) return undefined;
-
-  return new URL(authBaseURL).hostname;
-}
-
 const betterAuthApiKey = env.betterAuthApiKey;
 
 export const auth = betterAuth({
@@ -25,10 +19,7 @@ export const auth = betterAuth({
   secret: env.betterAuthSecret,
   secrets: env.betterAuthSecrets,
   baseURL: authBaseURL,
-  trustedOrigins: [
-    "https://finwin.abbeazale.tech",
-    "https://finwin-vert.vercel.app",
-  ],
+  trustedOrigins: env.authTrustedOrigins,
   database: drizzleAdapter(db, {
     provider: "pg",
     schema,
@@ -36,12 +27,20 @@ export const auth = betterAuth({
   account: {
     encryptOAuthTokens: true,
   },
+  advanced: {
+    useSecureCookies: env.secureCookies,
+    defaultCookieAttributes: {
+      httpOnly: true,
+      sameSite: "lax",
+      secure: env.secureCookies,
+    },
+  },
   plugins: [
     dash({ apiKey: betterAuthApiKey }),
     passkey({
       rpName: "FinWin",
-      rpID: getAuthHost(),
-      origin: authBaseURL,
+      rpID: env.passkeyRpId,
+      origin: env.canonicalOrigin,
       authenticatorSelection: {
         residentKey: "preferred",
         userVerification: "required",
