@@ -5,6 +5,7 @@ import { passkey } from "@better-auth/passkey";
 import { db } from "@/index";
 import * as schema from "@/db/schema";
 import { dash } from "@better-auth/infra";
+import { createBetterAuthLogger } from "@/server/observability/auth-error";
 import { getServerEnvironment } from "@/server/env";
 
 const env = getServerEnvironment();
@@ -20,6 +21,7 @@ const betterAuthApiKey = env.betterAuthApiKey;
 
 export const auth = betterAuth({
   appName: "FinWin",
+  logger: createBetterAuthLogger(),
   secret: env.betterAuthSecret,
   secrets: env.betterAuthSecrets,
   baseURL: authBaseURL,

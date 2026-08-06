@@ -17,6 +17,7 @@ const enforceAuth = t.middleware(({ ctx, next }) => {
     ctx: {
       userId: ctx.userId,
       sessionCreatedAt: ctx.sessionCreatedAt,
+      correlationId: ctx.correlationId,
     },
   });
 });
@@ -38,6 +39,7 @@ const enforceRecentAuth = t.middleware(({ ctx, next }) => {
     ctx: {
       userId: ctx.userId,
       sessionCreatedAt: ctx.sessionCreatedAt,
+      correlationId: ctx.correlationId,
     },
   });
 });

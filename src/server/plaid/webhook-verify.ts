@@ -11,10 +11,6 @@ type PlaidWebhookJwtPayload = {
 
 const jwkCache = new Map<string, PlaidWebhookVerificationKey>();
 
-function getErrorMessage(err: unknown) {
-  return err instanceof Error ? err.message : String(err);
-}
-
 async function getVerificationKey(kid: string): Promise<PlaidWebhookVerificationKey> {
   const cached = jwkCache.get(kid);
   if (cached) return cached;
@@ -67,8 +63,8 @@ export async function verifyPlaidWebhook(
   try {
     const key = await getVerificationKey(header.kid);
     verified = await jwtVerify<PlaidWebhookJwtPayload>(signatureHeader, key);
-  } catch (e) {
-    return { ok: false, reason: `jwt verify failed: ${getErrorMessage(e)}` };
+  } catch {
+    return { ok: false, reason: "jwt or verification-key check failed" };
   }
 
   const payload = verified.payload;
