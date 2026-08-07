@@ -410,6 +410,12 @@ export default function Home({ quotes }: HomeProps) {
             <div className="md:justify-self-center">
               <span className="label-eyebrow">System</span>
               <p className="mt-2 text-[12px] text-bone-mute">Next.js · Plaid · Drizzle · Better Auth</p>
+              <Link
+                href="/privacy"
+                className="mt-2 inline-block text-[12px] text-bone-mute transition-colors hover:text-brass-hi"
+              >
+                Privacy policy
+              </Link>
             </div>
             <div className="flex flex-col gap-2 md:items-end">
               <span className="label-eyebrow">MIT · Open source</span>
