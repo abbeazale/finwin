@@ -107,6 +107,14 @@ export default function Login() {
             <p className="mt-8 text-center text-[11px] text-bone-faint">
               Protected by Better Auth · End-to-end encrypted in transit
             </p>
+            <p className="mt-3 text-center text-[11px] text-bone-faint">
+              <Link
+                href="/privacy"
+                className="transition-colors hover:text-brass-hi"
+              >
+                Privacy policy
+              </Link>
+            </p>
           </section>
         </div>
       </div>
