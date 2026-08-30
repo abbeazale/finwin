@@ -8,8 +8,25 @@ import { ConnectBank } from "@/components/connect-bank";
 import { PageStatus } from "@/components/page-status";
 import { Button } from "@/components/ui/button";
 
+type Notice = { text: string; tone: "info" | "warn" };
+
+const UNLINK_NOTICES: Record<string, Notice> = {
+  revoked: {
+    text: "Connection unlinked and access revoked at your bank. Transaction history stays in your ledger.",
+    tone: "info",
+  },
+  pending: {
+    text: "Connection unlinked. Your bank has not confirmed the revocation yet, so FinWin keeps retrying until it does. Transaction history stays in your ledger.",
+    tone: "warn",
+  },
+  manual: {
+    text: "Connection unlinked, but FinWin could not revoke access at your bank and cannot retry. Remove FinWin in your bank's connected-apps settings, then contact support.",
+    tone: "warn",
+  },
+};
+
 export default function ConnectionsSettings() {
-  const [message, setMessage] = useState<string | null>(null);
+  const [message, setMessage] = useState<Notice | null>(null);
 
   const { session, isPending: sessionLoading } = useRequireSession();
 
@@ -19,15 +36,23 @@ export default function ConnectionsSettings() {
   const { data: connections = [], isLoading } = connectionsQuery;
 
   const unlinkMutation = trpc.plaid.unlinkConnection.useMutation({
-    onSuccess: () => {
-      setMessage("Connection unlinked.");
+    // The bank may not confirm revocation straight away. Say which of the three
+    // outcomes actually happened rather than reporting a flat success.
+    onSuccess: (result) => {
+      setMessage(UNLINK_NOTICES[result.revocation] ?? UNLINK_NOTICES.pending);
       void connectionsQuery.refetch();
     },
-    onError: (e) => setMessage(e.message),
+    onError: (e) => setMessage({ text: e.message, tone: "warn" }),
   });
 
   async function unlink(id: string) {
-    if (!confirm("Unlink this bank connection? Transactions stay for history.")) return;
+    if (
+      !confirm(
+        "Unlink this bank connection? FinWin revokes access at your bank and keeps your transaction history.",
+      )
+    ) {
+      return;
+    }
     setMessage(null);
     unlinkMutation.mutate({ id });
   }
@@ -108,11 +133,21 @@ export default function ConnectionsSettings() {
         </div>
 
         {message ? (
-          <p className="mb-8 flex items-center gap-3 rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-2.5 text-[12px] text-brass-hi">
-            <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
+          <p
+            className={`mb-8 flex items-start gap-3 rounded-[2px] border px-4 py-2.5 text-[12px] ${
+              message.tone === "warn"
+                ? "border-[rgba(232,140,72,0.35)] bg-[rgba(232,140,72,0.06)] text-amber"
+                : "border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] text-brass-hi"
+            }`}
+          >
+            <span
+              className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full animate-pulse-dot ${
+                message.tone === "warn" ? "bg-amber" : "bg-brass"
+              }`}
+            />
             <span>
-              {message}
-              {isRecentAuthRequiredMessage(message) ? (
+              {message.text}
+              {isRecentAuthRequiredMessage(message.text) ? (
                 <>
                   {" "}
                   <Link
@@ -257,7 +292,8 @@ export default function ConnectionsSettings() {
           <div>
             <span className="label-eyebrow">Data stays</span>
             <p className="mt-2 text-[12px] text-bone-mute">
-              Unlinking keeps all transaction history in your ledger.
+              Unlinking removes the pipe and revokes bank access. All transaction
+              history stays in your ledger.
             </p>
           </div>
           <div>

@@ -30,6 +30,9 @@ const env = parseServerEnvironment({
     v1: Buffer.alloc(32, 8).toString("base64"),
   }),
   FX_REFRESH_SECRET: "fx-refresh-secret-at-least-32-characters",
+  PLAID_REVOCATION_RETRY_SECRET: "plaid-revocation-retry-secret-32-chars",
+  RESEND_API_KEY: "re_production_key",
+  FINWIN_MAIL_FROM: `FinWin <desk@${new URL(canonicalOrigin).hostname}>`,
 });
 
 function expect(condition: unknown, message: string): asserts condition {

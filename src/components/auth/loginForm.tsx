@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/router";
 import { FormEvent, useEffect, useRef, useState, useTransition } from "react";
 import { KeyRound } from "lucide-react";
@@ -136,6 +137,12 @@ export default function LoginForm({
         </p>
       </div>
 
+      {router.query.reset === "1" ? (
+        <p className="rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-3 py-2 text-[12px] text-brass-hi">
+          Password updated. Sign in with the new one.
+        </p>
+      ) : null}
+
       <form onSubmit={handleSubmit} className="flex flex-col gap-5">
         <div className="grid grid-cols-2 gap-3">
           <Button
@@ -195,7 +202,12 @@ export default function LoginForm({
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
             <label htmlFor="login-password" className="label-eyebrow">Password</label>
-            <a href="#" className="text-[11px] text-bone-faint hover:text-brass-hi">Forgot?</a>
+            <Link
+              href="/forgot-password"
+              className="text-[11px] text-bone-faint hover:text-brass-hi"
+            >
+              Forgot?
+            </Link>
           </div>
           <input
             id="login-password"

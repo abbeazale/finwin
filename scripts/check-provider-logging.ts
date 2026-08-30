@@ -90,4 +90,39 @@ if (
   throw new Error("Better Auth log whitelist changed unexpectedly.");
 }
 
-console.log("Provider and auth failure logging is useful and secret-free.");
+const mailSecrets = {
+  recipient: "recipient-that-must-not-leak@finwin.example",
+  resetUrl: "https://finwin.example/api/auth/reset-password/token-that-must-not-leak",
+};
+
+let capturedMailEvent: ProviderErrorEvent | undefined;
+logProviderError(
+  new Error(`failed to deliver ${mailSecrets.resetUrl} to ${mailSecrets.recipient}`),
+  {
+    operation: "resend-email-send",
+    correlationId: "correlation-456",
+    errorCode: "MAIL_REJECTED",
+  },
+  (event) => {
+    capturedMailEvent = event;
+  },
+);
+
+if (!capturedMailEvent) throw new Error("Forced mail failure did not emit a log event.");
+const serializedMailEvent = JSON.stringify(capturedMailEvent);
+for (const secret of Object.values(mailSecrets)) {
+  if (serializedMailEvent.includes(secret)) {
+    throw new Error("Mail log contains a reset credential or a recipient address.");
+  }
+}
+
+const expectedMail = JSON.stringify({
+  operation: "resend-email-send",
+  correlationId: "correlation-456",
+  errorCode: "MAIL_REJECTED",
+});
+if (serializedMailEvent !== expectedMail) {
+  throw new Error(`Mail log whitelist changed unexpectedly: ${serializedMailEvent}`);
+}
+
+console.log("Provider, auth, and mail failure logging is useful and secret-free.");
