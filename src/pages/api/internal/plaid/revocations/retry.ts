@@ -18,10 +18,8 @@ export default async function handler(
   const correlationId = createCorrelationId(req.headers["x-correlation-id"]);
   res.setHeader("x-correlation-id", correlationId);
 
-  // Vercel Cron invokes scheduled routes with GET. POST stays available so the
-  // sweep can be triggered by hand or by an external scheduler.
-  if (req.method !== "GET" && req.method !== "POST") {
-    res.setHeader("Allow", "GET, POST");
+  if (req.method !== "POST") {
+    res.setHeader("Allow", "POST");
     return res.status(405).json({ error: "Method not allowed." });
   }
 

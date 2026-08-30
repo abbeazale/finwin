@@ -1,0 +1,4 @@
+ts	phase	decision	why	evidence	result
+2026-08-29T21:43:04Z	handoff	Captured launch-readiness audit as a Notion subpage	Keep pilot blockers, paid-insight gaps, verification results, and rollout stages available beside the earlier deployment review	https://app.notion.com/p/3cb44fd45b7c813489c2e50ed81f2ed8	done
+2026-08-30T02:27:10Z	constraint	Drop Vercel Cron and retry pending Plaid revocations on webhook, listConnections, and sync traffic	Hobby cannot schedule the hourly vercel.json cron, and keeping the queue without a scheduler would leave failed itemRemove credentials live	src/pages/api/plaid/webhook.ts, src/server/trpc/routers/plaid.ts, vercel.json (deleted)	done
+2026-08-30T02:27:10Z	handoff	Removed Hobby-incompatible cron; revocation retry now rides Plaid request paths and a manual POST	So the next deploy on Hobby does not depend on Vercel Cron	README.md, src/pages/api/internal/plaid/revocations/retry.ts	done

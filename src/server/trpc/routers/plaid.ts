@@ -17,7 +17,10 @@ import {
   encryptPlaidAccessToken,
 } from "@/server/plaid/crypto";
 import { getPlaidErrorData } from "@/server/plaid/errors";
-import { revokePlaidItem } from "@/server/plaid/revocation";
+import {
+  revokePlaidItem,
+  sweepDuePlaidRevocationsSafely,
+} from "@/server/plaid/revocation";
 import {
   isRevocationConfirmed,
   retryDelayMinutes,
@@ -197,22 +200,27 @@ export const plaidRouter = router({
           connectionId: input.connectionId,
         });
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Sync failed." });
+      } finally {
+        await sweepDuePlaidRevocationsSafely(ctx.correlationId);
       }
     }),
 
   listConnections: protectedProcedure.query(async ({ ctx }) => {
-    const rows = await db
-      .select({
-        id: bankConnections.id,
-        status: bankConnections.status,
-        syncErrorCode: bankConnections.syncErrorCode,
-        lastSyncedAt: bankConnections.lastSyncedAt,
-        createdAt: bankConnections.createdAt,
-        updatedAt: bankConnections.updatedAt,
-      })
-      .from(bankConnections)
-      .where(eq(bankConnections.userId, ctx.userId))
-      .orderBy(desc(bankConnections.createdAt));
+    const [rows] = await Promise.all([
+      db
+        .select({
+          id: bankConnections.id,
+          status: bankConnections.status,
+          syncErrorCode: bankConnections.syncErrorCode,
+          lastSyncedAt: bankConnections.lastSyncedAt,
+          createdAt: bankConnections.createdAt,
+          updatedAt: bankConnections.updatedAt,
+        })
+        .from(bankConnections)
+        .where(eq(bankConnections.userId, ctx.userId))
+        .orderBy(desc(bankConnections.createdAt)),
+      sweepDuePlaidRevocationsSafely(ctx.correlationId),
+    ]);
 
     const connections = await Promise.all(
       rows.map(async (r) => {

@@ -1,5 +1,109 @@
 # FinWin Ledger
 
+## 2026-08-29
+
+### Drop Vercel Cron for Hobby
+
+- Deleted `vercel.json`. The only entry was an hourly cron on
+  `/api/internal/plaid/revocations/retry`, which Hobby cannot run.
+- Due `pending_provider_revocations` now retry on Plaid webhook traffic,
+  `plaid.listConnections`, and `plaid.syncTransactions`. The sweep is
+  best-effort on those paths so a Plaid outage cannot fail listing, sync, or
+  webhook ack.
+- `POST /api/internal/plaid/revocations/retry` remains for a manual sweep
+  with `PLAID_REVOCATION_RETRY_SECRET`. GET and `CRON_SECRET` are gone.
+- Docs updated in `README.md`, `.env.example`, and `docs/resources.md`.
+
+## 2026-08-06
+
+### Gate 1 G1.2–G1.6 implementation handoff
+
+- Opened one draft PR per Linear issue, with independent work based on `main`
+  and dependency-bound work kept as a narrow stack:
+  - `DEV-42` / G1.2: PR #21, `agent/dev-42-g1-2-environment-contract`
+  - `DEV-43` / G1.3: PR #22, `agent/dev-43-g1-3-dependency-audit-policy`
+  - `DEV-44` / G1.4: PR #23, `agent/dev-44-g1-4-provider-error-sanitization`
+  - `DEV-45` / G1.5: PR #24, based on PR #21
+  - `DEV-46` / G1.6: PR #25, based on PR #24
+- All five release gates passed locally with 53 tests, typecheck, lint, knip,
+  production audit, and production build. G1.6 also passed a production-mode
+  runtime header probe; an untrusted Better Auth callback was rejected with 403.
+- The auth runtime probe exposed Better Auth default error logging of OAuth state
+  and PKCE verifier values through opaque database error arguments. PR #23 was
+  amended with a whitelist auth logger and a regression check for that exact
+  leak shape.
+- Live-domain discovery: `https://finwin.abbeazale.tech` is a redirect alias;
+  `https://finwin.abbeazale.com` is the canonical app and must be the sole
+  production OAuth/passkey identity origin. The current `.com` deployment lacks
+  CSP and exposes `X-Powered-By`; PR #25 adds the policy and deployed checker.
+- Vercel previews for PRs #21, #24, and #25 correctly fail closed. The Vercel
+  project currently shares `DATABASE_URL` and `PLAID_ENV` between Preview and
+  Production and lacks dedicated auth/FX secrets. Do not bypass the contract by
+  relabeling the production database. Provision an isolated Neon preview DB,
+  scope Plaid sandbox to Preview, install independent preview secrets, then
+  redeploy the stack.
+- Operational acceptance still required before closing the issues: rotate the
+  Plaid secret for DEV-44; execute the staged auth-secret/OAuth-token migration
+  for DEV-45; configure `.com` Google/GitHub callbacks and run the fresh-profile
+  auth/passkey/TOTP/recent-auth smoke matrix for DEV-46.
+- Ordered merge completion: PRs #21, #22, #23, #24, and #25 are merged into
+  `main` with merge commits `ae6c6cc`, `5109fdf`, `68c95c8`, `a1dd254`, and
+  `a85aa1e`. Branch protection was restored with strict `Release gate`
+  enforcement after the merge workaround.
+- Vercel Preview deployments for the merged stack are READY, but the first
+  production deployment for `a85aa1e` failed closed because production still
+  lacks/has invalid `AUTH_TRUSTED_ORIGINS`, `BETTER_AUTH_SECRET(S)`,
+  `FINWIN_CANONICAL_ORIGIN`, `FX_REFRESH_SECRET`, `PLAID_WEBHOOK_URL`, and
+  `DATABASE_ENVIRONMENT=local`. Fix those Vercel project variables and redeploy
+  before treating production acceptance as complete.
+- Linear Gate 1 issues DEV-42 through DEV-46 are Done. Gate 2 started with
+  DEV-47 (G2.1) moved to In Progress; the Gate 2 milestone remains at 0%.
+- `docs/` remained untouched and uncommitted. The unavailable `update-docs` and
+  `session-handoff` skills were represented by README changes and this ledger
+  handoff; `ledger.md` remains intentionally uncommitted.
+
+## 2026-07-18
+
+### G1.1 frozen release gate implemented
+
+- Implemented Linear `DEV-41` / G1.1 locally:
+  - pinned `packageManager` to Bun 1.3.14
+  - added `typecheck`, critical production `audit:prod`, and the composed `verify` command
+  - added `.github/workflows/release-gate.yml` for PRs and `main` with frozen install and the full gate
+  - kept production database migrations out of CI as a separately approved release stage
+  - documented release ownership, migration approval, rollback criteria, and post-deploy smoke checks in `README.md`
+- Verified with Bun 1.3.14 in both the working tree and an isolated clean-copy install:
+  - `bun install --frozen-lockfile`
+  - `bun run verify`
+  - 53 tests passed, and typecheck, lint, knip, critical production audit, and production build all passed
+- The audit threshold is intentionally critical until `DEV-43` / G1.3 remediates the known high-severity findings and tightens policy.
+- Acceptance completed on 2026-08-06: merged GitHub PR #20, then configured `main` branch protection to strictly require the GitHub Actions `Release gate` check with administrator enforcement.
+
+### Session handoff
+
+- `DEV-41` is Done in Linear. The implementation is on `main` at merge commit `32ff2f88dbe3769867bed346d267caa80365d76c`; local `bun run verify` and the earlier Bun 1.3.14 clean-copy verification passed.
+- Existing personal `docs/` files remain untouched and `ledger.md` remains intentionally uncommitted.
+- The dedicated `update-docs` and `session-handoff` skills were unavailable; this README and ledger update records the equivalent documentation and handoff.
+
+### Deployment-prep audit organized in Linear
+
+- Read the Notion `deployment prep` audit dated July 17, 2026 and translated it into the existing Linear `Finwin` project.
+- Created 28 issues (`DEV-41` through `DEV-68`) with explicit acceptance criteria, priorities, Notion source links, and blocker relations.
+- Organized the work into five Linear milestones:
+  - Gate 1 — Secure, reproducible staging (6 issues)
+  - Gate 2 — Financial data integrity & recovery (8 issues)
+  - Gate 3 — Operable private pilot (5 issues)
+  - Gate 4 — Public launch sign-off (8 issues)
+  - Post-launch — Scale & performance (1 backlog issue)
+- The first unblocked work package is `DEV-41` through `DEV-44`: CI/runtime pinning, typed environment isolation, dependency triage, and provider-log sanitization.
+- The final public-launch decision is `DEV-67`; post-launch performance follow-up is intentionally blocked behind it in `DEV-68`.
+
+### Session handoff
+
+- Linear project: https://linear.app/devkettlelabs/project/finwin-ae2404235ea1
+- No application code or docs were changed for this planning pass.
+- The dedicated `session-handoff` skill was unavailable, so this ledger entry records the equivalent handoff.
+
 ## 2026-07-14
 
 ### Improve audit fully implemented

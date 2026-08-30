@@ -57,7 +57,7 @@ Required to boot auth, database, and bank linking:
 | `PLAID_ENV` | `sandbox`, `development`, or `production` |
 | `PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION` | Active key id (e.g. `v1`) |
 | `PLAID_TOKEN_ENCRYPTION_KEYS` | JSON map of version → base64 32-byte keys |
-| `PLAID_REVOCATION_RETRY_SECRET` | Bearer token for the revocation sweep (min 32 chars) |
+| `PLAID_REVOCATION_RETRY_SECRET` | Bearer token for `POST /api/internal/plaid/revocations/retry` (min 32 chars) |
 
 Required in staging and production, because password recovery cannot deliver
 mail without them:
@@ -283,13 +283,11 @@ credential moves to `pending_provider_revocations` inside the same transaction
 that deletes the connection, and the user is told that revocation is still
 pending rather than complete.
 
-`vercel.json` schedules `/api/internal/plaid/revocations/retry` hourly to work
-that queue with exponential backoff, from 5 minutes up to 12 hours. After 12
-failed attempts a row is marked `abandoned` and its credential is deleted; that
-emits a `REVOCATION_ABANDONED` log, and an operator must then remove the Item in
-the Plaid dashboard by hand.
-
-Vercel Cron calls the route with `GET` and an `Authorization: Bearer` header
-holding `CRON_SECRET`, so `CRON_SECRET` must be set to the same value as
-`PLAID_REVOCATION_RETRY_SECRET`. Hourly scheduling requires a Vercel plan that
-allows it; on Hobby the sweep can only run daily.
+Hobby cannot run Vercel Cron, so the queue is worked on later Plaid traffic
+instead. Opening `/settings/connections`, a manual transaction sync, and
+incoming Plaid webhooks retry every due row with exponential backoff from 5
+minutes up to 12 hours. `POST /api/internal/plaid/revocations/retry` with
+`Authorization: Bearer $PLAID_REVOCATION_RETRY_SECRET` runs the same sweep by
+hand. After 12 failed attempts a row is marked `abandoned` and its credential
+is deleted; that emits a `REVOCATION_ABANDONED` log, and an operator must then
+remove the Item in the Plaid dashboard by hand.

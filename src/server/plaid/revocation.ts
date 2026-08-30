@@ -72,8 +72,8 @@ export type PendingRevocationSummary = {
 };
 
 /**
- * Retries every revocation that is due. Called by the scheduled internal
- * endpoint.
+ * Retries every revocation that is due. Called by the internal retry endpoint
+ * and by request-path sweeps, because this project cannot rely on Vercel Cron.
  *
  * Rows are not locked, so two overlapping sweeps can pick the same row and both
  * call Plaid. That costs one wasted request and nothing more: the second call
@@ -168,4 +168,24 @@ export async function runDuePlaidRevocations(options: {
   }
 
   return summary;
+}
+
+/**
+ * Same sweep as the internal retry endpoint, but never throws. Request paths
+ * use this so a Plaid outage cannot fail connection listing, sync, or webhook
+ * handling.
+ */
+export async function sweepDuePlaidRevocationsSafely(
+  correlationId: string,
+): Promise<PendingRevocationSummary | null> {
+  try {
+    return await runDuePlaidRevocations({ correlationId });
+  } catch (error) {
+    logProviderError(error, {
+      operation: "plaid-item-remove-retry",
+      correlationId,
+      errorCode: "REVOCATION_SWEEP_FAILED",
+    });
+    return null;
+  }
 }
