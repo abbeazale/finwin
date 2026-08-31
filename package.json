@@ -16,6 +16,7 @@
     "auth:check": "tsx scripts/check-auth-security.ts",
     "security:check": "tsx scripts/check-origin-security.ts",
     "security:check:deployed": "tsx scripts/check-deployed-security.ts",
+    "landing:check": "tsx scripts/check-landing-page.ts",
     "auth:encrypt-oauth-tokens": "tsx scripts/migrate-oauth-tokens.ts",
     "audit:prod": "bun audit --prod --audit-level=critical",
     "verify": "bun run env:check && bun run provider-logs:check && bun run auth:check && bun run security:check && bun run typecheck && bun run lint && bun run test && bun run knip && bun run audit:prod && bun run build",

@@ -6,35 +6,25 @@ import {
   getUserProfile,
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
+import { TOP_US_TICKER_SYMBOLS } from "@/lib/market-symbols";
 import { getTickerQuotesForLanding, type TickerQuote } from "@/server/market/quotes";
 
 const pillars = [
   {
     index: "01",
-    title: "Read the room",
-    body: "Normalized transactions, category intelligence, and budget truth — not demo data pretending to be insight.",
+    title: "Read every transaction",
+    body: "Import transactions, review merchant and category details, and keep the original account context visible.",
   },
   {
     index: "02",
-    title: "Run the scenario",
-    body: "Model allocations against your actual cashflow. Test a move before you move.",
+    title: "Set the month",
+    body: "Build monthly category budgets with spent-so-far totals derived from imported transactions.",
   },
   {
     index: "03",
-    title: "One terminal",
-    body: "Budgets, accounts, portfolio, and forecasts on a single plane of matte glass.",
+    title: "See the portfolio",
+    body: "Track connected holdings and view totals in your profile currency with current FX rates.",
   },
-];
-
-const fallbackMarquee = [
-  { k: "CASHFLOW · M", v: "+ $2,770" },
-  { k: "BURN RATE", v: "62%" },
-  { k: "NET WORTH", v: "$148,320" },
-  { k: "BUDGETED", v: "$3,480" },
-  { k: "SAVINGS · YTD", v: "$12,900" },
-  { k: "RUNWAY", v: "14.2 MO" },
-  { k: "PORTFOLIO · DAY", v: "+1.18%" },
-  { k: "VOL · 30D", v: "11.4%" },
 ];
 
 const priceFormatter = new Intl.NumberFormat("en-US", {
@@ -87,10 +77,10 @@ export default function Home({ quotes }: HomeProps) {
                   </div>
                 );
               })
-            : [...fallbackMarquee, ...fallbackMarquee, ...fallbackMarquee].map((item, i) => (
+            : [...TOP_US_TICKER_SYMBOLS, ...TOP_US_TICKER_SYMBOLS, ...TOP_US_TICKER_SYMBOLS].map((symbol, i) => (
                 <div key={i} className="flex shrink-0 items-center gap-3 px-8">
-                  <span className="label-eyebrow">{item.k}</span>
-                  <span className="num text-[11px] text-bone">{item.v}</span>
+                  <span className="label-eyebrow">{symbol}</span>
+                  <span className="num text-[11px] text-bone">—</span>
                   <span className="text-bone-ghost">·</span>
                 </div>
               ))}
@@ -246,9 +236,9 @@ export default function Home({ quotes }: HomeProps) {
                 </div>
 
                 <div className="mt-3 grid grid-cols-3 divide-x divide-[var(--stroke)] overflow-hidden rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-0)]">
-                  <Readout eyebrow="NET / M" value="+$2,770" tone="sage" />
-                  <Readout eyebrow="BUDGET" value="62%" tone="amber" />
-                  <Readout eyebrow="DAY · PORT" value="+1.18%" tone="sage" />
+                  <Readout eyebrow="SAMPLE · NET / M" value="+$2,770" tone="sage" />
+                  <Readout eyebrow="SAMPLE · BUDGET" value="62%" tone="amber" />
+                  <Readout eyebrow="SAMPLE · DAY · PORT" value="+1.18%" tone="sage" />
                 </div>
               </div>
 
@@ -279,9 +269,9 @@ export default function Home({ quotes }: HomeProps) {
                 {
                   eyebrow: "LAYER · 01",
                   title: "Transaction truth",
-                  body: "Plaid-imported, normalized, categorized — with a deterministic floor underneath every AI suggestion.",
-                  stat: "2 LAYER",
-                  statLabel: "AI + DETERMINISTIC",
+                  body: "Plaid-imported transactions keep their account, merchant, category, date, amount, and pending state clear.",
+                  stat: "SOURCE",
+                  statLabel: "TRANSACTION LEDGER",
                 },
                 {
                   eyebrow: "LAYER · 02",
@@ -292,10 +282,10 @@ export default function Home({ quotes }: HomeProps) {
                 },
                 {
                   eyebrow: "LAYER · 03",
-                  title: "Scenario engine",
-                  body: "Simulate allocations on virtual dollars mapped to real income. Practice the move before taking it.",
-                  stat: "T–0",
-                  statLabel: "ZERO RISK SANDBOX",
+                  title: "Paper trading",
+                  body: "Create a USD practice portfolio and record hypothetical stock trades without touching a brokerage account.",
+                  stat: "$100K",
+                  statLabel: "DEFAULT PRACTICE CASH",
                 },
               ].map((c, i) => (
                 <article
@@ -359,29 +349,22 @@ export default function Home({ quotes }: HomeProps) {
                   Open the <span className="italic text-brass-hi">desk.</span>
                 </h2>
                 <p className="mt-6 max-w-md text-[14px] leading-[1.7] text-bone-mute">
-                  Free to use. Open source. Every keystroke local-first where it can be,
-                  cleanly wired to your banks where it can&apos;t.
+                  Import bank transactions, set monthly budgets, and review connected holdings
+                  from one private workspace.
                 </p>
                 <div className="mt-10 flex flex-wrap items-center gap-4">
                   <Link href="/login" className="btn-brass">
                     Take the desk
                     <span aria-hidden>→</span>
                   </Link>
-                  <a
-                    href="https://github.com/abbeazale/finwin"
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-ghost"
-                  >
-                    Inspect the source
-                  </a>
+                  <Link href="/privacy" className="btn-ghost">Read the privacy policy</Link>
                 </div>
               </div>
 
               <div className="relative rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)]/70 p-6 smoked">
                 <div className="mb-4 flex items-center justify-between">
                   <span className="label-eyebrow">Ledger · preview</span>
-                  <span className="pill pill-sage"><span className="h-1 w-1 rounded-full bg-[var(--sage-hi)] animate-pulse-dot" />Live</span>
+                  <span className="pill pill-sage"><span className="h-1 w-1 rounded-full bg-[var(--sage-hi)]" />Sample</span>
                 </div>
                 <div className="space-y-3 font-[family-name:var(--font-mono)] text-[11px]">
                   {[
@@ -418,10 +401,8 @@ export default function Home({ quotes }: HomeProps) {
               </Link>
             </div>
             <div className="flex flex-col gap-2 md:items-end">
-              <span className="label-eyebrow">MIT · Open source</span>
-              <a href="https://github.com/abbeazale/finwin" className="text-[12px] text-bone-mute hover:text-brass-hi">
-                github.com/abbeazale/finwin ↗
-              </a>
+              <span className="label-eyebrow">Private pilot</span>
+              <span className="text-[12px] text-bone-mute">Built in Vancouver</span>
             </div>
           </footer>
         </main>
@@ -453,7 +434,7 @@ export const getServerSideProps: GetServerSideProps<HomeProps> = async (context)
   const session = await getPageSession(context);
 
   if (!session) {
-    return { props: { quotes: getTickerQuotesForLanding() } };
+    return { props: { quotes: await getTickerQuotesForLanding() } };
   }
 
   const profile = await getUserProfile(session.user.id);

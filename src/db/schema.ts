@@ -4,6 +4,7 @@ import {
   date,
   index,
   integer,
+  jsonb,
   numeric,
   pgTable,
   text,
@@ -381,6 +382,13 @@ export const currencyRates = pgTable(
     ),
   ]),
 );
+
+export const marketQuoteSnapshots = pgTable("market_quote_snapshots", {
+  key: text("key").primaryKey(),
+  quotes: jsonb("quotes").notNull(),
+  fetchedAt: timestamp("fetched_at", { withTimezone: true }).notNull(),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
 
 export const sandboxPortfolios = pgTable(
   "sandbox_portfolios",

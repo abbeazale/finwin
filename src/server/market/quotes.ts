@@ -1,4 +1,8 @@
+import { eq, sql } from "drizzle-orm";
 import { z } from "zod";
+import { marketQuoteSnapshots } from "@/db/schema";
+import { db } from "@/index";
+import { TOP_US_TICKER_SYMBOLS } from "@/lib/market-symbols";
 import { getServerEnvironment } from "@/server/env";
 
 const FINNHUB_QUOTE_URL = "https://finnhub.io/api/v1/quote";
@@ -7,12 +11,7 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 const SEARCH_CACHE_TTL_MS = 60 * 1000;
 const PROVIDER_TIMEOUT_MS = 1_500;
 
-// Largest US stocks by market cap; static because rankings shift too slowly
-// to justify a second API for them.
-const TICKER_SYMBOLS = [
-  "NVDA", "MSFT", "AAPL", "GOOGL", "AMZN", "META", "AVGO", "TSLA", "BRK.B",
-  "LLY", "JPM", "WMT", "V", "ORCL", "MA", "XOM", "COST", "UNH", "NFLX", "HD",
-] as const;
+const LANDING_TICKER_SNAPSHOT_KEY = "top-us-stocks";
 
 const finnhubQuoteSchema = z.object({
   c: z.number(), // current price
@@ -29,6 +28,15 @@ const finnhubSearchSchema = z.object({
   })),
 });
 
+const tickerQuoteSchema = z.object({
+  symbol: z.string(),
+  price: z.number(),
+  change: z.number(),
+  changePercent: z.number(),
+});
+
+const tickerSnapshotSchema = z.array(tickerQuoteSchema).min(1);
+
 export type TickerQuote = {
   symbol: string;
   price: number;
@@ -44,7 +52,7 @@ type SymbolSearchResult = {
 const quoteCache = new Map<string, { quote: TickerQuote; cachedAt: number }>();
 const searchCache = new Map<string, { results: SymbolSearchResult[]; cachedAt: number }>();
 let tickerSnapshot: { quotes: TickerQuote[]; cachedAt: number } | null = null;
-let tickerRefreshInFlight: Promise<void> | null = null;
+let tickerRefreshInFlight: Promise<TickerQuote[]> | null = null;
 
 async function fetchWithTimeout(url: string, timeoutMs: number = PROVIDER_TIMEOUT_MS) {
   const controller = new AbortController();
@@ -148,45 +156,101 @@ export async function searchSymbols(query: string): Promise<SymbolSearchResult[]
   }
 }
 
-async function refreshTickerSnapshot() {
+async function readDurableTickerSnapshot() {
+  try {
+    const [row] = await db
+      .select({
+        quotes: marketQuoteSnapshots.quotes,
+        fetchedAt: marketQuoteSnapshots.fetchedAt,
+      })
+      .from(marketQuoteSnapshots)
+      .where(eq(marketQuoteSnapshots.key, LANDING_TICKER_SNAPSHOT_KEY))
+      .limit(1);
+
+    if (!row) {
+      return null;
+    }
+
+    const parsed = tickerSnapshotSchema.safeParse(row.quotes);
+    if (!parsed.success) {
+      return null;
+    }
+
+    return { quotes: parsed.data, cachedAt: row.fetchedAt.getTime() };
+  } catch {
+    return null;
+  }
+}
+
+async function writeDurableTickerSnapshot(quotes: TickerQuote[], fetchedAt: Date) {
+  try {
+    await db
+      .insert(marketQuoteSnapshots)
+      .values({
+        key: LANDING_TICKER_SNAPSHOT_KEY,
+        quotes,
+        fetchedAt,
+        updatedAt: fetchedAt,
+      })
+      .onConflictDoUpdate({
+        target: marketQuoteSnapshots.key,
+        set: {
+          quotes: sql`excluded.quotes`,
+          fetchedAt: sql`excluded.fetched_at`,
+          updatedAt: sql`excluded.updated_at`,
+        },
+      });
+  } catch {
+    // A provider result still renders when the durable cache is unavailable.
+  }
+}
+
+async function refreshTickerSnapshot(): Promise<TickerQuote[]> {
   if (tickerRefreshInFlight) {
-    await tickerRefreshInFlight;
-    return;
+    return tickerRefreshInFlight;
   }
 
   tickerRefreshInFlight = (async () => {
-    const results = await Promise.all(TICKER_SYMBOLS.map((symbol) => getQuote(symbol)));
+    const results = await Promise.all(TOP_US_TICKER_SYMBOLS.map((symbol) => getQuote(symbol)));
     const quotes = results.filter((quote): quote is TickerQuote => quote !== null);
     if (quotes.length > 0) {
-      tickerSnapshot = { quotes, cachedAt: Date.now() };
+      const fetchedAt = new Date();
+      tickerSnapshot = { quotes, cachedAt: fetchedAt.getTime() };
+      await writeDurableTickerSnapshot(quotes, fetchedAt);
     }
+    return quotes;
   })();
 
   try {
-    await tickerRefreshInFlight;
+    return await tickerRefreshInFlight;
   } finally {
     tickerRefreshInFlight = null;
   }
 }
 
 /**
- * Landing-page quotes: never block TTFB on a cold Finnhub fan-out.
- * Fresh or stale snapshots are returned immediately; refresh runs in the background.
- * Cold instances return [] so the page can use its static marquee fallback.
+ * Landing-page quotes survive serverless cold starts in Postgres. A missing or stale
+ * snapshot refreshes within the request so Vercel cannot freeze the work mid-flight.
  */
-export function getTickerQuotesForLanding(): TickerQuote[] {
+export async function getTickerQuotesForLanding(): Promise<TickerQuote[]> {
   const now = Date.now();
-  const snapshot = tickerSnapshot;
 
-  if (snapshot && now - snapshot.cachedAt < CACHE_TTL_MS) {
-    return snapshot.quotes;
+  if (tickerSnapshot && now - tickerSnapshot.cachedAt < CACHE_TTL_MS) {
+    return tickerSnapshot.quotes;
   }
 
-  void refreshTickerSnapshot();
-
-  if (snapshot) {
-    return snapshot.quotes;
+  const durableSnapshot = await readDurableTickerSnapshot();
+  if (durableSnapshot) {
+    tickerSnapshot = durableSnapshot;
+    if (now - durableSnapshot.cachedAt < CACHE_TTL_MS) {
+      return durableSnapshot.quotes;
+    }
   }
 
-  return [];
+  const refreshedQuotes = await refreshTickerSnapshot();
+  if (refreshedQuotes.length > 0) {
+    return refreshedQuotes;
+  }
+
+  return durableSnapshot?.quotes ?? tickerSnapshot?.quotes ?? [];
 }
