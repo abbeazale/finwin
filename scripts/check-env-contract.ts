@@ -25,6 +25,7 @@ const base = {
     v1: Buffer.alloc(32, 1).toString("base64"),
   }),
   FX_REFRESH_SECRET: "fx-refresh-secret-at-least-32-characters",
+  PLAID_REVOCATION_RETRY_SECRET: "plaid-revocation-retry-secret-32-chars",
 } satisfies EnvironmentSource;
 
 function expectValid(name: string, overrides: EnvironmentSource) {
@@ -61,8 +62,10 @@ expectValid("staging contract", {
   AUTH_TRUSTED_ORIGINS: "https://staging.finwin.example",
   PLAID_ENV: "development",
   PLAID_WEBHOOK_URL: "https://staging.finwin.example/api/plaid/webhook",
+  RESEND_API_KEY: "re_staging_key",
+  FINWIN_MAIL_FROM: "FinWin <desk@staging.finwin.example>",
 });
-expectValid("production contract", {
+const productionContract = {
   FINWIN_ENV: "production",
   DATABASE_ENVIRONMENT: "production",
   DATABASE_URL: "postgresql://finwin:finwin@production.db.example/finwin",
@@ -71,7 +74,10 @@ expectValid("production contract", {
   AUTH_TRUSTED_ORIGINS: "https://finwin.example",
   PLAID_ENV: "production",
   PLAID_WEBHOOK_URL: "https://finwin.example/api/plaid/webhook",
-});
+  RESEND_API_KEY: "re_production_key",
+  FINWIN_MAIL_FROM: "FinWin <desk@finwin.example>",
+} satisfies EnvironmentSource;
+expectValid("production contract", productionContract);
 expectInvalid(
   "preview production database isolation",
   { FINWIN_ENV: "preview", DATABASE_ENVIRONMENT: "production" },
@@ -135,6 +141,31 @@ expectInvalid(
   "wildcard trusted origin",
   { AUTH_TRUSTED_ORIGINS: "https://*.finwin.example,http://localhost:3000" },
   "AUTH_TRUSTED_ORIGINS cannot contain wildcard origins",
+);
+expectInvalid(
+  "production password recovery mail requirement",
+  { ...productionContract, RESEND_API_KEY: undefined },
+  "RESEND_API_KEY is required for staging and production",
+);
+expectInvalid(
+  "production mail sender requirement",
+  { ...productionContract, FINWIN_MAIL_FROM: undefined },
+  "FINWIN_MAIL_FROM is required for staging and production",
+);
+expectInvalid(
+  "malformed mail sender",
+  { FINWIN_MAIL_FROM: "FinWin desk" },
+  "FINWIN_MAIL_FROM must be an email address",
+);
+expectInvalid(
+  "revocation retry secret requirement",
+  { ...productionContract, PLAID_REVOCATION_RETRY_SECRET: "short" },
+  "PLAID_REVOCATION_RETRY_SECRET must be at least 32 characters",
+);
+expectInvalid(
+  "revocation retry secret isolation",
+  { PLAID_REVOCATION_RETRY_SECRET: authSecretV1 },
+  "Better Auth secrets must be independent from API and provider secrets",
 );
 
 console.log("Environment, origin, preview isolation, and auth secret checks passed.");

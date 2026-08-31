@@ -213,6 +213,42 @@ export const bankConnections = pgTable(
   ]),
 );
 
+/**
+ * Provider access that FinWin has promised to revoke but has not yet confirmed.
+ *
+ * Unlinking deletes the connection so the user stops seeing it, but the
+ * encrypted credential is the only thing that can revoke access at the
+ * provider. A row lives here for exactly as long as revocation is outstanding.
+ */
+export const pendingProviderRevocations = pgTable(
+  "pending_provider_revocations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // Deliberately "set null" rather than "cascade": deleting the user must not
+    // destroy the credential FinWin still needs to revoke access on their behalf.
+    userId: text("user_id").references(() => user.id, { onDelete: "set null" }),
+    provider: text("provider").notNull(), // "plaid"
+    providerItemId: text("provider_item_id").notNull(),
+    // Null once the row is abandoned. The credential is dropped at that point so
+    // a token FinWin can no longer use does not sit in the database forever.
+    accessTokenEncrypted: text("access_token_encrypted"),
+    accessTokenKeyVersion: text("access_token_key_version"),
+    status: text("status").notNull().default("pending"), // "pending" | "abandoned"
+    attempts: integer("attempts").notNull().default(0),
+    lastAttemptAt: timestamp("last_attempt_at", { withTimezone: true }),
+    lastErrorCode: text("last_error_code"),
+    nextAttemptAt: timestamp("next_attempt_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => ([
+    index("pending_provider_revocations_due_idx").on(table.status, table.nextAttemptAt),
+    uniqueIndex("pending_provider_revocations_item_unique").on(table.providerItemId),
+  ]),
+);
+
 export const bankAccounts = pgTable(
   "bank_accounts",
   {

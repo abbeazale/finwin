@@ -92,6 +92,7 @@
 - tRPC API → `src/pages/api/trpc/[trpc].ts`
 - Plaid webhook → `src/pages/api/plaid/webhook.ts` (REST, raw body required)
 - Internal FX refresh → `src/pages/api/internal/fx/refresh.ts` (`POST`, bearer `FX_REFRESH_SECRET` required in production)
+- Internal Plaid revocation retry → `src/pages/api/internal/plaid/revocations/retry.ts` (`POST`, bearer `PLAID_REVOCATION_RETRY_SECRET` required outside local). Due rows also retry on connection-list, transaction-sync, and webhook traffic because Hobby cannot schedule Vercel Cron.
 - App data mutations/queries → add procedures to `src/server/trpc/routers/`
 - Current product pages include `/dashboard`, `/transactions`, `/budgets`, `/investments`, `/sandbox`, `/settings/connections`, `/settings/security`, and `/two-factor`.
 - `/investments` is the read-only real investment accounts page.

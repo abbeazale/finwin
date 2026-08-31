@@ -57,6 +57,19 @@ Required to boot auth, database, and bank linking:
 | `PLAID_ENV` | `sandbox`, `development`, or `production` |
 | `PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION` | Active key id (e.g. `v1`) |
 | `PLAID_TOKEN_ENCRYPTION_KEYS` | JSON map of version → base64 32-byte keys |
+| `PLAID_REVOCATION_RETRY_SECRET` | Bearer token for `POST /api/internal/plaid/revocations/retry` (min 32 chars) |
+
+Required in staging and production, because password recovery cannot deliver
+mail without them:
+
+| Variable | Purpose |
+|---|---|
+| `RESEND_API_KEY` | Resend API key for transactional email |
+| `FINWIN_MAIL_FROM` | Verified sender, e.g. `FinWin <desk@finwin.example>` |
+
+Locally, leaving `RESEND_API_KEY` unset prints the reset link to the server
+console instead of sending it. That fallback is restricted to `FINWIN_ENV=local`
+so a deployed environment can never print a reset credential to its logs.
 
 Optional integrations (features degrade without them):
 
@@ -256,5 +269,25 @@ bun run verify
 - `/sandbox` provides deterministic multi-portfolio paper trading with live quotes.
 - `/settings/connections` manages Plaid bank connections (requires recent strong auth).
 - `/settings/security` manages passkeys and TOTP.
+- `/forgot-password` requests a single-use password reset link.
+- `/reset-password` consumes that link and sets a new password.
 
 Plaid webhooks remain a raw-body REST route at `/api/plaid/webhook`. App data reads and writes go through tRPC.
+
+### Bank unlink and provider revocation
+
+Unlinking deletes the connection and detaches its accounts, but transaction
+history stays. The encrypted access token is the only thing that can revoke
+access at Plaid, so it is never dropped on a failed `itemRemove`. Instead the
+credential moves to `pending_provider_revocations` inside the same transaction
+that deletes the connection, and the user is told that revocation is still
+pending rather than complete.
+
+Hobby cannot run Vercel Cron, so the queue is worked on later Plaid traffic
+instead. Opening `/settings/connections`, a manual transaction sync, and
+incoming Plaid webhooks retry every due row with exponential backoff from 5
+minutes up to 12 hours. `POST /api/internal/plaid/revocations/retry` with
+`Authorization: Bearer $PLAID_REVOCATION_RETRY_SECRET` runs the same sweep by
+hand. After 12 failed attempts a row is marked `abandoned` and its credential
+is deleted; that emits a `REVOCATION_ABANDONED` log, and an operator must then
+remove the Item in the Plaid dashboard by hand.

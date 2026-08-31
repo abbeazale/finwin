@@ -7,15 +7,16 @@ import {
   createCorrelationId,
   logProviderError,
 } from "@/server/observability/provider-error";
+import { sweepDuePlaidRevocationsSafely } from "@/server/plaid/revocation";
+import {
+  RequestBodyTooLargeError,
+  readBoundedRawBody,
+} from "@/server/plaid/raw-body";
 import {
   syncConnection,
   syncInvestmentHoldings,
   syncInvestmentTransactions,
 } from "@/server/plaid/sync";
-import {
-  RequestBodyTooLargeError,
-  readBoundedRawBody,
-} from "@/server/plaid/raw-body";
 import { verifyPlaidWebhook } from "@/server/plaid/webhook-verify";
 
 // Next's default body parser would strip whitespace and break request_body_sha256.
@@ -89,46 +90,47 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
       correlationId,
       errorCode: "CONNECTION_NOT_FOUND",
     });
-    return res.status(200).json({ ok: true });
-  }
-
-  try {
-    if (payload.webhook_type === "TRANSACTIONS" && SYNC_CODES.has(payload.webhook_code)) {
-      // Plaid retries on non-2xx responses, so keep this handler synchronous until sync volume warrants a durable queue.
-      await syncConnection(connection.id);
-    } else if (payload.webhook_type === "HOLDINGS" && payload.webhook_code === "DEFAULT_UPDATE") {
-      await syncInvestmentHoldings(connection.id);
-    } else if (
-      payload.webhook_type === "INVESTMENTS_TRANSACTIONS" &&
-      payload.webhook_code === "DEFAULT_UPDATE"
-    ) {
-      await syncInvestmentTransactions(connection.id);
-    } else if (payload.webhook_type === "ITEM") {
-      if (payload.webhook_code === "ERROR") {
-        await db
-          .update(bankConnections)
-          .set({ status: "error", updatedAt: new Date() })
-          .where(eq(bankConnections.id, connection.id));
-      } else if (payload.webhook_code === "PENDING_EXPIRATION") {
-        await db
-          .update(bankConnections)
-          .set({ status: "error", updatedAt: new Date() })
-          .where(eq(bankConnections.id, connection.id));
-      } else if (payload.webhook_code === "LOGIN_REPAIRED") {
-        await db
-          .update(bankConnections)
-          .set({ status: "active", updatedAt: new Date() })
-          .where(eq(bankConnections.id, connection.id));
+  } else {
+    try {
+      if (payload.webhook_type === "TRANSACTIONS" && SYNC_CODES.has(payload.webhook_code)) {
+        // Plaid retries on non-2xx responses, so keep this handler synchronous until sync volume warrants a durable queue.
+        await syncConnection(connection.id);
+      } else if (payload.webhook_type === "HOLDINGS" && payload.webhook_code === "DEFAULT_UPDATE") {
+        await syncInvestmentHoldings(connection.id);
+      } else if (
+        payload.webhook_type === "INVESTMENTS_TRANSACTIONS" &&
+        payload.webhook_code === "DEFAULT_UPDATE"
+      ) {
+        await syncInvestmentTransactions(connection.id);
+      } else if (payload.webhook_type === "ITEM") {
+        if (payload.webhook_code === "ERROR") {
+          await db
+            .update(bankConnections)
+            .set({ status: "error", updatedAt: new Date() })
+            .where(eq(bankConnections.id, connection.id));
+        } else if (payload.webhook_code === "PENDING_EXPIRATION") {
+          await db
+            .update(bankConnections)
+            .set({ status: "error", updatedAt: new Date() })
+            .where(eq(bankConnections.id, connection.id));
+        } else if (payload.webhook_code === "LOGIN_REPAIRED") {
+          await db
+            .update(bankConnections)
+            .set({ status: "active", updatedAt: new Date() })
+            .where(eq(bankConnections.id, connection.id));
+        }
       }
+    } catch (err) {
+      logProviderError(err, {
+        operation: "plaid-webhook-sync",
+        correlationId,
+        connectionId: connection.id,
+      });
+      // Still 200 so Plaid doesn't hammer us; we have logs.
     }
-  } catch (err) {
-    logProviderError(err, {
-      operation: "plaid-webhook-sync",
-      correlationId,
-      connectionId: connection.id,
-    });
-    // Still 200 so Plaid doesn't hammer us; we have logs.
   }
 
+  // Hobby cannot schedule Vercel Cron, so due revocations ride along here.
+  await sweepDuePlaidRevocationsSafely(correlationId);
   return res.status(200).json({ ok: true });
 }

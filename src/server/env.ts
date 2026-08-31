@@ -39,6 +39,9 @@ const rawEnvironmentSchema = z.object({
   FINNHUB_API_KEY: optionalString,
   OER_KEY: optionalString,
   FX_REFRESH_SECRET: optionalString,
+  RESEND_API_KEY: optionalString,
+  FINWIN_MAIL_FROM: optionalString,
+  PLAID_REVOCATION_RETRY_SECRET: optionalString,
 });
 
 type RawEnvironment = z.infer<typeof rawEnvironmentSchema>;
@@ -73,6 +76,9 @@ type ServerEnvironment = {
   finnhubApiKey: string | undefined;
   openExchangeRatesKey: string | undefined;
   fxRefreshSecret: string | undefined;
+  resendApiKey: string | undefined;
+  mailFrom: string | undefined;
+  plaidRevocationRetrySecret: string | undefined;
 };
 
 let cachedEnvironment: ServerEnvironment | undefined;
@@ -236,6 +242,18 @@ function validateEncryptionKeys(raw: RawEnvironment, issues: string[]) {
     issues,
     !(currentVersion in keys),
     "PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION must exist in PLAID_TOKEN_ENCRYPTION_KEYS.",
+  );
+}
+
+function validateMailFrom(value: string | undefined, issues: string[]) {
+  if (!value) return;
+  const address = value.includes("<")
+    ? value.slice(value.indexOf("<") + 1, value.lastIndexOf(">"))
+    : value;
+  addIssue(
+    issues,
+    !/^[^\s@<>]+@[^\s@<>.]+\.[^\s@<>]+$/.test(address.trim()),
+    "FINWIN_MAIL_FROM must be an email address, optionally as \"Name <user@domain>\".",
   );
 }
 
@@ -410,6 +428,25 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
       !raw.FX_REFRESH_SECRET || raw.FX_REFRESH_SECRET.length < 32,
       "FX_REFRESH_SECRET must be at least 32 characters outside local development.",
     );
+    addIssue(
+      issues,
+      !raw.PLAID_REVOCATION_RETRY_SECRET || raw.PLAID_REVOCATION_RETRY_SECRET.length < 32,
+      "PLAID_REVOCATION_RETRY_SECRET must be at least 32 characters outside local development.",
+    );
+  }
+
+  validateMailFrom(raw.FINWIN_MAIL_FROM, issues);
+  if (deployment === "staging" || deployment === "production") {
+    addIssue(
+      issues,
+      !raw.RESEND_API_KEY,
+      "RESEND_API_KEY is required for staging and production so password recovery can send mail.",
+    );
+    addIssue(
+      issues,
+      !raw.FINWIN_MAIL_FROM,
+      "FINWIN_MAIL_FROM is required for staging and production so password recovery can send mail.",
+    );
   }
 
   const providerSecrets = [
@@ -420,6 +457,8 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
     raw.FX_REFRESH_SECRET,
     raw.FINNHUB_API_KEY,
     raw.OER_KEY,
+    raw.RESEND_API_KEY,
+    raw.PLAID_REVOCATION_RETRY_SECRET,
   ].filter((value): value is string => Boolean(value));
   for (const authSecret of new Set([
     betterAuthSecret,
@@ -468,6 +507,9 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
     finnhubApiKey: raw.FINNHUB_API_KEY,
     openExchangeRatesKey: raw.OER_KEY,
     fxRefreshSecret: raw.FX_REFRESH_SECRET,
+    resendApiKey: raw.RESEND_API_KEY,
+    mailFrom: raw.FINWIN_MAIL_FROM,
+    plaidRevocationRetrySecret: raw.PLAID_REVOCATION_RETRY_SECRET,
   };
 }
 

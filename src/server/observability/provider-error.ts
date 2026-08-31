@@ -7,9 +7,11 @@ type ProviderOperation =
   | "plaid-initial-sync"
   | "plaid-transaction-sync"
   | "plaid-item-remove"
+  | "plaid-item-remove-retry"
   | "plaid-webhook-connection-lookup"
   | "plaid-webhook-sync"
-  | "open-exchange-rates-refresh";
+  | "open-exchange-rates-refresh"
+  | "resend-email-send";
 
 export type ProviderErrorEvent = {
   operation: ProviderOperation;
