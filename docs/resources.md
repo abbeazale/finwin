@@ -21,6 +21,8 @@
 - `src/server/plaid/crypto.ts` — application-layer AES-256-GCM encryption/decryption for Plaid access tokens
 - `src/server/plaid/sync.ts` — Plaid bank transaction sync and stable investment-sync re-exports
 - `src/server/plaid/sync-investments.ts` — Plaid security, holding, and investment transaction sync
+- `src/server/plaid/connection-sync-state.ts` — persisted `syncing` / `ready` / `sync_failed` transitions shared by transaction, investment, and webhook sync paths
+- `src/lib/bank-connection-status.ts` — shared connection status vocabulary, labels, and first-import notice rules
 - `src/lib/budget-status.ts` — shared budget status type and labels
 - `src/lib/name.ts` — shared name normalization helper
 - `src/components/dashboard/nav.ts` — shared dashboard nav items and active-route helper
@@ -41,6 +43,7 @@
 - `docs/spec/dashboard-analytics.md` — Phase 3 dashboard analytics spec
 - `docs/plan/dashboard-analytics.md` — Phase 3 implementation plan for replacing dashboard placeholders with live data
 - `docs/spec/plaid-token-encryption.md` — focused security spec for replacing plaintext Plaid access-token storage
+- `docs/spec/recent-auth.md` — recent-auth boundary and recovery policy for destructive Plaid connection actions
 - `docs/spec/investments-real-accounts.md` — Phase 6a real investment accounts overview and order
 - `docs/plan/investments-real-accounts.md` — Phase 6a implementation order and final verification
 - `docs/spec/investments-schema-accounts.md` — investment account nickname and storage schema spec
@@ -52,6 +55,7 @@
 - `docs/spec/investments-fx-rates.md` — USD aggregation and FX cache rules
 - `docs/plan/investments-fx-rates.md` — investment FX implementation plan
 - `src/pages/settings/connections.tsx` — bank connection management
+- `drizzle/0011_bank_connection_sync_state.sql` — backfills the old connection statuses and enforces the new state/error-code invariants
 - `docs/future.md` — deferred ideas and known gaps
 - `docs/plan/plaid-integration.md` — Plaid integration phased plan (complete)
 - `docs/spec/plaid-integration.md` — Plaid integration spec (complete)

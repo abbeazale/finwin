@@ -1,5 +1,46 @@
 # FinWin Ledger
 
+## 2026-08-31
+
+### Pilot-to-paid Batch 2B implemented
+
+- Replaced the ambiguous `active` / `error` connection status with `linked`,
+  `syncing`, `ready`, and `sync_failed`, backed by database constraints that
+  require an error code only for failed syncs.
+- Token exchange now returns a typed first-import outcome. Dashboard and
+  Connections messages report failed imports as failures instead of showing a
+  successful link above an empty ledger.
+- Added retry actions for failed and unfinished imports. Transaction,
+  investment, and webhook sync entry points now share the persisted state
+  transition wrapper.
+- Applied `drizzle/0011_bank_connection_sync_state.sql` to the local Neon
+  environment. The retained connection backfilled to `ready`; both constraints
+  are present.
+- A temporary database probe moved `sync_failed` → `ready`, cleared the error,
+  and set `last_synced_at`. A forced `syncConnection` exception separately
+  persisted `sync_failed` with `UNKNOWN`. Both probe rows were removed. `bun run
+  verify` passed with 68 tests, typecheck, lint, knip, audit, security checks,
+  and build.
+- The collaborative browser compiled and served `/settings/connections`, then
+  redirected to `/login` because it had no authenticated local session.
+
+### Pilot-to-paid Batch 2A implemented
+
+- Narrowed the 15-minute recent-auth guard to destructive Plaid connection
+  actions. Creating a Link token and exchanging a public token now require a
+  valid session through `protectedProcedure`; unlink and reactivation remain on
+  `recentAuthProcedure`.
+- Removed the dead "Sign in again" links from bank-link and connection error
+  messages. Recent-auth failures now tell the user to log out, sign in, and
+  retry because `/login` redirects an existing session without creating a new
+  strong-auth timestamp.
+- Updated the recent-auth policy spec, project plan, resources map, and README.
+- Verified with `bun run verify`: 66 tests passed, followed by typecheck, lint,
+  knip, production dependency audit, security checks, and a production build.
+- `docs/`, `ledger.md`, and `decisions.tsv` remain local and must not be
+  committed under the project working rules. The focused recent-auth test was
+  part of the requested Batch 2A change.
+
 ## 2026-08-29
 
 ### Drop Vercel Cron for Hobby

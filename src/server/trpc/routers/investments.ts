@@ -1,5 +1,5 @@
 import { TRPCError } from "@trpc/server";
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
   bankAccounts,
@@ -21,6 +21,8 @@ import {
   type InvestmentValueResult,
 } from "@/server/investments/values";
 import { formatDecimalValue } from "@/server/lib/money";
+import { SYNCABLE_BANK_CONNECTION_STATUSES } from "@/lib/bank-connection-status";
+import { runConnectionSyncAttempt } from "@/server/plaid/connection-sync-state";
 import {
   syncInvestmentHoldings,
   syncInvestmentTransactions,
@@ -236,14 +238,17 @@ export const investmentsRouter = router({
 
       const results = await Promise.all(
         connectionIds.map(async (connectionId) => {
-          const holdings = await syncInvestmentHoldings(connectionId);
-          const investmentTx = await syncInvestmentTransactions(connectionId);
-          return {
-            connectionId,
-            holdingsUpdated: holdings.investmentHoldingsUpserted,
-            holdingsRemoved: holdings.investmentHoldingsRemoved,
-            transactionsUpserted: investmentTx.investmentTransactionsUpserted,
-          };
+          return runConnectionSyncAttempt(connectionId, async () => {
+            const holdings = await syncInvestmentHoldings(connectionId);
+            const investmentTx = await syncInvestmentTransactions(connectionId);
+            return {
+              status: "ready" as const,
+              connectionId,
+              holdingsUpdated: holdings.investmentHoldingsUpserted,
+              holdingsRemoved: holdings.investmentHoldingsRemoved,
+              transactionsUpserted: investmentTx.investmentTransactionsUpserted,
+            };
+          });
         }),
       );
 
@@ -390,7 +395,7 @@ async function assertOwnedInvestmentConnection(userId: string, connectionId: str
       and(
         eq(bankConnections.id, connectionId),
         eq(bankConnections.userId, userId),
-        eq(bankConnections.status, "active"),
+        inArray(bankConnections.status, [...SYNCABLE_BANK_CONNECTION_STATUSES]),
         eq(bankAccounts.type, "investment"),
         eq(bankAccounts.isActive, true),
       ),
@@ -412,7 +417,7 @@ async function getOwnedInvestmentConnectionIds(userId: string) {
     .where(
       and(
         eq(bankConnections.userId, userId),
-        eq(bankConnections.status, "active"),
+        inArray(bankConnections.status, [...SYNCABLE_BANK_CONNECTION_STATUSES]),
         eq(bankAccounts.type, "investment"),
         eq(bankAccounts.isActive, true),
       ),

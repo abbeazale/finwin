@@ -2,15 +2,21 @@
 
 ## Goal
 
-Sensitive bank-linking mutations must prove a recent strong authentication
-event. A stolen long-lived session cookie alone is not enough.
+Destructive bank-connection mutations must prove a recent strong authentication
+event. A stolen long-lived session cookie alone is not enough to revoke or
+restore provider access.
 
 ## Operations that require step-up
 
-- `plaid.createLinkToken`
-- `plaid.exchangeToken`
 - `plaid.unlinkConnection`
 - `plaid.reactivateConnection`
+
+`plaid.createLinkToken` and `plaid.exchangeToken` require a valid authenticated
+session through `protectedProcedure`, but do not require recent authentication.
+Plaid authenticates the user at their financial institution during Link, and
+linking an account is not destructive. Keeping the 15-minute guard here blocked
+returning users whose valid sessions were older than the freshness window, while
+the former sign-in link could not create a new session.
 
 ## What counts as recent
 
@@ -35,5 +41,6 @@ freshness clock.
 
 ## Client recovery
 
-Show the server message and link to `/login?returnTo=/settings/connections` so
-the user establishes a fresh session, then retries the bank action.
+Show the server message instructing the user to log out, sign in, and retry.
+Do not link an authenticated user to `/login`: that route redirects an existing
+session to the dashboard without establishing a fresh session.

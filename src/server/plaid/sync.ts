@@ -29,21 +29,39 @@ import {
   PLAID_PRIMARY_FALLBACK_MAP,
 } from "@/server/lib/category-map";
 import { DEFAULT_CATEGORY_NAME } from "@/server/lib/category-taxonomy";
+import { SYNCABLE_BANK_CONNECTION_STATUSES } from "@/lib/bank-connection-status";
+import { runConnectionSyncAttempt } from "@/server/plaid/connection-sync-state";
 import {
   CURSOR_RESET_ERROR_CODES,
   USER_ACTION_ERROR_CODES,
   classifyErrorReason,
+  getSyncFailureState,
   normalizeTransactionAmount,
   type SyncErrorReason,
+  type SyncFailureReason,
 } from "@/server/plaid/sync-rules";
 
-type SyncResult = {
+type SyncCounts = {
   added: number;
   modified: number;
   removed: number;
   cursor: string | null;
-  errorReason: SyncErrorReason;
-} & InvestmentSyncResult;
+};
+
+type SyncResult = SyncCounts &
+  InvestmentSyncResult &
+  (
+    | {
+        status: "ready";
+        syncErrorCode: null;
+        errorReason: Exclude<SyncErrorReason, SyncFailureReason>;
+      }
+    | {
+        status: "sync_failed";
+        syncErrorCode: string;
+        errorReason: SyncFailureReason;
+      }
+  );
 
 function resolveCategoryId(
   plaidTx: PlaidTransaction,
@@ -62,6 +80,12 @@ function resolveCategoryId(
 export async function syncConnection(
   connectionId: string,
 ): Promise<SyncResult> {
+  return runConnectionSyncAttempt(connectionId, () =>
+    performConnectionSync(connectionId),
+  );
+}
+
+async function performConnectionSync(connectionId: string): Promise<SyncResult> {
   const [connection] = await db
     .select({
       id: bankConnections.id,
@@ -137,17 +161,9 @@ export async function syncConnection(
       }
 
       if (errorCode && USER_ACTION_ERROR_CODES.has(errorCode)) {
-        // User needs to re-authenticate; mark the connection as errored.
         const reason = classifyErrorReason(errorCode);
-        await db
-          .update(bankConnections)
-          .set({
-            status: "error",
-            syncErrorCode: errorCode,
-            updatedAt: new Date(),
-          })
-          .where(eq(bankConnections.id, connectionId));
         return {
+          ...getSyncFailureState(errorCode),
           added: 0,
           modified: 0,
           removed: 0,
@@ -161,6 +177,8 @@ export async function syncConnection(
         // Transactions product not yet ready; not an error state.
         const investments = await syncInvestmentsForConnection(connection.id);
         return {
+          status: "ready",
+          syncErrorCode: null,
           added: 0,
           modified: 0,
           removed: 0,
@@ -170,12 +188,6 @@ export async function syncConnection(
         };
       }
 
-      // Unknown Plaid or network error — mark as errored so the user knows.
-      const code = errorCode ?? "UNKNOWN";
-      await db
-        .update(bankConnections)
-        .set({ status: "error", syncErrorCode: code, updatedAt: new Date() })
-        .where(eq(bankConnections.id, connectionId));
       throw err;
     }
 
@@ -236,15 +248,11 @@ export async function syncConnection(
         );
     }
 
-    const now = new Date();
     await tx
       .update(bankConnections)
       .set({
-        status: "active",
-        syncErrorCode: null,
         lastCursor: cursor,
-        lastSyncedAt: now,
-        updatedAt: now,
+        updatedAt: new Date(),
       })
       .where(eq(bankConnections.id, connection.id));
   });
@@ -252,6 +260,8 @@ export async function syncConnection(
   const investments = await syncInvestmentsForConnection(connection.id);
 
   return {
+    status: "ready",
+    syncErrorCode: null,
     added: added.length,
     modified: modified.length,
     removed: removedIds.length,
@@ -270,7 +280,7 @@ export async function syncUserConnections(
     .where(
       and(
         eq(bankConnections.userId, userId),
-        eq(bankConnections.status, "active"),
+        inArray(bankConnections.status, [...SYNCABLE_BANK_CONNECTION_STATUSES]),
       ),
     );
 

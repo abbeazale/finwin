@@ -10,6 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { getInitialDashboardMonth } from "@/server/dashboard/initial-month";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { DashboardSidebar } from "@/components/dashboard/sidebar";
 import { DashboardHeader } from "@/components/dashboard/header";
 import {
@@ -35,9 +36,11 @@ import { useState, useTransition } from "react";
 import {
   ArrowLeft,
   ArrowRight,
+  CircleCheck,
   CircleDollarSign,
   Settings,
   Target,
+  TriangleAlert,
   Wallet,
 } from "lucide-react";
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
@@ -47,6 +50,7 @@ import {
   ChartTooltipContent,
   type ChartConfig,
 } from "@/components/ui/chart";
+import { getBankLinkNotice } from "@/lib/bank-connection-status";
 
 const cashflowChartConfig = {
   inflow: { label: "Inflow", color: "var(--chart-2)" },
@@ -68,7 +72,7 @@ export default function Dashboard({
   const utils = trpc.useUtils();
   const [month, setMonth] = useState(initialMonth);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
-  const [connectionErrorBanner, setConnectionErrorBanner] = useState(false);
+  const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
   const initials = firstName.slice(0, 2).toUpperCase();
 
@@ -206,20 +210,25 @@ export default function Dashboard({
             onRefreshed={async (result) => {
               await invalidateDashboard();
               if (result.hasConnectionErrors) {
-                setConnectionErrorBanner(true);
+                setConnectionErrorMessage("One or more bank imports failed.");
                 setPageMessage(null);
               } else {
-                setConnectionErrorBanner(false);
+                setConnectionErrorMessage(null);
                 setPageMessage(
                   `Sync: +${result.added} · ~${result.modified} · -${result.removed}`,
                 );
               }
             }}
-            onConnected={async ({ accountCount }) => {
+            onConnected={async (result) => {
               await invalidateDashboard();
-              setPageMessage(
-                `Linked ${accountCount} account${accountCount === 1 ? "" : "s"}.`,
-              );
+              const notice = getBankLinkNotice(result);
+              if (notice.tone === "warn") {
+                setConnectionErrorMessage(notice.text);
+                setPageMessage(null);
+                return;
+              }
+              setConnectionErrorMessage(null);
+              setPageMessage(notice.text);
             }}
           />
 
@@ -280,22 +289,24 @@ export default function Dashboard({
               </div>
             </header>
 
-            {connectionErrorBanner ? (
-              <p className="mb-6 flex items-center gap-3 rounded-[2px] border border-[rgba(232,140,72,0.4)] bg-[rgba(232,140,72,0.05)] px-4 py-2.5 text-[12px] text-amber">
-                <span className="h-1.5 w-1.5 rounded-full bg-amber animate-pulse-dot" />
-                One or more connections need attention —{" "}
-                <Link
-                  href="/settings/connections"
-                  className="underline underline-offset-2 hover:text-bone"
-                >
-                  visit Connections to re-link.
-                </Link>
-              </p>
+            {connectionErrorMessage ? (
+              <Alert variant="destructive" className="mb-6 rounded-[2px]">
+                <TriangleAlert />
+                <AlertTitle>Bank import needs attention</AlertTitle>
+                <AlertDescription>
+                  <p>
+                    {connectionErrorMessage}{" "}
+                    <Link href="/settings/connections" className="underline underline-offset-2">
+                      Open Connections to retry.
+                    </Link>
+                  </p>
+                </AlertDescription>
+              </Alert>
             ) : bannerMessage ? (
-              <p className="mb-6 flex items-center gap-3 rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-2.5 text-[12px] text-brass-hi">
-                <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
-                {bannerMessage}
-              </p>
+              <Alert className="mb-6 rounded-[2px]">
+                <CircleCheck />
+                <AlertDescription>{bannerMessage}</AlertDescription>
+              </Alert>
             ) : null}
 
             {overview && overview.excludedCurrencyTransactionCount > 0 ? (
