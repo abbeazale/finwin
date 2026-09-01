@@ -1,11 +1,5 @@
 # Plaid Sync Hardening — Spec
 
-> Status vocabulary in the original milestone below is historical. Pilot-to-paid
-> Batch 2B replaced `active` / `error` with `linked`, `syncing`, `ready`, and
-> `sync_failed` in `drizzle/0011_bank_connection_sync_state.sql`. Every sync path
-> now persists the transition, and `/settings/connections` retries failed or
-> unfinished imports against the saved connection.
-
 ## Goal
 
 Make the Plaid sync integration production-safe after the first real-data loop is working.

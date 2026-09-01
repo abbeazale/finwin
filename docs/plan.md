@@ -12,8 +12,7 @@ FinWin should help users move from raw transaction noise to understandable finan
 - All app data routes use tRPC. Plaid webhook stays as a plain REST route.
 - Routing is Pages Router only. `/` serves a signed-out marketing page with live Finnhub quotes and routes signed-in users into onboarding or the dashboard.
 - The paper-trading sandbox is shipped; current work is hardening the existing budgeting, investment, and sandbox surfaces.
-- Improve audit findings 1–12 from `docs/ImproveAudit/2026-07-14-codebase-audit.md` are implemented on `improve-audit-batch-1` (auth upgrade, timezone validation, webhook body limits, safe migrate, characterization tests, dashboard currency scoping, ledger pagination, recent strong auth for destructive Plaid mutations, batched Plaid upserts, knip/lint baseline, landing ticker TTFB, and fresh-clone docs). Plaid Link creation and token exchange now require a valid session without the 15-minute freshness guard.
-- Pilot-to-paid Batch 2B is implemented. Bank connections use `linked`, `syncing`, `ready`, and `sync_failed`; the first import outcome reaches the dashboard and Connections page, and failed imports can retry the saved connection without creating a duplicate Plaid item.
+- Improve audit findings 1–12 from `docs/ImproveAudit/2026-07-14-codebase-audit.md` are implemented on `improve-audit-batch-1` (auth upgrade, timezone validation, webhook body limits, safe migrate, characterization tests, dashboard currency scoping, ledger pagination, recent strong auth for bank mutations, batched Plaid upserts, knip/lint baseline, landing ticker TTFB, and fresh-clone docs).
 - Phase 6a implementation is complete through schema, Plaid import, read API/UI, and FX conversion; live Plaid investment-account verification remains.
 - Active hardening pass before real-bank rollout: stored Plaid access tokens now move to encrypted-only storage with a disposable-db reset path for rollout/testing.
 
