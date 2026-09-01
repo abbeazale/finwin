@@ -267,7 +267,7 @@ bun run verify
 - `/budgets` manages monthly category budgets.
 - `/investments` shows linked investment accounts, holdings, and investment transactions.
 - `/sandbox` provides deterministic multi-portfolio paper trading with live quotes.
-- `/settings/connections` manages Plaid bank connections (requires recent strong auth).
+- `/settings/connections` manages Plaid bank connections. Linking requires a valid session; unlinking and reactivation require recent strong authentication.
 - `/settings/security` manages passkeys and TOTP.
 - `/forgot-password` requests a single-use password reset link.
 - `/reset-password` consumes that link and sets a new password.

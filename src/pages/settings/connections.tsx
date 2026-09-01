@@ -2,7 +2,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { ArrowLeft, Building2, Plug, Trash2 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
-import { isRecentAuthRequiredMessage } from "@/lib/recent-auth";
 import { useRequireSession } from "@/hooks/use-require-session";
 import { ConnectBank } from "@/components/connect-bank";
 import { PageStatus } from "@/components/page-status";
@@ -145,20 +144,7 @@ export default function ConnectionsSettings() {
                 message.tone === "warn" ? "bg-amber" : "bg-brass"
               }`}
             />
-            <span>
-              {message.text}
-              {isRecentAuthRequiredMessage(message.text) ? (
-                <>
-                  {" "}
-                  <Link
-                    href="/login?returnTo=/settings/connections"
-                    className="underline underline-offset-2 hover:text-bone"
-                  >
-                    Sign in again
-                  </Link>
-                </>
-              ) : null}
-            </span>
+            <span>{message.text}</span>
           </p>
         ) : null}
 

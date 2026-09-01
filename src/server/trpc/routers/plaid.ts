@@ -52,7 +52,7 @@ function createPlaidLinkTokenError(err: unknown) {
 }
 
 export const plaidRouter = router({
-  createLinkToken: recentAuthProcedure
+  createLinkToken: protectedProcedure
     .input(z.object({ connectionId: z.string().uuid().optional() }))
     .mutation(async ({ ctx, input }) => {
       let updateAccessToken: string | undefined;
@@ -95,7 +95,7 @@ export const plaidRouter = router({
       }
     }),
 
-  exchangeToken: recentAuthProcedure
+  exchangeToken: protectedProcedure
     .input(z.object({ publicToken: z.string() }))
     .mutation(async ({ ctx, input }) => {
       try {

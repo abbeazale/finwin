@@ -2,10 +2,12 @@
  * Recent strong authentication for sensitive FinWin operations.
  *
  * ## What requires step-up
- * - Plaid link-token creation (connect or update mode)
- * - Plaid public-token exchange (persist a new bank connection)
  * - Plaid unlink / local disconnect
  * - Plaid connection reactivation
+ *
+ * Creating a Link token and exchanging a public token require a valid session,
+ * but not recent authentication. Plaid still authenticates the user at their
+ * financial institution, and linking an account is not destructive.
  *
  * Security settings pages already require an authenticated session; passkey and
  * TOTP enrollment continue to use Better Auth's own verification flows.
@@ -17,7 +19,7 @@
  *
  * ## Window
  * 15 minutes. Older sessions receive FORBIDDEN with a stable machine-readable
- * cause so the client can send the user through login again.
+ * cause and instructions to log out before signing in again.
  *
  * ## Verification
  * Enforced only in tRPC `recentAuthProcedure` middleware on the server.
@@ -25,10 +27,10 @@
  */
 
 export const RECENT_AUTH_WINDOW_MS = 15 * 60 * 1000;
-export const RECENT_AUTH_REQUIRED_CAUSE = "RECENT_AUTH_REQUIRED" as const;
+const RECENT_AUTH_REQUIRED_CAUSE = "RECENT_AUTH_REQUIRED" as const;
 
 export const RECENT_AUTH_REQUIRED_MESSAGE =
-  `Confirm it's you again before changing bank connections. Sign in again, then retry. (${RECENT_AUTH_REQUIRED_CAUSE})`;
+  `Confirm it's you again before changing bank connections. Log out, sign in, then retry. (${RECENT_AUTH_REQUIRED_CAUSE})`;
 
 export function getRecentAuthStatus(sessionCreatedAt: Date | null | undefined, now = new Date()) {
   if (!sessionCreatedAt) {
@@ -55,8 +57,4 @@ export function getRecentAuthStatus(sessionCreatedAt: Date | null | undefined, n
     ageMs,
     remainingMs,
   };
-}
-
-export function isRecentAuthRequiredMessage(message: string | undefined) {
-  return Boolean(message?.includes(RECENT_AUTH_REQUIRED_CAUSE));
 }
