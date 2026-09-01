@@ -23,7 +23,7 @@ export function RefreshTransactions({ onRefreshed }: Props) {
           added: acc.added + r.added,
           modified: acc.modified + r.modified,
           removed: acc.removed + r.removed,
-          hasConnectionErrors: acc.hasConnectionErrors || r.errorReason !== null,
+          hasConnectionErrors: acc.hasConnectionErrors || r.status === "sync_failed",
         }),
         { added: 0, modified: 0, removed: 0, hasConnectionErrors: false },
       );
@@ -50,7 +50,7 @@ export function RefreshTransactions({ onRefreshed }: Props) {
         disabled={loading}
         className="btn-ghost disabled:opacity-60"
       >
-        <RefreshCw className={`size-3.5 ${loading ? "animate-spin" : ""}`} />
+        <RefreshCw data-icon="inline-start" className={loading ? "animate-spin" : undefined} />
         {loading ? "Syncing…" : "Sync"}
       </Button>
       {error ? <span className="text-[11px] text-oxide-hi">{error}</span> : null}

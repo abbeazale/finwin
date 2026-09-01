@@ -16,7 +16,9 @@ import {
   decryptPlaidAccessTokenFromRow,
   encryptPlaidAccessToken,
 } from "@/server/plaid/crypto";
-import { getPlaidErrorData } from "@/server/plaid/errors";
+import { getPlaidErrorCode, getPlaidErrorData } from "@/server/plaid/errors";
+import { getSyncFailureState } from "@/server/plaid/sync-rules";
+import { markConnectionLinked } from "@/server/plaid/connection-sync-state";
 import {
   revokePlaidItem,
   sweepDuePlaidRevocationsSafely,
@@ -117,7 +119,7 @@ export const plaidRouter = router({
               providerItemId: itemId,
               accessTokenEncrypted: encryptedToken.encrypted,
               accessTokenKeyVersion: encryptedToken.keyVersion,
-              status: "active",
+              status: "linked",
             })
             .returning({ id: bankConnections.id });
 
@@ -139,16 +141,30 @@ export const plaidRouter = router({
           return conn;
         });
 
-        let initialSync: { added: number; modified: number; removed: number } | null = null;
+        let initialSync:
+          | { status: "ready"; added: number; modified: number; removed: number }
+          | { status: "sync_failed"; syncErrorCode: string };
         try {
           const r = await syncConnection(connection.id);
-          initialSync = { added: r.added, modified: r.modified, removed: r.removed };
+          initialSync =
+            r.status === "ready"
+              ? {
+                  status: "ready",
+                  added: r.added,
+                  modified: r.modified,
+                  removed: r.removed,
+                }
+              : {
+                  status: "sync_failed",
+                  syncErrorCode: r.syncErrorCode,
+                };
         } catch (err) {
           logProviderError(err, {
             operation: "plaid-initial-sync",
             correlationId: ctx.correlationId,
             connectionId: connection.id,
           });
+          initialSync = getSyncFailureState(getPlaidErrorCode(err));
         }
 
         return {
@@ -345,10 +361,7 @@ export const plaidRouter = router({
 
       if (!connection) throw new TRPCError({ code: "NOT_FOUND", message: "Connection not found." });
 
-      await db
-        .update(bankConnections)
-        .set({ status: "active", syncErrorCode: null, updatedAt: new Date() })
-        .where(eq(bankConnections.id, connection.id));
+      await markConnectionLinked(connection.id);
 
       return { ok: true };
     }),
