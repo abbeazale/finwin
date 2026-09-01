@@ -1,9 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
-import Link from "next/link";
 import { usePlaidLink } from "react-plaid-link";
 import { Plus, RotateCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { isRecentAuthRequiredMessage } from "@/lib/recent-auth";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
 
 export type ConnectBankResult = Pick<
@@ -90,7 +88,6 @@ export function ConnectBank({
 
   const buttonClass = className ?? (isUpdate ? "btn-ghost" : "btn-brass");
   const Icon = isUpdate ? RotateCw : Plus;
-  const needsRecentAuth = isRecentAuthRequiredMessage(error ?? undefined);
 
   return (
     <div className="flex flex-col items-end gap-1">
@@ -105,20 +102,7 @@ export function ConnectBank({
         {loading ? "Connecting…" : label ?? (isUpdate ? "Reconnect" : "Connect bank")}
       </Button>
       {error ? (
-        <span className="max-w-xs text-right text-[11px] text-oxide-hi">
-          {error}
-          {needsRecentAuth ? (
-            <>
-              {" "}
-              <Link
-                href="/login?returnTo=/settings/connections"
-                className="underline underline-offset-2 hover:text-bone"
-              >
-                Sign in again
-              </Link>
-            </>
-          ) : null}
-        </span>
+        <span className="max-w-xs text-right text-[11px] text-oxide-hi">{error}</span>
       ) : null}
     </div>
   );

@@ -1,9 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
-  RECENT_AUTH_REQUIRED_CAUSE,
+  RECENT_AUTH_REQUIRED_MESSAGE,
   RECENT_AUTH_WINDOW_MS,
   getRecentAuthStatus,
-  isRecentAuthRequiredMessage,
 } from "./recent-auth";
 
 describe("getRecentAuthStatus", () => {
@@ -30,12 +29,9 @@ describe("getRecentAuthStatus", () => {
   });
 });
 
-describe("isRecentAuthRequiredMessage", () => {
-  test("detects the stable cause token", () => {
-    expect(
-      isRecentAuthRequiredMessage(
-        `Confirm it's you again before changing bank connections. (${RECENT_AUTH_REQUIRED_CAUSE})`,
-      ),
-    ).toBe(true);
+describe("RECENT_AUTH_REQUIRED_MESSAGE", () => {
+  test("gives stale-session users an actionable recovery path", () => {
+    expect(RECENT_AUTH_REQUIRED_MESSAGE).toContain("Log out, sign in, then retry.");
+    expect(RECENT_AUTH_REQUIRED_MESSAGE).toContain("RECENT_AUTH_REQUIRED");
   });
 });
