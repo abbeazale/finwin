@@ -1,9 +1,5 @@
-export type SyncErrorReason =
-  | "login_required"
-  | "locked"
-  | "cursor_reset"
-  | "unknown"
-  | null;
+export type SyncFailureReason = "login_required" | "locked" | "unknown";
+export type SyncErrorReason = SyncFailureReason | "cursor_reset" | null;
 
 /** Plaid error codes that require the user to re-authenticate via Link update mode. */
 export const USER_ACTION_ERROR_CODES = new Set([
@@ -27,7 +23,7 @@ export function normalizeTransactionAmount(providerAmount: number) {
   return (-providerAmount).toFixed(2);
 }
 
-export function classifyErrorReason(errorCode: string): SyncErrorReason {
+export function classifyErrorReason(errorCode: string): SyncFailureReason {
   if (
     errorCode === "ITEM_LOGIN_REQUIRED" ||
     errorCode === "INSUFFICIENT_CREDENTIALS"
@@ -38,6 +34,13 @@ export function classifyErrorReason(errorCode: string): SyncErrorReason {
     return "locked";
   }
   return "unknown";
+}
+
+export function getSyncFailureState(errorCode: string | null) {
+  return {
+    status: "sync_failed" as const,
+    syncErrorCode: errorCode ?? "UNKNOWN",
+  };
 }
 
 export function classifySyncErrorCode(errorCode: string): {

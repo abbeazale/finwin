@@ -244,17 +244,6 @@ export async function syncInvestmentHoldings(
     });
   }
 
-  const now = new Date();
-  await db
-    .update(bankConnections)
-    .set({
-      status: "active",
-      syncErrorCode: null,
-      lastSyncedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(bankConnections.id, connection.id));
-
   return {
     investmentHoldingsUpserted: holdingsUpserted,
     investmentHoldingsRemoved: holdingsRemoved,
@@ -381,17 +370,6 @@ export async function syncInvestmentTransactions(
   });
 
   const transactionsUpserted = transactionRows.length;
-
-  const now = new Date();
-  await db
-    .update(bankConnections)
-    .set({
-      status: "active",
-      syncErrorCode: null,
-      lastSyncedAt: now,
-      updatedAt: now,
-    })
-    .where(eq(bankConnections.id, connection.id));
 
   return {
     investmentHoldingsUpserted: 0,

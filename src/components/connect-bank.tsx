@@ -6,7 +6,7 @@ import { trpc, type RouterOutputs } from "@/lib/trpc";
 
 export type ConnectBankResult = Pick<
   RouterOutputs["plaid"]["exchangeToken"],
-  "connectionId" | "accountCount"
+  "connectionId" | "accountCount" | "initialSync"
 >;
 
 type ConnectBankProps = {
@@ -50,7 +50,11 @@ export function ConnectBank({
           return;
         }
         const data = await exchangeToken.mutateAsync({ publicToken: public_token });
-        onConnected?.({ connectionId: data.connectionId, accountCount: data.accountCount });
+        onConnected?.({
+          connectionId: data.connectionId,
+          accountCount: data.accountCount,
+          initialSync: data.initialSync,
+        });
       } catch (e) {
         setError(getErrorMessage(e));
       } finally {
@@ -98,7 +102,7 @@ export function ConnectBank({
         disabled={loading}
         className={buttonClass}
       >
-        <Icon className="size-3.5" />
+        <Icon data-icon="inline-start" />
         {loading ? "Connecting…" : label ?? (isUpdate ? "Reconnect" : "Connect bank")}
       </Button>
       {error ? (

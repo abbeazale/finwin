@@ -17,6 +17,11 @@ import {
   syncInvestmentHoldings,
   syncInvestmentTransactions,
 } from "@/server/plaid/sync";
+import {
+  markConnectionLinked,
+  markConnectionSyncFailed,
+  runConnectionSyncAttempt,
+} from "@/server/plaid/connection-sync-state";
 import { verifyPlaidWebhook } from "@/server/plaid/webhook-verify";
 
 // Next's default body parser would strip whitespace and break request_body_sha256.
@@ -26,6 +31,7 @@ const plaidWebhookPayloadSchema = z.object({
   webhook_type: z.string(),
   webhook_code: z.string(),
   item_id: z.string(),
+  error: z.object({ error_code: z.string() }).optional(),
 });
 
 type PlaidWebhookPayload = z.infer<typeof plaidWebhookPayloadSchema>;
@@ -96,28 +102,28 @@ export default async function handler(req: NextApiRequest, res: NextApiResponse)
         // Plaid retries on non-2xx responses, so keep this handler synchronous until sync volume warrants a durable queue.
         await syncConnection(connection.id);
       } else if (payload.webhook_type === "HOLDINGS" && payload.webhook_code === "DEFAULT_UPDATE") {
-        await syncInvestmentHoldings(connection.id);
+        await runConnectionSyncAttempt(connection.id, async () => {
+          await syncInvestmentHoldings(connection.id);
+          return { status: "ready" as const };
+        });
       } else if (
         payload.webhook_type === "INVESTMENTS_TRANSACTIONS" &&
         payload.webhook_code === "DEFAULT_UPDATE"
       ) {
-        await syncInvestmentTransactions(connection.id);
+        await runConnectionSyncAttempt(connection.id, async () => {
+          await syncInvestmentTransactions(connection.id);
+          return { status: "ready" as const };
+        });
       } else if (payload.webhook_type === "ITEM") {
         if (payload.webhook_code === "ERROR") {
-          await db
-            .update(bankConnections)
-            .set({ status: "error", updatedAt: new Date() })
-            .where(eq(bankConnections.id, connection.id));
+          await markConnectionSyncFailed(
+            connection.id,
+            payload.error?.error_code ?? "ITEM_ERROR",
+          );
         } else if (payload.webhook_code === "PENDING_EXPIRATION") {
-          await db
-            .update(bankConnections)
-            .set({ status: "error", updatedAt: new Date() })
-            .where(eq(bankConnections.id, connection.id));
+          await markConnectionSyncFailed(connection.id, "PENDING_EXPIRATION");
         } else if (payload.webhook_code === "LOGIN_REPAIRED") {
-          await db
-            .update(bankConnections)
-            .set({ status: "active", updatedAt: new Date() })
-            .where(eq(bankConnections.id, connection.id));
+          await markConnectionLinked(connection.id);
         }
       }
     } catch (err) {

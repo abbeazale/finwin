@@ -14,6 +14,7 @@ import {
   varchar,
 } from "drizzle-orm/pg-core";
 import { sql } from "drizzle-orm";
+import { BANK_CONNECTION_STATUSES } from "@/lib/bank-connection-status";
 
 export const user = pgTable(
   "user",
@@ -201,7 +202,7 @@ export const bankConnections = pgTable(
     providerItemId: text("provider_item_id").notNull(),
     accessTokenEncrypted: text("access_token_encrypted").notNull(),
     accessTokenKeyVersion: text("access_token_key_version").notNull(),
-    status: text("status").notNull(), // "active" | "error"
+    status: text("status", { enum: BANK_CONNECTION_STATUSES }).notNull(),
     lastCursor: text("last_cursor"),
     lastSyncedAt: timestamp("last_synced_at", { withTimezone: true }),
     syncErrorCode: text("sync_error_code"),
@@ -211,6 +212,14 @@ export const bankConnections = pgTable(
   (table) => ([
     index("bank_connections_user_id_idx").on(table.userId),
     uniqueIndex("bank_connections_provider_item_id_unique").on(table.providerItemId),
+    check(
+      "bank_connections_status_check",
+      sql`${table.status} in ('linked', 'syncing', 'ready', 'sync_failed')`,
+    ),
+    check(
+      "bank_connections_sync_error_check",
+      sql`(${table.status} = 'sync_failed' and ${table.syncErrorCode} is not null) or (${table.status} <> 'sync_failed' and ${table.syncErrorCode} is null)`,
+    ),
   ]),
 );
 

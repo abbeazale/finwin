@@ -267,12 +267,21 @@ bun run verify
 - `/budgets` manages monthly category budgets.
 - `/investments` shows linked investment accounts, holdings, and investment transactions.
 - `/sandbox` provides deterministic multi-portfolio paper trading with live quotes.
-- `/settings/connections` manages Plaid bank connections. Linking requires a valid session; unlinking and reactivation require recent strong authentication.
+- `/settings/connections` manages Plaid bank connections and retries failed imports. Linking requires a valid session; unlinking and reactivation require recent strong authentication.
 - `/settings/security` manages passkeys and TOTP.
 - `/forgot-password` requests a single-use password reset link.
 - `/reset-password` consumes that link and sets a new password.
 
 Plaid webhooks remain a raw-body REST route at `/api/plaid/webhook`. App data reads and writes go through tRPC.
+
+### Bank connection sync state
+
+`bank_connections.status` records `linked`, `syncing`, `ready`, or
+`sync_failed`. Token exchange saves the connection before the first import, then
+returns the import outcome to the client. A failed import is never reported as a
+successful link. The dashboard sends the user to `/settings/connections`, where
+the saved connection has a Retry import action. Successful retries clear
+`sync_error_code`, set the connection to `ready`, and update `last_synced_at`.
 
 ### Bank unlink and provider revocation
 

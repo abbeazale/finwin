@@ -1,11 +1,17 @@
 import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Building2, Plug, Trash2 } from "lucide-react";
+import { ArrowLeft, Building2, Plug, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useRequireSession } from "@/hooks/use-require-session";
-import { ConnectBank } from "@/components/connect-bank";
+import { ConnectBank, type ConnectBankResult } from "@/components/connect-bank";
 import { PageStatus } from "@/components/page-status";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+  BANK_CONNECTION_STATUS_LABELS,
+  getBankLinkNotice,
+  type BankConnectionStatus,
+} from "@/lib/bank-connection-status";
 
 type Notice = { text: string; tone: "info" | "warn" };
 
@@ -43,6 +49,38 @@ export default function ConnectionsSettings() {
     },
     onError: (e) => setMessage({ text: e.message, tone: "warn" }),
   });
+
+  const retrySyncMutation = trpc.plaid.syncTransactions.useMutation({
+    onSuccess: (data) => {
+      const result = data.results[0];
+      if (!result || result.status === "sync_failed") {
+        setMessage({
+          text: "The import still needs attention. Reconnect the bank if it requires a new login.",
+          tone: "warn",
+        });
+      } else {
+        setMessage({
+          text: `Import recovered. Added ${result.added}, updated ${result.modified}, and removed ${result.removed} transactions.`,
+          tone: "info",
+        });
+      }
+      void connectionsQuery.refetch();
+    },
+    onError: (error) => {
+      setMessage({ text: error.message, tone: "warn" });
+      void connectionsQuery.refetch();
+    },
+  });
+
+  async function handleConnected(result: ConnectBankResult) {
+    setMessage(getBankLinkNotice(result));
+    await connectionsQuery.refetch();
+  }
+
+  function retrySync(connectionId: string) {
+    setMessage(null);
+    retrySyncMutation.mutate({ connectionId });
+  }
 
   async function unlink(id: string) {
     if (
@@ -92,7 +130,7 @@ export default function ConnectionsSettings() {
                 The plumbing between your accounts and the desk. Unlink anytime — history stays.
               </p>
             </div>
-            <ConnectBank onConnected={() => void connectionsQuery.refetch()} />
+            <ConnectBank onConnected={(result) => void handleConnected(result)} />
           </div>
 
           <div className="flex items-center gap-px overflow-x-auto border-b border-[var(--stroke)]">
@@ -165,7 +203,7 @@ export default function ConnectionsSettings() {
                 Connect a bank to start pulling transactions into the desk.
               </p>
               <div className="mt-2">
-                <ConnectBank onConnected={() => void connectionsQuery.refetch()} />
+                <ConnectBank onConnected={(result) => void handleConnected(result)} />
               </div>
             </div>
           </div>
@@ -178,21 +216,22 @@ export default function ConnectionsSettings() {
               <span className="label-eyebrow text-right">Action</span>
             </div>
             {connections.map((conn) => {
-              const isError = conn.status === "error";
+              const isSyncFailed = conn.status === "sync_failed";
+              const importNeedsRetry = conn.status === "linked" || isSyncFailed;
               return (
                 <article
                   key={conn.id}
                   className={`group relative rounded-[2px] border bg-[var(--ink-1)] p-5 transition-colors cove ${
-                    isError
+                    isSyncFailed
                       ? "border-[rgba(232,140,72,0.35)] hover:border-[rgba(232,140,72,0.55)]"
                       : "border-[var(--stroke)] hover:border-[var(--stroke-2)]"
                   }`}
                 >
-                  {isError ? (
+                  {isSyncFailed ? (
                     <div className="pointer-events-none absolute inset-0 rounded-[2px]" style={{ background: "radial-gradient(ellipse at top left, rgba(232,140,72,0.04), transparent 60%)" }} />
                   ) : null}
                   <div className="relative grid gap-5 lg:grid-cols-[auto_1fr_auto_auto] lg:items-center lg:gap-6">
-                    <div className={`flex size-10 items-center justify-center rounded-[2px] border bg-[var(--ink-0)] ${isError ? "border-[rgba(232,140,72,0.4)] text-amber" : "border-[var(--stroke-2)] text-brass-hi"}`}>
+                    <div className={`flex size-10 items-center justify-center rounded-[2px] border bg-[var(--ink-0)] ${isSyncFailed ? "border-[rgba(232,140,72,0.4)] text-amber" : "border-[var(--stroke-2)] text-brass-hi"}`}>
                       <Building2 className="size-4" />
                     </div>
 
@@ -202,7 +241,7 @@ export default function ConnectionsSettings() {
                           {conn.accounts.length} account{conn.accounts.length === 1 ? "" : "s"}
                         </span>
                         <StatusPill status={conn.status} />
-                        {isError && conn.syncErrorCode ? (
+                        {isSyncFailed && conn.syncErrorCode ? (
                           <span className="label-eyebrow text-amber">
                             {formatSyncErrorCode(conn.syncErrorCode)}
                           </span>
@@ -245,11 +284,11 @@ export default function ConnectionsSettings() {
                     </div>
 
                     <div className="flex flex-wrap items-center gap-2">
-                      {isError ? (
+                      {isSyncFailed ? (
                         <ConnectBank
                           connectionId={conn.id}
                           label="Reconnect"
-                          onReconnected={() => void connectionsQuery.refetch()}
+                          onReconnected={() => retrySync(conn.id)}
                         />
                       ) : null}
                       <Button
@@ -259,13 +298,53 @@ export default function ConnectionsSettings() {
                         disabled={unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id}
                         className="h-10 gap-2 rounded-[2px] border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 text-[11px] uppercase tracking-[0.12em] text-oxide-hi shadow-none hover:border-[rgba(194,106,72,0.5)] hover:bg-[rgba(194,106,72,0.12)] hover:text-oxide-hi disabled:opacity-50"
                       >
-                        <Trash2 className="size-3" />
+                        <Trash2 data-icon="inline-start" />
                         {unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id ? "Unlinking…" : "Unlink"}
                       </Button>
                     </div>
                   </div>
 
-                  {!isError ? (
+                  {importNeedsRetry ? (
+                    <Alert
+                      variant={isSyncFailed ? "destructive" : "default"}
+                      className="relative mt-4 rounded-[2px]"
+                    >
+                      <TriangleAlert />
+                      <AlertTitle>{isSyncFailed ? "Import failed" : "Import pending"}</AlertTitle>
+                      <AlertDescription>
+                        <p>
+                          {isSyncFailed
+                            ? "FinWin saved the connection, but the last import did not finish."
+                            : "This connection has not completed its first import yet."}
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          onClick={() => retrySync(conn.id)}
+                          disabled={
+                            retrySyncMutation.isPending &&
+                            retrySyncMutation.variables?.connectionId === conn.id
+                          }
+                        >
+                          <RefreshCw
+                            data-icon="inline-start"
+                            className={
+                              retrySyncMutation.isPending &&
+                              retrySyncMutation.variables?.connectionId === conn.id
+                                ? "animate-spin"
+                                : undefined
+                            }
+                          />
+                          {retrySyncMutation.isPending &&
+                          retrySyncMutation.variables?.connectionId === conn.id
+                            ? "Retrying import…"
+                            : "Retry import"}
+                        </Button>
+                      </AlertDescription>
+                    </Alert>
+                  ) : null}
+
+                  {!isSyncFailed ? (
                     <div className="pointer-events-none absolute left-0 top-0 h-px w-0 bg-brass transition-all duration-500 group-hover:w-full" />
                   ) : null}
                 </article>
@@ -300,18 +379,19 @@ export default function ConnectionsSettings() {
   );
 }
 
-function StatusPill({ status }: { status: string }) {
-  const map: Record<string, string> = {
-    active: "pill pill-sage",
-    error: "pill pill-amber",
+function StatusPill({ status }: { status: BankConnectionStatus }) {
+  const map: Record<BankConnectionStatus, string> = {
+    linked: "pill pill-bone",
+    syncing: "pill pill-brass",
+    ready: "pill pill-sage",
+    sync_failed: "pill pill-amber",
   };
-  const cls = map[status] ?? "pill pill-bone";
   return (
-    <span className={cls}>
-      {status === "active" ? (
+    <span className={map[status]}>
+      {status === "ready" || status === "syncing" ? (
         <span className="h-1 w-1 rounded-full bg-[var(--sage-hi)] animate-pulse-dot" />
       ) : null}
-      {status}
+      {BANK_CONNECTION_STATUS_LABELS[status]}
     </span>
   );
 }
