@@ -4,6 +4,7 @@ import {
   FlaskConical,
   Settings,
   Target,
+  ScanLine,
   Wallet,
   type LucideIcon,
 } from "lucide-react";
@@ -19,6 +20,7 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "Transactions", icon: Wallet, href: "/transactions" },
   { label: "Budgets", icon: Target, href: "/budgets" },
   { label: "Investments", icon: LineChart, href: "/investments" },
+  { label: "Screener", icon: ScanLine, href: "/screener" },
   { label: "Sandbox", icon: FlaskConical, href: "/sandbox" },
   { label: "Settings", icon: Settings, href: "/settings/connections" },
 ];
