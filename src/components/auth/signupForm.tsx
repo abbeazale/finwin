@@ -54,12 +54,11 @@ export default function SignupForm({
   return (
     <div className={cn("flex flex-col gap-7", className)} {...props}>
       <div>
-        <span className="label-eyebrow-brass">Induction · new member</span>
-        <h1 className="display mt-3 text-[40px] leading-[1] tracking-tight text-bone">
-          Build your desk.
+        <h1 className="display text-[42px] leading-[1.05] tracking-tight text-bone">
+          Pull up a chair.
         </h1>
-        <p className="mt-3 text-[13px] leading-[1.7] text-bone-mute">
-          Tungsten warmup takes about two minutes.
+        <p className="mt-3 text-[14px] leading-[1.7] text-bone-mute">
+          Setting up your desk takes about two minutes.
         </p>
       </div>
 
@@ -70,7 +69,7 @@ export default function SignupForm({
             variant="outline"
             onClick={() => handleSocialSignup("github")}
             disabled={isPending}
-            className="group h-12 rounded-[2px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
+            className="group h-12 rounded-[10px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
           >
             <Image src="/gitinverted.svg" alt="" width={20} height={20} className="opacity-80 group-hover:opacity-100" />
             GitHub
@@ -80,7 +79,7 @@ export default function SignupForm({
             variant="outline"
             onClick={() => handleSocialSignup("google")}
             disabled={isPending}
-            className="group h-12 rounded-[2px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
+            className="group h-12 rounded-[10px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
           >
             <Image src="/google.svg" alt="" width={20} height={20} className="opacity-80 group-hover:opacity-100" />
             Google
@@ -89,12 +88,12 @@ export default function SignupForm({
 
         <div className="flex items-center gap-4">
           <span className="h-px flex-1 bg-[var(--stroke)]" />
-          <span className="label-eyebrow">or with email</span>
+          <span className="text-[12px] text-bone-faint">or with your email</span>
           <span className="h-px flex-1 bg-[var(--stroke)]" />
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="signup-name" className="label-eyebrow">Name</label>
+          <label htmlFor="signup-name" className="field-label">Name</label>
           <input
             id="signup-name"
             name="name"
@@ -103,12 +102,12 @@ export default function SignupForm({
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
-            className="input-arch"
+            className="input-arch input-arch--soft"
           />
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="signup-email" className="label-eyebrow">Email</label>
+          <label htmlFor="signup-email" className="field-label">Email</label>
           <input
             id="signup-email"
             name="email"
@@ -117,12 +116,12 @@ export default function SignupForm({
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
-            className="input-arch"
+            className="input-arch input-arch--soft"
           />
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="signup-password" className="label-eyebrow">Password</label>
+          <label htmlFor="signup-password" className="field-label">Password</label>
           <input
             id="signup-password"
             name="password"
@@ -131,12 +130,12 @@ export default function SignupForm({
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             required
-            className="input-arch"
+            className="input-arch input-arch--soft"
           />
         </div>
 
         {error ? (
-          <p className="rounded-[2px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.08)] px-3 py-2 text-[12px] text-oxide-hi">
+          <p className="rounded-[10px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.08)] px-3 py-2 text-[12px] text-oxide-hi">
             {error}
           </p>
         ) : null}
@@ -145,7 +144,7 @@ export default function SignupForm({
           type="submit"
           variant="ghost"
           disabled={isPending}
-          className="btn-brass mt-2 h-12 w-full justify-center disabled:opacity-60"
+          className="btn-brass-fill mt-2 h-12 w-full justify-center disabled:opacity-60"
         >
           {isPending ? "Building desk…" : "Take the desk"}
           <span aria-hidden>→</span>

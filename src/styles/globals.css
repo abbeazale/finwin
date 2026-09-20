@@ -483,6 +483,12 @@ body::before {
     0 0 0 3px var(--brass-shadow);
 }
 
+/* Softer corners, to match the auth buttons and card */
+.input-arch.input-arch--soft {
+  border-radius: 10px;
+  height: 48px;
+}
+
 /* Form field — inputs, selects, and textareas inside dialogs/forms */
 .form-input {
   width: 100%;
@@ -672,6 +678,65 @@ textarea.form-input {
 .tx-category-select:disabled {
   opacity: 0.6;
   cursor: wait;
+}
+
+/* Warm filled primary — for the auth pages, where the mono uppercase
+   .btn-brass reads too much like a terminal. */
+.btn-brass-fill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(180deg, var(--brass-hi) 0%, var(--brass) 55%, var(--brass-lo) 100%);
+  color: #1a1408;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  border: 1px solid rgba(232, 199, 145, 0.45);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.45),
+    0 10px 24px -14px var(--brass-glow);
+  transition:
+    filter 180ms ease,
+    box-shadow 220ms ease,
+    transform 100ms ease;
+  cursor: pointer;
+}
+.btn-brass-fill:hover {
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.55),
+    0 16px 32px -14px var(--brass-glow);
+}
+.btn-brass-fill:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgba(90, 62, 20, 0.35);
+}
+.btn-brass-fill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Sentence-case field label — the softer counterpart to .label-eyebrow */
+.field-label {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--bone-mute);
+}
+
+/* Decorative motion is atmosphere, not information. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-window-flicker,
+  .animate-brass-gleam,
+  .animate-pulse-dot,
+  .horizon::after {
+    animation: none !important;
+  }
 }
 
 /* ── Keyframes ── */
