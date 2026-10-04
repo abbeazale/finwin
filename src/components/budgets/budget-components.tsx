@@ -17,7 +17,7 @@ import { trpc, type RouterOutputs } from "@/lib/trpc";
 
 export const budgetChartConfig = {
   budget: { label: "Budget", color: "var(--chart-1)" },
-  actual: { label: "Actual", color: "var(--chart-2)" },
+  actual: { label: "Spent", color: "var(--chart-2)" },
 } satisfies ChartConfig;
 
 type SummaryRow =
@@ -123,7 +123,7 @@ export function BudgetCategoryCard({
   }
 
   return (
-    <article className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-0)]/80 transition-colors hover:border-[var(--stroke-2)]">
+    <article className="overflow-hidden rounded-[16px] border border-[var(--stroke)] bg-[rgba(10,10,9,0.55)] transition-colors hover:border-[var(--stroke-2)]">
       <div
         className={`h-0.5 w-full transition-colors ${STATUS_BAR[row.status]}`}
       />
@@ -131,25 +131,25 @@ export function BudgetCategoryCard({
       <div className="p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <p className="text-[14.5px] font-[450] text-bone">
+            <p className="display text-[21px] leading-none text-bone">
               {row.categoryName}
             </p>
-            <p className="mt-1 text-[12px] text-bone-mute">
-              Actual {formatMoney(actualAmount, currency)}
+            <p className="mt-2 text-[12.5px] text-bone-mute">
+              Spent {formatMoney(actualAmount, currency)}
               {remainingAmount !== null
-                ? ` · Remaining ${formatSignedMoney(remainingAmount, currency)}`
+                ? ` · ${formatSignedMoney(remainingAmount, currency)} remaining`
                 : ""}
             </p>
           </div>
           <div className="flex items-center gap-2">
-            <span className={`pill ${STATUS_PILL[row.status]}`}>
+            <span className={`pill pill--soft ${STATUS_PILL[row.status]}`}>
               {STATUS_LABELS[row.status]}
             </span>
             {!isEditing && (
               <button
                 type="button"
                 onClick={startEdit}
-                className="inline-flex items-center gap-1.5 rounded px-2 py-1 text-[11px] text-bone-mute transition-colors hover:bg-[var(--ink-3)] hover:text-bone"
+                className="inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[12px] text-bone-mute transition-colors hover:bg-[rgba(232,225,210,0.05)] hover:text-bone"
               >
                 <Pencil className="size-3" />
                 Edit
@@ -160,7 +160,7 @@ export function BudgetCategoryCard({
 
         {budgetAmount !== null ? (
           <div className="mt-4 flex items-center gap-3">
-            <div className="h-1 flex-1 overflow-hidden rounded-full bg-[var(--ink-3)]">
+            <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--ink-3)]">
               <div
                 className={`h-full rounded-full transition-all duration-700 ${STATUS_BAR[row.status]}`}
                 style={{ width: `${progressValue}%` }}
@@ -175,8 +175,8 @@ export function BudgetCategoryCard({
         ) : null}
 
         {isEditing ? (
-          <div className="mt-4 rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] p-4">
-            <span className="label-eyebrow mb-2.5 block">Monthly target</span>
+          <div className="mt-4 rounded-[12px] border border-[var(--stroke)] bg-[var(--ink-1)] p-4">
+            <span className="field-label mb-2.5 block">Monthly target</span>
             <div className="flex flex-col gap-2.5 sm:flex-row sm:items-center">
               <input
                 type="number"
@@ -186,7 +186,7 @@ export function BudgetCategoryCard({
                 value={draftAmount}
                 autoFocus
                 aria-invalid={Boolean(rowError)}
-                className="input-arch flex-1"
+                className="form-input flex-1"
                 placeholder="0.00"
                 onChange={(e) => setDraftAmount(e.target.value)}
                 onKeyDown={(e) => {
@@ -198,7 +198,7 @@ export function BudgetCategoryCard({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="btn-brass"
+                  className="btn-brass-fill h-11 px-5"
                   disabled={isSaving || isDeleting}
                   onClick={saveBudget}
                 >
@@ -207,7 +207,7 @@ export function BudgetCategoryCard({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="btn-ghost"
+                  className="btn-soft btn-soft--lg"
                   disabled={isSaving || isDeleting}
                   onClick={cancelEdit}
                 >
@@ -216,7 +216,7 @@ export function BudgetCategoryCard({
                 <Button
                   type="button"
                   variant="ghost"
-                  className="btn-ghost text-oxide-hi hover:text-oxide-hi"
+                  className="btn-soft btn-soft--lg text-oxide-hi hover:text-oxide-hi"
                   disabled={isSaving || isDeleting}
                   onClick={confirmDelete}
                 >
@@ -231,14 +231,14 @@ export function BudgetCategoryCard({
         ) : (
           <>
             {budgetAmount !== null ? (
-              <p className="mt-3 text-[11px] text-bone-faint">
+              <p className="mt-3 text-[12px] text-bone-faint">
                 Target {formatMoney(budgetAmount, currency)} ·{" "}
                 {formatMonthHeading(month)}
               </p>
             ) : null}
 
             <div className="mt-4">
-              <div className="mb-2 h-px bg-[var(--stroke)]" />
+              <div className="mb-3 h-px bg-[var(--stroke)]" />
               {txQuery.isLoading ? (
                 <div className="flex flex-col gap-2">
                   {Array.from({ length: 3 }, (_, i) => (
@@ -256,10 +256,10 @@ export function BudgetCategoryCard({
                       className="flex items-center justify-between gap-3 py-0.5"
                     >
                       <div className="min-w-0">
-                        <p className="truncate text-[12px] text-bone">
+                        <p className="truncate text-[13px] text-bone">
                           {tx.merchantName ?? tx.name}
                         </p>
-                        <p className="text-[11px] text-bone-faint">{tx.date}</p>
+                        <p className="text-[11.5px] text-bone-faint">{tx.date}</p>
                       </div>
                       <span className="num shrink-0 text-[12px] tabular-nums text-bone-mute">
                         {formatMoney(Math.abs(Number(tx.amount)), currency)}
@@ -267,13 +267,13 @@ export function BudgetCategoryCard({
                     </li>
                   ))}
                   {txQuery.data.totalCount > 5 ? (
-                    <li className="pt-1 text-[11px] text-bone-ghost">
+                    <li className="pt-1 text-[12px] text-bone-faint">
                       +{txQuery.data.totalCount - 5} more transactions
                     </li>
                   ) : null}
                 </ul>
               ) : (
-                <p className="text-[12px] text-bone-ghost">
+                <p className="text-[12.5px] text-bone-faint">
                   No transactions this month.
                 </p>
               )}
@@ -340,23 +340,24 @@ export function AddCategorySection({
         <button
           type="button"
           onClick={() => setIsOpen(true)}
-          className="inline-flex items-center gap-2 rounded-md border border-dashed border-[var(--stroke-2)] px-4 py-2.5 text-[12px] text-bone-mute transition-colors hover:border-[var(--stroke-3)] hover:text-bone"
+          className="inline-flex items-center gap-2 rounded-full border border-dashed border-[var(--stroke-2)] px-4 py-2.5 text-[13px] text-bone-mute transition-colors hover:border-[var(--stroke-brass-hi)] hover:text-brass-hi"
         >
           <Plus className="size-3.5" />
-          Add category
+          Add a budget
         </button>
       </div>
     );
   }
 
   return (
-    <div className="mt-4 rounded-md border border-[var(--stroke)] bg-[var(--ink-0)] p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <span className="label-eyebrow-brass">Add budget category</span>
+    <div className="mt-4 rounded-[16px] border border-[var(--stroke-2)] bg-[rgba(10,10,9,0.55)] p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <span className="display text-[20px] leading-none text-bone">Add a budget</span>
         <button
           type="button"
           onClick={handleCancel}
-          className="rounded p-1 text-bone-mute transition-colors hover:bg-[var(--ink-3)] hover:text-bone"
+          aria-label="Close"
+          className="rounded-full p-1.5 text-bone-mute transition-colors hover:bg-[rgba(232,225,210,0.05)] hover:text-bone"
         >
           <X className="size-3.5" />
         </button>
@@ -364,13 +365,13 @@ export function AddCategorySection({
 
       <div className="flex flex-col gap-3 sm:flex-row sm:items-end">
         <div className="flex-1">
-          <label className="label-eyebrow mb-1.5 block text-bone-faint">
+          <label className="field-label mb-2 block">
             Category
           </label>
           <select
             value={resolvedSelectedCategoryId}
             onChange={(e) => setSelectedCategoryId(e.target.value)}
-            className="input-arch w-full"
+            className="form-input w-full"
           >
             {unbudgetedRows.map((row) => (
               <option key={row.categoryId} value={row.categoryId}>
@@ -384,7 +385,7 @@ export function AddCategorySection({
         </div>
 
         <div className="flex-1">
-          <label className="label-eyebrow mb-1.5 block text-bone-faint">
+          <label className="field-label mb-2 block">
             Monthly target
           </label>
           <input
@@ -395,7 +396,7 @@ export function AddCategorySection({
             value={draftAmount}
             placeholder="0.00"
             aria-invalid={Boolean(formError)}
-            className="input-arch w-full"
+            className="form-input w-full"
             onChange={(e) => setDraftAmount(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") handleSave();
@@ -408,7 +409,7 @@ export function AddCategorySection({
           <Button
             type="button"
             variant="ghost"
-            className="btn-brass"
+            className="btn-brass-fill h-11 px-5"
             disabled={isSaving}
             onClick={handleSave}
           >
@@ -417,7 +418,7 @@ export function AddCategorySection({
           <Button
             type="button"
             variant="ghost"
-            className="btn-ghost"
+            className="btn-soft btn-soft--lg"
             disabled={isSaving}
             onClick={handleCancel}
           >
@@ -452,31 +453,31 @@ export function SummaryMetric({
         : "text-bone";
 
   return (
-    <div className="rounded-md border border-[var(--stroke)] bg-[var(--ink-0)] px-4 py-4">
-      <p className="label-eyebrow text-bone-faint">{label}</p>
+    <div className="rounded-[14px] border border-[var(--stroke)] bg-[rgba(10,10,9,0.55)] px-4 py-4">
+      <p className="field-label text-bone-faint">{label}</p>
       <p
-        className={`num mt-2 text-[18px] leading-none tracking-tight ${toneClass}`}
+        className={`display mt-3 whitespace-nowrap text-[24px] leading-none ${toneClass}`}
       >
         {value}
       </p>
-      {sub ? <p className="mt-1 text-[11px] text-bone-ghost">{sub}</p> : null}
+      {sub ? <p className="mt-2 text-[12px] text-bone-faint">{sub}</p> : null}
     </div>
   );
 }
 
 export function BudgetGroupSkeleton() {
   return (
-    <div className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
-      <div className="border-b border-[var(--stroke)] px-5 py-4">
+    <div className="desk-panel">
+      <div className="px-6 pb-2 pt-6">
         <div className="h-2.5 w-24 animate-pulse rounded bg-[var(--ink-3)]" />
         <div className="mt-2 h-2.5 w-40 animate-pulse rounded bg-[var(--ink-3)]" />
       </div>
-      <div className="p-5">
+      <div className="p-6">
         <div className="grid gap-4 lg:grid-cols-2">
           {Array.from({ length: 4 }, (_, i) => (
             <div
               key={i}
-              className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-0)]/80"
+              className="overflow-hidden rounded-[16px] border border-[var(--stroke)] bg-[rgba(10,10,9,0.55)]"
             >
               <div className="h-0.5 w-full animate-pulse bg-[var(--ink-3)]" />
               <div className="p-5">
@@ -525,23 +526,24 @@ export function ChartModal({
       className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-8"
       onClick={onClose}
     >
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" />
+      <div className="absolute inset-0 bg-black/65 backdrop-blur-sm" />
 
       <div
-        className="relative z-10 w-full max-w-4xl overflow-hidden rounded-lg border border-[var(--stroke)] bg-[var(--ink-1)]"
+        className="desk-panel relative z-10 w-full max-w-4xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
+        <div className="flex items-start justify-between px-6 pb-2 pt-6">
           <div>
-            <span className="label-eyebrow-brass">Where the pressure sits</span>
-            <p className="mt-1 text-[12px] text-bone-faint">
-              All categories · {formatMonthHeading(month)}
+            <h2 className="display text-[26px] leading-none text-bone">Budget against spending</h2>
+            <p className="mt-2 text-[13px] text-bone-mute">
+              All categories, {formatMonthHeading(month)}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded p-1.5 text-bone-mute transition-colors hover:bg-[var(--ink-3)] hover:text-bone"
+            aria-label="Close"
+            className="rounded-full p-1.5 text-bone-mute transition-colors hover:bg-[rgba(232,225,210,0.05)] hover:text-bone"
           >
             <X className="size-4" />
           </button>
@@ -557,7 +559,7 @@ export function ChartModal({
               data={data}
               margin={{ left: 8, right: 8 }}
             >
-              <CartesianGrid vertical={false} />
+              <CartesianGrid vertical={false} strokeDasharray="2 6" />
               <XAxis
                 dataKey="category"
                 tickLine={false}
@@ -566,8 +568,8 @@ export function ChartModal({
               />
               <ChartTooltip content={<ChartTooltipContent />} />
               <ChartLegend content={<ChartLegendContent />} />
-              <Bar dataKey="budget" radius={4} fill="var(--color-budget)" />
-              <Bar dataKey="actual" radius={4} fill="var(--color-actual)" />
+              <Bar dataKey="budget" radius={4} maxBarSize={40} fill="var(--color-budget)" />
+              <Bar dataKey="actual" radius={4} maxBarSize={40} fill="var(--color-actual)" />
             </BarChart>
           </ChartContainer>
         </div>

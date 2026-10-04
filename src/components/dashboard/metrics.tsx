@@ -27,69 +27,64 @@ export function DashboardOverviewCards({
   isLoading: boolean;
 }) {
   return (
-    <section className="grid gap-px bg-[var(--stroke)] lg:grid-cols-3">
+    <section className="grid gap-4 lg:grid-cols-3">
       {cards.map((card, index) => {
-        const trendText = formatDelta(card.delta);
-        const deltaLabel = comparisonAvailable
-          ? `vs ${formatMonthHeading(comparisonMonth)}`
-          : "No prior month yet";
+        const featured = card.key === "net";
+        const toneClass =
+          card.positiveTone === "good"
+            ? "text-sage-hi"
+            : card.positiveTone === "bad"
+              ? "text-oxide-hi"
+              : "text-bone-mute";
 
         return (
           <div
             key={card.key}
-            className="group relative bg-ink-0 p-6 transition-colors hover:bg-[var(--ink-1)]"
+            className={`desk-panel animate-fade-slide p-6 ${featured ? "desk-panel--warm" : ""}`}
+            style={{ animationDelay: `${80 + index * 70}ms` }}
           >
-            <div className="absolute left-0 top-0 h-px w-0 bg-brass transition-all duration-500 group-hover:w-full" />
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <span className="label-eyebrow">{card.label}</span>
-                <div className="mt-3 flex items-baseline gap-2">
-                  <span className="display text-[44px] leading-none text-bone">
-                    {isLoading ? "…" : formatMoney(card.value, currency, 2)}
-                  </span>
-                </div>
-              </div>
-              <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] px-3 py-2 text-right">
-                <div className="label-eyebrow-brass">Change</div>
-                <div className="mt-1 flex items-center justify-end gap-2 text-[12px]">
-                  {card.positiveTone === "neutral" ||
-                  card.delta === null ? null : card.positiveTone === "good" ? (
-                    <ArrowUp className="size-3 text-sage-hi" />
-                  ) : (
-                    <ArrowDown className="size-3 text-oxide-hi" />
-                  )}
+            {featured ? (
+              <div
+                className="pointer-events-none absolute inset-0"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at 85% 130%, rgba(255,154,60,0.16), transparent 60%)",
+                }}
+              />
+            ) : null}
+            <div className="relative">
+              <div className="flex items-center justify-between gap-4">
+                <span className="field-label">{card.label}</span>
+                {featured && !isLoading ? (
                   <span
-                    className={
-                      card.positiveTone === "good"
-                        ? "text-sage-hi"
-                        : card.positiveTone === "bad"
-                          ? "text-oxide-hi"
-                          : "text-bone-faint"
-                    }
+                    className={`pill pill--soft ${card.value >= 0 ? "pill-sage" : "pill-oxide"}`}
                   >
-                    {trendText}
+                    {card.value >= 0 ? "Ahead" : "Behind"}
                   </span>
-                </div>
+                ) : null}
               </div>
-            </div>
-            <div className="mt-6 flex items-center gap-3 border-t border-[var(--stroke)] pt-3">
-              <span
-                className={`pill ${
-                  card.positiveTone === "good"
-                    ? "pill-sage"
-                    : card.positiveTone === "bad"
-                      ? "pill-oxide"
-                      : "pill-bone"
-                }`}
-              >
-                {trendText}
-              </span>
-              <span className="label-eyebrow">{deltaLabel}</span>
-              {index === 2 ? (
-                <span className="label-eyebrow ml-auto text-brass-hi">
-                  {card.value >= 0 ? "Net positive" : "Net negative"}
-                </span>
-              ) : null}
+              <div className="display mt-4 text-[clamp(2.3rem,3.3vw,3rem)] leading-none text-bone">
+                {isLoading ? "…" : formatMoney(card.value, currency, 2)}
+              </div>
+              <div className="mt-5 flex items-center gap-2 text-[12.5px]">
+                {comparisonAvailable && card.delta !== null ? (
+                  <>
+                    {card.delta > 0 ? (
+                      <ArrowUp className={`size-3 ${toneClass}`} />
+                    ) : card.delta < 0 ? (
+                      <ArrowDown className={`size-3 ${toneClass}`} />
+                    ) : null}
+                    <span className={toneClass}>{formatDelta(card.delta)}</span>
+                    <span className="text-bone-faint">
+                      vs {formatMonthHeading(comparisonMonth)}
+                    </span>
+                  </>
+                ) : (
+                  <span className="text-bone-faint">
+                    No earlier month to compare yet
+                  </span>
+                )}
+              </div>
             </div>
           </div>
         );
@@ -102,19 +97,20 @@ export function LegendDot({ label, color }: { label: string; color: string }) {
   return (
     <span className="flex items-center gap-2">
       <span
-        className="h-1.5 w-1.5 rounded-full"
+        className="h-2 w-2 rounded-full"
         style={{ background: color }}
       />
-      <span className="label-eyebrow">{label}</span>
+      <span className="text-[12px] text-bone-mute">{label}</span>
     </span>
   );
 }
 
-export function formatShortDate(value: string) {
-  return new Intl.DateTimeFormat("en-CA", {
-    month: "2-digit",
-    day: "2-digit",
-  }).format(parseLocalDate(value));
+export function formatDateTile(value: string) {
+  const date = parseLocalDate(value);
+  return {
+    month: new Intl.DateTimeFormat("en-CA", { month: "short" }).format(date),
+    day: date.getDate(),
+  };
 }
 
 function formatTooltipDate(value: string) {
@@ -202,7 +198,7 @@ export function getSignalCopy({
   } | null;
 }) {
   if (!overview) {
-    return "Pulling the live month read from imported transactions and budget pressure.";
+    return "Reading this month’s transactions and budgets…";
   }
 
   const net = Number(overview.totals.netCashflow);
@@ -212,12 +208,12 @@ export function getSignalCopy({
       : `${formatMonthHeading(month)} is running ${formatMoney(Math.abs(net), currency, 0)} behind inflow so far.`;
 
   const topLane = topSpendRow
-    ? `${topSpendRow.categoryName} is the largest spend lane at ${formatMoney(Number(topSpendRow.spendAmount), currency, 0)}.`
-    : "No spend lane is dominating the month yet.";
+    ? `${topSpendRow.categoryName} is the biggest category at ${formatMoney(Number(topSpendRow.spendAmount), currency, 0)}.`
+    : "No single category is leading the month yet.";
 
   const budgetSignal = budgetsQueryData
     ? `${budgetsQueryData.totals.overBudgetCount} categories are over target and ${budgetsQueryData.totals.unbudgetedCount} still need a plan.`
-    : "Budget pressure is still loading.";
+    : "Budgets are still loading.";
 
   return `${headline} ${topLane} ${budgetSignal}`;
 }

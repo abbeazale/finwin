@@ -13,6 +13,8 @@ export type DashboardNavItem = {
   label: string;
   icon: LucideIcon;
   href: string;
+  /** Path prefix that marks the item active, when wider than `href`. */
+  match?: string;
 };
 
 export const dashboardNavItems: DashboardNavItem[] = [
@@ -22,7 +24,12 @@ export const dashboardNavItems: DashboardNavItem[] = [
   { label: "Investments", icon: LineChart, href: "/investments" },
   { label: "Screener", icon: ScanLine, href: "/screener" },
   { label: "Sandbox", icon: FlaskConical, href: "/sandbox" },
-  { label: "Settings", icon: Settings, href: "/settings/connections" },
+  {
+    label: "Settings",
+    icon: Settings,
+    href: "/settings/connections",
+    match: "/settings",
+  },
 ];
 
 export function isDashboardNavItemActive(
@@ -33,5 +40,6 @@ export function isDashboardNavItemActive(
     return currentPath === item.href;
   }
 
-  return currentPath === item.href || currentPath.startsWith(`${item.href}/`);
+  const base = item.match ?? item.href;
+  return currentPath === base || currentPath.startsWith(`${base}/`);
 }

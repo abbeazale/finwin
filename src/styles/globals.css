@@ -230,17 +230,53 @@ body::before {
 
 /* Reusable UI primitives */
 
-/* Panel surfaces */
-.panel {
-  background: var(--ink-1);
-  border: 1px solid var(--stroke);
-  border-radius: var(--radius-md);
-}
+/* Panels sit in the components layer so Tailwind utilities (border colour,
+   radius) can override them per use. */
+@layer components {
+  /* Panel surfaces */
+  .panel {
+    background: var(--ink-1);
+    border: 1px solid var(--stroke-2);
+    border-radius: 16px;
+  }
 
-.panel-lifted {
-  background: var(--ink-2-solid);
-  border: 1px solid var(--stroke-2);
-  border-radius: var(--radius-md);
+  .panel-lifted {
+    background: var(--ink-2-solid);
+    border: 1px solid var(--stroke-2);
+    border-radius: 999px;
+  }
+
+  /* Dashboard panel — the sign-in card's soft corners and brass hairline,
+     carried into the app. */
+  .desk-panel {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(180deg, var(--ink-2-solid) 0%, var(--ink-1) 42%);
+    border: 1px solid var(--stroke-2);
+    border-radius: 18px;
+    box-shadow:
+      inset 0 1px 0 rgba(232, 199, 145, 0.07),
+      0 28px 56px -36px rgba(0, 0, 0, 0.85);
+  }
+  .desk-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 1px;
+    pointer-events: none;
+    background: linear-gradient(90deg, transparent, var(--brass-hi), transparent);
+    opacity: 0.3;
+  }
+  .desk-panel--warm {
+    border-color: var(--stroke-brass-hi);
+    box-shadow:
+      inset 0 1px 0 rgba(232, 199, 145, 0.16),
+      0 0 48px -20px var(--brass-shadow),
+      0 28px 56px -36px rgba(0, 0, 0, 0.85);
+  }
+  .desk-panel--warm::before {
+    opacity: 0.6;
+  }
 }
 
 /* Top-edge highlight for panels */
@@ -249,13 +285,6 @@ body::before {
     inset 0 1px 0 rgba(232, 199, 145, 0.08),
     inset 0 0 0 1px var(--stroke),
     0 1px 0 rgba(0, 0, 0, 0.5);
-}
-
-.cove-hi {
-  box-shadow:
-    inset 0 1px 0 rgba(232, 199, 145, 0.22),
-    inset 0 0 0 1px var(--stroke-brass),
-    0 0 32px -12px var(--brass-shadow);
 }
 
 /* Subtle vertical surface grain */
@@ -328,29 +357,6 @@ body::before {
   font-family: var(--font-display);
   font-weight: 400;
   letter-spacing: -0.015em;
-}
-
-/* Animated horizon line */
-.horizon {
-  position: relative;
-}
-.horizon::after {
-  content: "";
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  height: 1px;
-  background: linear-gradient(
-    90deg,
-    transparent 0%,
-    var(--brass-shadow) 20%,
-    var(--brass-hi) 50%,
-    var(--brass-shadow) 80%,
-    transparent 100%
-  );
-  opacity: 0.4;
-  animation: horizon-breathe 8s ease-in-out infinite;
 }
 
 /* Divider with accent mark */
@@ -483,6 +489,12 @@ body::before {
     0 0 0 3px var(--brass-shadow);
 }
 
+/* Softer corners, to match the auth buttons and card */
+.input-arch.input-arch--soft {
+  border-radius: 10px;
+  height: 48px;
+}
+
 /* Form field — inputs, selects, and textareas inside dialogs/forms */
 .form-input {
   width: 100%;
@@ -494,7 +506,7 @@ body::before {
   font-family: var(--font-sans);
   font-size: 14px;
   border: 1px solid var(--stroke-2);
-  border-radius: var(--radius-md);
+  border-radius: 10px;
   box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.25);
   transition: border-color 200ms ease, box-shadow 200ms ease;
   outline: none;
@@ -512,6 +524,14 @@ body::before {
   box-shadow:
     inset 0 1px 0 rgba(0, 0, 0, 0.25),
     0 0 0 3px var(--brass-shadow);
+}
+select.form-input {
+  padding-right: 2.4rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a8f7c' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 14px;
 }
 textarea.form-input {
   min-height: unset;
@@ -624,40 +644,18 @@ textarea.form-input {
   opacity: 0.55;
 }
 
-/* Filter select — transactions filter bar */
-.filter-select {
-  width: 100%;
-  height: 40px;
-  padding: 0 12px;
-  background: var(--ink-1);
-  color: var(--bone);
-  font-family: var(--font-sans);
-  font-size: 13px;
-  border: 0;
-  outline: none;
-  transition: background-color 180ms ease, color 180ms ease;
-}
-.filter-select:hover {
-  background: var(--ink-2-solid);
-}
-.filter-select:focus {
-  background: var(--ink-2-solid);
-  color: var(--brass-hi);
-}
-
 /* Transaction category inline select */
 .tx-category-select {
   width: 100%;
   min-height: 34px;
   padding: 0 10px;
   border: 1px solid var(--stroke);
-  border-radius: var(--radius-sm);
+  border-radius: 8px;
   background: var(--ink-0);
-  color: var(--bone);
+  color: var(--bone-mute);
+  color-scheme: dark;
   font-family: var(--font-sans);
-  font-size: 11px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
+  font-size: 12.5px;
   transition: border-color 180ms ease, background-color 180ms ease, color 180ms ease;
 }
 .tx-category-select:hover {
@@ -674,25 +672,123 @@ textarea.form-input {
   cursor: wait;
 }
 
+/* Warm filled primary — for the auth pages, where the mono uppercase
+   .btn-brass reads too much like a terminal. */
+.btn-brass-fill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  background: linear-gradient(180deg, var(--brass-hi) 0%, var(--brass) 55%, var(--brass-lo) 100%);
+  color: #1a1408;
+  font-family: var(--font-sans);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.005em;
+  border: 1px solid rgba(232, 199, 145, 0.45);
+  border-radius: 10px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.45),
+    0 10px 24px -14px var(--brass-glow);
+  transition:
+    filter 180ms ease,
+    box-shadow 220ms ease,
+    transform 100ms ease;
+  cursor: pointer;
+}
+.btn-brass-fill:hover {
+  filter: brightness(1.06);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 244, 214, 0.55),
+    0 16px 32px -14px var(--brass-glow);
+}
+.btn-brass-fill:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 5px rgba(90, 62, 20, 0.35);
+}
+.btn-brass-fill:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Sentence-case field label — the softer counterpart to .label-eyebrow */
+.field-label {
+  font-family: var(--font-sans);
+  font-size: 12.5px;
+  font-weight: 400;
+  letter-spacing: 0.005em;
+  color: var(--bone-mute);
+}
+
+/* Sentence-case column header for tables and lists */
+.table-head {
+  font-family: var(--font-sans);
+  font-size: 12px;
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--bone-faint);
+}
+
+/* Quiet secondary button — sentence case, for app chrome */
+.btn-soft {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  height: 38px;
+  padding: 0 14px;
+  background: rgba(232, 225, 210, 0.02);
+  color: var(--bone-mute);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  font-weight: 400;
+  white-space: nowrap;
+  border: 1px solid var(--stroke-2);
+  border-radius: 10px;
+  transition:
+    border-color 180ms ease,
+    color 180ms ease,
+    background-color 180ms ease;
+  cursor: pointer;
+}
+.btn-soft:hover {
+  border-color: var(--stroke-3);
+  color: var(--bone);
+  background: rgba(232, 225, 210, 0.05);
+}
+.btn-soft.btn-soft--lg {
+  height: 44px;
+  padding: 0 16px;
+}
+.btn-soft:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+/* Sentence-case status tag */
+.pill.pill--soft {
+  font-family: var(--font-sans);
+  font-size: 11.5px;
+  letter-spacing: 0.01em;
+  text-transform: none;
+  height: 22px;
+  padding: 0 9px;
+}
+
+/* Decorative motion is atmosphere, not information. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-window-flicker,
+  .animate-brass-gleam,
+  .animate-pulse-dot {
+    animation: none !important;
+  }
+}
+
 /* ── Keyframes ── */
 
 @layer utilities {
-  @keyframes horizon-breathe {
-    0%, 100% {
-      opacity: 0.25;
-      filter: brightness(0.85);
-    }
-    50% {
-      opacity: 0.55;
-      filter: brightness(1.15);
-    }
-  }
-
-  @keyframes cove-sweep {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
-
   @keyframes fade-slide {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }

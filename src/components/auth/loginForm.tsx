@@ -128,17 +128,16 @@ export default function LoginForm({
   return (
     <div className={cn("flex flex-col gap-7", className)} {...props}>
       <div>
-        <span className="label-eyebrow-brass">Re-entry · returning</span>
-        <h1 className="display mt-3 text-[40px] leading-[1] tracking-tight text-bone">
+        <h1 className="display text-[42px] leading-[1.05] tracking-tight text-bone">
           Welcome back.
         </h1>
-        <p className="mt-3 text-[13px] leading-[1.7] text-bone-mute">
+        <p className="mt-3 text-[14px] leading-[1.7] text-bone-mute">
           The desk is as you left it.
         </p>
       </div>
 
       {router.query.reset === "1" ? (
-        <p className="rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-3 py-2 text-[12px] text-brass-hi">
+        <p className="rounded-[10px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-3 py-2 text-[12px] text-brass-hi">
           Password updated. Sign in with the new one.
         </p>
       ) : null}
@@ -150,7 +149,7 @@ export default function LoginForm({
             variant="outline"
             onClick={() => handleSocialSignIn("github")}
             disabled={isPending}
-            className="group h-12 rounded-[2px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
+            className="group h-12 rounded-[10px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
           >
             <Image src="/gitinverted.svg" alt="" width={20} height={20} className="opacity-80 group-hover:opacity-100" />
             GitHub
@@ -160,7 +159,7 @@ export default function LoginForm({
             variant="outline"
             onClick={() => handleSocialSignIn("google")}
             disabled={isPending}
-            className="group h-12 rounded-[2px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
+            className="group h-12 rounded-[10px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
           >
             <Image src="/google.svg" alt="" width={20} height={20} className="opacity-80 group-hover:opacity-100" />
             Google
@@ -172,7 +171,7 @@ export default function LoginForm({
           variant="outline"
           onClick={handlePasskeySignIn}
           disabled={isPending}
-          className="group h-12 rounded-[2px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
+          className="group h-12 rounded-[10px] border-[var(--stroke-2)] bg-[var(--ink-0)] text-[13px] font-medium text-bone shadow-none hover:border-[var(--stroke-brass-hi)] hover:bg-[var(--ink-0)] hover:text-brass-hi disabled:opacity-60"
         >
           <KeyRound className="size-4 opacity-80 group-hover:opacity-100" />
           Passkey
@@ -180,12 +179,12 @@ export default function LoginForm({
 
         <div className="flex items-center gap-4">
           <span className="h-px flex-1 bg-[var(--stroke)]" />
-          <span className="label-eyebrow">or with email</span>
+          <span className="text-[12px] text-bone-faint">or with your email</span>
           <span className="h-px flex-1 bg-[var(--stroke)]" />
         </div>
 
         <div className="flex flex-col gap-2">
-          <label htmlFor="login-email" className="label-eyebrow">Email</label>
+          <label htmlFor="login-email" className="field-label">Email</label>
           <input
             id="login-email"
             name="email"
@@ -195,16 +194,16 @@ export default function LoginForm({
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="username webauthn"
             required
-            className="input-arch"
+            className="input-arch input-arch--soft"
           />
         </div>
 
         <div className="flex flex-col gap-2">
           <div className="flex items-center justify-between">
-            <label htmlFor="login-password" className="label-eyebrow">Password</label>
+            <label htmlFor="login-password" className="field-label">Password</label>
             <Link
               href="/forgot-password"
-              className="text-[11px] text-bone-faint hover:text-brass-hi"
+              className="text-[12px] text-bone-faint transition-colors hover:text-brass-hi"
             >
               Forgot?
             </Link>
@@ -218,12 +217,12 @@ export default function LoginForm({
             onChange={(e) => setPassword(e.target.value)}
             autoComplete="current-password"
             required
-            className="input-arch"
+            className="input-arch input-arch--soft"
           />
         </div>
 
         {error ? (
-          <p className="rounded-[2px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.08)] px-3 py-2 text-[12px] text-oxide-hi">
+          <p className="rounded-[10px] border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.08)] px-3 py-2 text-[12px] text-oxide-hi">
             {error}
           </p>
         ) : null}
@@ -232,9 +231,9 @@ export default function LoginForm({
           type="submit"
           variant="ghost"
           disabled={isPending}
-          className="btn-brass mt-2 h-12 w-full justify-center disabled:opacity-60"
+          className="btn-brass-fill mt-2 h-12 w-full justify-center disabled:opacity-60"
         >
-          {isPending ? "Unlocking…" : "Enter the desk"}
+          {isPending ? "Turning the lights on…" : "Enter the desk"}
           <span aria-hidden>→</span>
         </Button>
       </form>
