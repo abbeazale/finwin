@@ -3,8 +3,10 @@ import {
   replaySymbols,
   type ReplayInput,
   type ReplaySymbol,
+  type ScreenFilter,
 } from "@/lib/screener-replay";
 import { dailySessions } from "./calendar";
+import type { ReplayResearch } from "./research";
 
 const MINUTE = 60_000;
 type MinuteBar = { close: bigint; volume: bigint };
@@ -18,9 +20,28 @@ type ReplayRow = { symbol: ReplaySymbol } & (
   | {
       status: "match" | "no-match";
       price: number;
-      sma: number;
+      sma: number | null;
+      dailyChange: {
+        value: number;
+        previousClose: number;
+        session: string;
+      } | null;
+      float: {
+        shares: number;
+        effectiveAt: string;
+        publishedAt: string;
+        source: string;
+      } | null;
+      news:
+        | {
+            headline: string;
+            url: string;
+            publishedAt: string;
+            source: string;
+          }[]
+        | null;
       priceCandleEnd: string;
-      indicatorCandleEnd: string;
+      indicatorCandleEnd: string | null;
       rsi: { value: number; candleEnd: string; seedStart: string } | null;
       relativeVolume: {
         value: number;
@@ -34,15 +55,15 @@ type ReplayRow = { symbol: ReplaySymbol } & (
 function candleSeries(
   bars: ReplayBars,
   symbol: ReplaySymbol,
-  timeframe: ReplayInput["timeframe"],
-  input: ReplayInput,
+  timeframe: NonNullable<ScreenFilter["sma"]>["timeframe"],
+  session: string,
   at: number,
 ): Candle[] {
   if (timeframe === "1d") {
     // SUMMARY is finalized end-of-day data. Never use today's daily candle,
     // even at 16:00: the sample does not prove its publication latency.
     return dailySessions
-      .filter((session) => session.date < input.session)
+      .filter((dailySession) => dailySession.date < session)
       .map((session) => ({
         close: bars.daily.get(symbol)?.get(session.date),
         end: session.close,
@@ -51,9 +72,9 @@ function candleSeries(
   const width = timeframe === "1m" ? 1 : 5;
   const minutes = bars.minutes.get(symbol);
   const series: Candle[] = [];
-  for (const session of replaySessions) {
-    if (session > input.session) break;
-    const open = Date.parse(`${session}T09:30:00-04:00`);
+  for (const replaySession of replaySessions) {
+    if (replaySession > session) break;
+    const open = Date.parse(`${replaySession}T09:30:00-04:00`);
     for (let minute = 0; minute < 390; minute += width) {
       const start = open + minute * MINUTE;
       const end = start + width * MINUTE;
@@ -121,27 +142,27 @@ export function calculateRsi(
 function relativeVolume(
   bars: ReplayBars,
   symbol: ReplaySymbol,
-  input: ReplayInput,
+  session: string,
   at: number,
 ): { error: string } | { current: bigint; baseline: bigint } {
-  const index = replaySessions.indexOf(input.session);
+  const index = replaySessions.indexOf(session);
   if (index < 20)
     return {
       error: "Relative volume needs 20 prior sessions in the minute sample.",
     };
   const minutes = bars.minutes.get(symbol);
-  const elapsed = (at - Date.parse(`${input.session}T09:30:00-04:00`)) / MINUTE;
+  const elapsed = (at - Date.parse(`${session}T09:30:00-04:00`)) / MINUTE;
   let baseline = BigInt(0);
   let current = BigInt(0);
-  for (const session of replaySessions.slice(index - 20, index + 1)) {
-    const open = Date.parse(`${session}T09:30:00-04:00`);
+  for (const baselineSession of replaySessions.slice(index - 20, index + 1)) {
+    const open = Date.parse(`${baselineSession}T09:30:00-04:00`);
     for (let minute = 0; minute < elapsed; minute++) {
       const volume = minutes?.get(open + minute * MINUTE)?.volume;
       if (volume === undefined)
         return {
-          error: `Relative volume is missing a required minute on ${session}.`,
+          error: `Relative volume is missing a required minute on ${baselineSession}.`,
         };
-      if (session === input.session) current += volume;
+      if (baselineSession === session) current += volume;
       else baseline += volume;
     }
   }
@@ -150,7 +171,11 @@ function relativeVolume(
   return { current, baseline };
 }
 
-export function evaluateReplay(bars: ReplayBars, input: ReplayInput) {
+export function evaluateReplay(
+  bars: ReplayBars,
+  input: ReplayInput,
+  research: ReplayResearch = { news: new Map(), floats: [] },
+) {
   const at = Date.parse(`${input.session}T${input.time}:00-04:00`);
   const rows: ReplayRow[] = replaySymbols.map((symbol) => {
     const price = bars.minutes.get(symbol)?.get(at - MINUTE)?.close;
@@ -160,35 +185,136 @@ export function evaluateReplay(bars: ReplayBars, input: ReplayInput) {
         status: "excluded",
         reason: "Missing latest completed one-minute price candle.",
       };
-    const series = candleSeries(bars, symbol, input.timeframe, input, at);
-    const window = series.slice(-input.period);
-    const last = window.at(-1);
-    if (window.length < input.period || last === undefined)
-      return {
-        symbol,
-        status: "excluded",
-        reason: `Need ${input.period} completed ${input.timeframe} candles; sample history is too short.`,
-      };
-    let sum = BigInt(0);
-    for (const candle of window) {
-      if (candle.close === undefined)
+    const failedConditions: string[] = [];
+    let sma: number | null = null;
+    let indicatorCandleEnd: string | null = null;
+    const series = input.sma
+      ? candleSeries(bars, symbol, input.sma.timeframe, input.session, at)
+      : [];
+    if (input.sma) {
+      const window = series.slice(-input.sma.period);
+      const last = window.at(-1);
+      if (window.length < input.sma.period || !last)
         return {
           symbol,
           status: "excluded",
-          reason: `SMA is missing a required ${input.timeframe} candle ending ${new Date(candle.end).toISOString()}. No candle was filled or skipped.`,
+          reason: `Need ${input.sma.period} completed ${input.sma.timeframe} candles; sample history is too short.`,
         };
-      sum += candle.close;
+      let sum = BigInt(0);
+      for (const candle of window) {
+        if (candle.close === undefined)
+          return {
+            symbol,
+            status: "excluded",
+            reason: `SMA is missing a required ${input.sma.timeframe} candle ending ${new Date(candle.end).toISOString()}. No candle was filled or skipped.`,
+          };
+        sum += candle.close;
+      }
+      const scaledPrice = price * BigInt(input.sma.period);
+      if (
+        !(input.sma.comparison === "above"
+          ? scaledPrice > sum
+          : scaledPrice < sum)
+      )
+        failedConditions.push("Price/SMA");
+      sma = Number(sum) / input.sma.period / 1e9;
+      indicatorCandleEnd = new Date(last.end).toISOString();
     }
-    const scaledPrice = price * BigInt(input.period);
-    const smaMatches =
-      input.comparison === "above" ? scaledPrice > sum : scaledPrice < sum;
-    const failedConditions = smaMatches ? [] : ["Price/SMA"];
+    if (input.priceRange) {
+      // Compare integer cents against the original billionths, before display rounding.
+      const minimum =
+        BigInt(Math.round(input.priceRange.minimum * 100)) * BigInt(10_000_000);
+      const maximum =
+        BigInt(Math.round(input.priceRange.maximum * 100)) * BigInt(10_000_000);
+      if (price < minimum || price > maximum)
+        failedConditions.push("Price range");
+    }
+    let dailyChange: Extract<ReplayRow, { price: number }>["dailyChange"] =
+      null;
+    if (input.dailyChange) {
+      const previousSession = dailySessions.findLast(
+        (session) => session.date < input.session,
+      );
+      const previousClose =
+        previousSession && bars.daily.get(symbol)?.get(previousSession.date);
+      if (
+        !previousSession ||
+        previousClose === undefined ||
+        previousClose <= BigInt(0)
+      )
+        return {
+          symbol,
+          status: "excluded",
+          reason:
+            "Daily change needs the previous trading session's closing price.",
+        };
+      dailyChange = {
+        value: (Number(price - previousClose) / Number(previousClose)) * 100,
+        previousClose: Number(previousClose) / 1e9,
+        session: previousSession.date,
+      };
+      if (
+        (price - previousClose) * BigInt(100_000) <
+        previousClose * BigInt(Math.round(input.dailyChange.minimum * 1000))
+      )
+        failedConditions.push("Daily change");
+    }
+    let float: Extract<ReplayRow, { price: number }>["float"] = null;
+    if (input.float) {
+      const snapshot = research.floats
+        .filter(
+          (value) =>
+            value.symbol === symbol &&
+            Date.parse(value.effectiveAt) <= at &&
+            Date.parse(value.publishedAt) <= at,
+        )
+        .sort(
+          (a, b) =>
+            Date.parse(b.effectiveAt) - Date.parse(a.effectiveAt) ||
+            Date.parse(b.publishedAt) - Date.parse(a.publishedAt),
+        )[0];
+      if (!snapshot)
+        return {
+          symbol,
+          status: "excluded",
+          reason:
+            "No historical share-float record is available at this replay time.",
+        };
+      float = snapshot;
+      if (snapshot.shares >= input.float.maximum)
+        failedConditions.push("Float");
+    }
+    let news: Extract<ReplayRow, { price: number }>["news"] = null;
+    if (input.news) {
+      const coverage = research.news.get(symbol);
+      const from = at - input.news.hours * 3_600_000;
+      if (!coverage || coverage.status === "unavailable")
+        return {
+          symbol,
+          status: "excluded",
+          reason:
+            coverage?.reason ??
+            "Historical news is unavailable for this instrument.",
+        };
+      if (coverage.from > from || coverage.through < at)
+        return {
+          symbol,
+          status: "excluded",
+          reason: "News coverage does not span the selected lookback window.",
+        };
+      news = coverage.articles.filter(
+        (article) =>
+          Date.parse(article.publishedAt) >= from &&
+          Date.parse(article.publishedAt) <= at,
+      );
+      if (news.length === 0) failedConditions.push("Recent news");
+    }
     let rsi: Extract<ReplayRow, { price: number }>["rsi"] = null;
     if (input.rsi) {
       const rsiSeries =
-        input.rsi.timeframe === input.timeframe
+        input.rsi.timeframe === input.sma?.timeframe
           ? series
-          : candleSeries(bars, symbol, input.rsi.timeframe, input, at);
+          : candleSeries(bars, symbol, input.rsi.timeframe, input.session, at);
       const value = calculateRsi(
         rsiSeries.map((candle) => candle.close),
         input.rsi.period,
@@ -214,7 +340,7 @@ export function evaluateReplay(bars: ReplayBars, input: ReplayInput) {
     }
     let volume: Extract<ReplayRow, { price: number }>["relativeVolume"] = null;
     if (input.relativeVolume) {
-      const result = relativeVolume(bars, symbol, input, at);
+      const result = relativeVolume(bars, symbol, input.session, at);
       if ("error" in result)
         return { symbol, status: "excluded", reason: result.error };
       volume = {
@@ -233,9 +359,12 @@ export function evaluateReplay(bars: ReplayBars, input: ReplayInput) {
       symbol,
       status: failedConditions.length === 0 ? "match" : "no-match",
       price: Number(price) / 1e9,
-      sma: Number(sum) / input.period / 1e9,
+      sma,
+      dailyChange,
+      float,
+      news,
       priceCandleEnd: new Date(at).toISOString(),
-      indicatorCandleEnd: new Date(last.end).toISOString(),
+      indicatorCandleEnd,
       rsi,
       relativeVolume: volume,
       failedConditions,
@@ -244,11 +373,17 @@ export function evaluateReplay(bars: ReplayBars, input: ReplayInput) {
   return {
     input,
     asOf: new Date(at).toISOString(),
+    activeFilterCount: Object.entries(input).filter(
+      ([key, value]) =>
+        key !== "session" && key !== "time" && value !== undefined,
+    ).length,
     dataset: "EQUS.MINI" as const,
-    smaDataset: input.timeframe === "1d" ? "EQUS.SUMMARY" : "EQUS.MINI",
+    smaDataset: input.sma?.timeframe === "1d" ? "EQUS.SUMMARY" : "EQUS.MINI",
     rsiDataset: input.rsi?.timeframe === "1d" ? "EQUS.SUMMARY" : "EQUS.MINI",
     rows,
     matchCount: rows.filter((row) => row.status === "match").length,
     excludedCount: rows.filter((row) => row.status === "excluded").length,
   };
 }
+
+export type ReplayResult = ReturnType<typeof evaluateReplay>;

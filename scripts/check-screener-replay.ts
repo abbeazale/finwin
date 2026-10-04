@@ -16,12 +16,11 @@ import { evaluateReplay, calculateRsi } from "../src/server/screener/replay";
 import { screenerRouter } from "../src/server/trpc/routers/screener";
 
 const bars = await loadReplayBars();
+const sma = { timeframe: "1m", period: 20, comparison: "above" } as const;
 const input: ReplayInput = {
   session: "2026-09-15",
   time: "10:30",
-  timeframe: "1m",
-  period: 20,
-  comparison: "above",
+  sma,
 };
 const first = evaluateReplay(bars, input);
 assert.deepEqual(evaluateReplay(bars, input), first);
@@ -43,12 +42,16 @@ for (const line of (
 let comparisons = 0;
 for (const timeframe of ["1m", "5m"] as const) {
   for (const period of [1, 9, 20, 30, 200]) {
-    const result = evaluateReplay(bars, { ...input, timeframe, period });
+    const result = evaluateReplay(bars, {
+      ...input,
+      sma: { ...sma, timeframe, period },
+    });
     const at = Date.parse(result.asOf);
     const width = timeframe === "1m" ? 1 : 5;
     for (const row of result.rows) {
       assert.notEqual(row.status, "excluded");
       if (row.status === "excluded") throw new Error(row.reason);
+      assert.ok(row.sma !== null && row.indicatorCandleEnd !== null);
       const closes = raw
         .filter((bar) => {
           const date = new Date(bar.start);
@@ -95,7 +98,11 @@ assert.deepEqual(
   "Future and forming candles must not affect matches",
 );
 for (const time of ["10:34", "10:35"] as const) {
-  const result = evaluateReplay(bars, { ...input, time, timeframe: "5m" });
+  const result = evaluateReplay(bars, {
+    ...input,
+    time,
+    sma: { ...sma, timeframe: "5m" },
+  });
   for (const row of result.rows) {
     if (row.status === "excluded") throw new Error(row.reason);
     assert.equal(
@@ -109,7 +116,7 @@ for (const timeframe of ["1m", "5m"] as const) {
     ...input,
     session: "2026-08-18",
     time: "13:45",
-    timeframe,
+    sma: { ...sma, timeframe },
   });
   assert.equal(
     gap.rows.find((row) => row.symbol === "IWM")?.status,
@@ -121,13 +128,13 @@ const early = evaluateReplay(bars, {
   ...input,
   session: "2026-08-03",
   time: "09:31",
-  period: 200,
+  sma: { ...sma, period: 200 },
 });
 assert.equal(early.excludedCount, 5);
 const opening = evaluateReplay(bars, {
   ...input,
   time: "09:31",
-  timeframe: "5m",
+  sma: { ...sma, timeframe: "5m" },
 });
 for (const row of opening.rows) {
   if (row.status === "excluded") throw new Error(row.reason);
@@ -135,7 +142,8 @@ for (const row of opening.rows) {
 }
 for (const comparison of ["above", "below"] as const)
   assert.equal(
-    evaluateReplay(bars, { ...input, period: 1, comparison }).matchCount,
+    evaluateReplay(bars, { ...input, sma: { ...sma, period: 1, comparison } })
+      .matchCount,
     0,
   );
 for (const changes of [
@@ -144,8 +152,8 @@ for (const changes of [
   { session: "2026-09-16" },
   { time: "09:30" },
   { time: "16:01" },
-  { period: 0 },
-  { period: 201 },
+  { sma: { ...sma, period: 0 } },
+  { sma: { ...sma, period: 201 } },
 ]) {
   assert.equal(
     replayInputSchema.safeParse({ ...input, ...changes }).success,
@@ -177,13 +185,13 @@ for (const expected of oracle) {
     ...input,
     session: expected.session,
     time: expected.time,
-    timeframe: "1d",
-    period: 200,
+    sma: { ...sma, timeframe: "1d", period: 200 },
   };
   const dailyRow = evaluateReplay(bars, setup).rows.find(
     (row) => row.symbol === expected.symbol,
   );
   assert.ok(dailyRow && dailyRow.status !== "excluded");
+  assert.ok(dailyRow.sma !== null);
   assert.ok(Math.abs(dailyRow.sma - expected.dailySma200) < 1e-9);
   const withRsi = {
     ...setup,
@@ -200,7 +208,7 @@ for (const expected of oracle) {
   assert.ok(row);
   if (expected.rsi === null) assert.equal(row.status, "excluded");
   else {
-    assert.ok(row.status !== "excluded" && row.rsi);
+    assert.ok(row.status !== "excluded" && row.rsi && row.sma !== null);
     assert.ok(
       Math.abs(row.rsi.value - expected.rsi) < 1e-9,
       `${expected.symbol} ${expected.timeframe} RSI`,
@@ -217,7 +225,11 @@ for (const expected of oracle) {
   assert.ok(volumeRow);
   if (expected.volume === null) assert.equal(volumeRow.status, "excluded");
   else {
-    assert.ok(volumeRow.status !== "excluded" && volumeRow.relativeVolume);
+    assert.ok(
+      volumeRow.status !== "excluded" &&
+        volumeRow.relativeVolume &&
+        volumeRow.sma !== null,
+    );
     assert.ok(
       Math.abs(volumeRow.relativeVolume.value - expected.volume) < 1e-12,
     );
@@ -229,8 +241,7 @@ for (const expected of oracle) {
 }
 const mixed: ReplayInput = {
   ...input,
-  timeframe: "1d",
-  period: 200,
+  sma: { ...sma, timeframe: "1d", period: 200 },
   rsi: { timeframe: "5m", period: 14, comparison: "above", threshold: 40 },
   relativeVolume: { minimum: 0.5 },
 };
@@ -254,7 +265,7 @@ assert.deepEqual(
 );
 const closeDaily = evaluateReplay(bars, {
   ...input,
-  timeframe: "1d",
+  sma: { ...sma, timeframe: "1d" },
   time: "16:00",
 });
 for (const row of closeDaily.rows) {
@@ -367,7 +378,10 @@ const context = {
   sessionCreatedAt: new Date(),
   correlationId: "replay-check",
 };
-assert.deepEqual(await screenerRouter.createCaller(context).replay(mixed), evaluateReplay(bars, mixed));
+assert.deepEqual(
+  await screenerRouter.createCaller(context).replay(mixed),
+  evaluateReplay(bars, mixed),
+);
 assert.deepEqual(
   await screenerRouter.createCaller(context).replay(input),
   first,
@@ -383,7 +397,9 @@ await assert.rejects(
   { code: "UNAUTHORIZED" },
 );
 await assert.rejects(
-  screenerRouter.createCaller(context).replay({ ...input, period: 0 }),
+  screenerRouter
+    .createCaller(context)
+    .replay({ ...input, sma: { ...sma, period: 0 } }),
   { code: "BAD_REQUEST" },
 );
 console.log(
