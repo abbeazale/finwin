@@ -56,6 +56,20 @@ def rsi(values, n):
         down = down + (loss - down) / n
     return float(Decimal(50) if up + down == 0 else 100 - 100 / (1 + up / down) if down else 100)
 
+def ema(values, n):
+    # Last contiguous run, seeded at the mean of its first N closes.
+    gaps = [i for i, v in enumerate(values) if v is None]
+    run = values[gaps[-1] + 1:] if gaps else values
+    if len(run) < n:
+        return None
+    if n == 1:
+        return float(run[-1])
+    value = sum(run[:n]) / Decimal(n)
+    alpha = Decimal(2) / Decimal(n + 1)
+    for close in run[n:]:
+        value = value + alpha * (close - value)
+    return float(value)
+
 def volume(symbol, day, clock):
     index = sessions.index(day)
     if index < 20:
@@ -71,12 +85,20 @@ def volume(symbol, day, clock):
     baseline = Decimal(sum(totals[:-1])) / 20
     return float(Decimal(totals[-1]) / baseline) if baseline else None
 
-out = []
+cases = []
 for day, clock in [('2026-09-15', '10:30'), ('2026-09-15', '14:00'), ('2026-08-18', '13:45')]:
     for symbol in ['AAPL', 'MSFT', 'NVDA', 'SPY', 'IWM']:
         for interval in ['1m', '5m', '1d']:
             closes = series(symbol, day, clock, interval)
-            out.append(dict(symbol=symbol, session=day, time=clock, timeframe=interval,
-                            rsi=rsi(closes, 14), volume=volume(symbol, day, clock),
-                            dailySma200=float(sum(series(symbol, day, clock, '1d')[-200:]) / 200)))
-print(json.dumps(out))
+            cases.append(dict(symbol=symbol, session=day, time=clock, timeframe=interval,
+                              rsi=rsi(closes, 14), volume=volume(symbol, day, clock),
+                              dailyEma200=ema(series(symbol, day, clock, '1d'), 200)))
+emas = []
+for day, clock in [('2026-09-15', '10:30'), ('2026-08-18', '13:45'), ('2026-08-18', '15:00')]:
+    for symbol in ['AAPL', 'MSFT', 'NVDA', 'SPY', 'IWM']:
+        for interval in ['1m', '5m', '1d']:
+            closes = series(symbol, day, clock, interval)
+            for period in [1, 9, 20, 30, 200]:
+                emas.append(dict(symbol=symbol, session=day, time=clock, timeframe=interval,
+                                 period=period, value=ema(closes, period)))
+print(json.dumps(dict(cases=cases, emas=emas)))

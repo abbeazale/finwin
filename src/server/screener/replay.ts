@@ -6,12 +6,12 @@ import {
   type ScreenFilter,
 } from "@/lib/screener-replay";
 import { dailySessions } from "./calendar";
+import { intradayCandles, MINUTE, sessionOpen, type Bar } from "./candles";
+import { calculateRsi, emaPoints, latestValue } from "./indicators";
 import type { ReplayResearch } from "./research";
 
-const MINUTE = 60_000;
-type MinuteBar = { close: bigint; volume: bigint };
 export type ReplayBars = {
-  minutes: ReadonlyMap<ReplaySymbol, ReadonlyMap<number, MinuteBar>>;
+  minutes: ReadonlyMap<ReplaySymbol, ReadonlyMap<number, Bar>>;
   daily: ReadonlyMap<ReplaySymbol, ReadonlyMap<string, bigint>>;
 };
 type Candle = { close: bigint | undefined; end: number };
@@ -20,7 +20,7 @@ type ReplayRow = { symbol: ReplaySymbol } & (
   | {
       status: "match" | "no-match";
       price: number;
-      sma: number | null;
+      ema: { value: number; candleEnd: string; seedStart: string } | null;
       dailyChange: {
         value: number;
         previousClose: number;
@@ -41,7 +41,6 @@ type ReplayRow = { symbol: ReplaySymbol } & (
           }[]
         | null;
       priceCandleEnd: string;
-      indicatorCandleEnd: string | null;
       rsi: { value: number; candleEnd: string; seedStart: string } | null;
       relativeVolume: {
         value: number;
@@ -55,7 +54,7 @@ type ReplayRow = { symbol: ReplaySymbol } & (
 function candleSeries(
   bars: ReplayBars,
   symbol: ReplaySymbol,
-  timeframe: NonNullable<ScreenFilter["sma"]>["timeframe"],
+  timeframe: NonNullable<ScreenFilter["ema"]>["timeframe"],
   session: string,
   at: number,
 ): Candle[] {
@@ -69,74 +68,11 @@ function candleSeries(
         end: session.close,
       }));
   }
-  const width = timeframe === "1m" ? 1 : 5;
-  const minutes = bars.minutes.get(symbol);
-  const series: Candle[] = [];
-  for (const replaySession of replaySessions) {
-    if (replaySession > session) break;
-    const open = Date.parse(`${replaySession}T09:30:00-04:00`);
-    for (let minute = 0; minute < 390; minute += width) {
-      const start = open + minute * MINUTE;
-      const end = start + width * MINUTE;
-      if (end > at) break;
-      let close: bigint | undefined;
-      for (let offset = 0; offset < width; offset++) {
-        close = minutes?.get(start + offset * MINUTE)?.close;
-        if (close === undefined) break;
-      }
-      series.push({ close, end });
-    }
-  }
-  return series;
-}
-
-// Wilder's seed is the arithmetic average of the first N changes in a
-// contiguous run. A missing candle resets the seed; no change bridges a gap.
-export function calculateRsi(
-  closes: readonly (bigint | undefined)[],
-  period: number,
-): { value: number; seedIndex: number } | null {
-  let previous: bigint | undefined;
-  let count = 0;
-  let gain = 0;
-  let loss = 0;
-  let seedIndex = 0;
-  for (let index = 0; index < closes.length; index++) {
-    const close = closes[index];
-    if (close === undefined) {
-      previous = undefined;
-      count = 0;
-      gain = 0;
-      loss = 0;
-      continue;
-    }
-    if (previous === undefined) {
-      previous = close;
-      seedIndex = index;
-      continue;
-    }
-    const change = Number(close - previous) / 1e9;
-    const up = Math.max(change, 0);
-    const down = Math.max(-change, 0);
-    count++;
-    if (count <= period) {
-      gain += up;
-      loss += down;
-      if (count === period) {
-        gain /= period;
-        loss /= period;
-      }
-    } else {
-      gain = (gain * (period - 1) + up) / period;
-      loss = (loss * (period - 1) + down) / period;
-    }
-    previous = close;
-  }
-  if (count < period) return null;
-  return {
-    value: gain + loss === 0 ? 50 : (100 * gain) / (gain + loss),
-    seedIndex,
-  };
+  return intradayCandles(
+    bars.minutes.get(symbol),
+    timeframe === "1m" ? 1 : 5,
+    at,
+  ).map((slot) => ({ close: slot.bar?.close, end: slot.end }));
 }
 
 function relativeVolume(
@@ -151,11 +87,11 @@ function relativeVolume(
       error: "Relative volume needs 20 prior sessions in the minute sample.",
     };
   const minutes = bars.minutes.get(symbol);
-  const elapsed = (at - Date.parse(`${session}T09:30:00-04:00`)) / MINUTE;
+  const elapsed = (at - sessionOpen(session)) / MINUTE;
   let baseline = BigInt(0);
   let current = BigInt(0);
   for (const baselineSession of replaySessions.slice(index - 20, index + 1)) {
-    const open = Date.parse(`${baselineSession}T09:30:00-04:00`);
+    const open = sessionOpen(baselineSession);
     for (let minute = 0; minute < elapsed; minute++) {
       const volume = minutes?.get(open + minute * MINUTE)?.volume;
       if (volume === undefined)
@@ -186,39 +122,44 @@ export function evaluateReplay(
         reason: "Missing latest completed one-minute price candle.",
       };
     const failedConditions: string[] = [];
-    let sma: number | null = null;
-    let indicatorCandleEnd: string | null = null;
-    const series = input.sma
-      ? candleSeries(bars, symbol, input.sma.timeframe, input.session, at)
+    let ema: Extract<ReplayRow, { price: number }>["ema"] = null;
+    const series = input.ema
+      ? candleSeries(bars, symbol, input.ema.timeframe, input.session, at)
       : [];
-    if (input.sma) {
-      const window = series.slice(-input.sma.period);
-      const last = window.at(-1);
-      if (window.length < input.sma.period || !last)
+    if (input.ema) {
+      const { period, timeframe } = input.ema;
+      const last = series.at(-1);
+      if (last && last.close === undefined)
         return {
           symbol,
           status: "excluded",
-          reason: `Need ${input.sma.period} completed ${input.sma.timeframe} candles; sample history is too short.`,
+          reason: `EMA is missing the latest ${timeframe} candle ending ${new Date(last.end).toISOString()}. No candle was filled or skipped.`,
         };
-      let sum = BigInt(0);
-      for (const candle of window) {
-        if (candle.close === undefined)
-          return {
-            symbol,
-            status: "excluded",
-            reason: `SMA is missing a required ${input.sma.timeframe} candle ending ${new Date(candle.end).toISOString()}. No candle was filled or skipped.`,
-          };
-        sum += candle.close;
-      }
-      const scaledPrice = price * BigInt(input.sma.period);
+      const value = latestValue(
+        emaPoints(
+          series.map((candle) => candle.close),
+          period,
+        ),
+      );
+      if (!value || !last)
+        return {
+          symbol,
+          status: "excluded",
+          reason: `EMA needs ${period} consecutive completed ${timeframe} candles after the sample start or last gap.`,
+        };
+      // Strict comparison against the unrounded EMA; equality matches neither.
+      const latest = Number(price) / 1e9;
       if (
-        !(input.sma.comparison === "above"
-          ? scaledPrice > sum
-          : scaledPrice < sum)
+        !(input.ema.comparison === "above"
+          ? latest > value.value
+          : latest < value.value)
       )
-        failedConditions.push("Price/SMA");
-      sma = Number(sum) / input.sma.period / 1e9;
-      indicatorCandleEnd = new Date(last.end).toISOString();
+        failedConditions.push("Price/EMA");
+      ema = {
+        value: value.value,
+        candleEnd: new Date(last.end).toISOString(),
+        seedStart: new Date(series[value.seedIndex].end).toISOString(),
+      };
     }
     if (input.priceRange) {
       // Compare integer cents against the original billionths, before display rounding.
@@ -312,7 +253,7 @@ export function evaluateReplay(
     let rsi: Extract<ReplayRow, { price: number }>["rsi"] = null;
     if (input.rsi) {
       const rsiSeries =
-        input.rsi.timeframe === input.sma?.timeframe
+        input.rsi.timeframe === input.ema?.timeframe
           ? series
           : candleSeries(bars, symbol, input.rsi.timeframe, input.session, at);
       const value = calculateRsi(
@@ -359,12 +300,11 @@ export function evaluateReplay(
       symbol,
       status: failedConditions.length === 0 ? "match" : "no-match",
       price: Number(price) / 1e9,
-      sma,
+      ema,
       dailyChange,
       float,
       news,
       priceCandleEnd: new Date(at).toISOString(),
-      indicatorCandleEnd,
       rsi,
       relativeVolume: volume,
       failedConditions,
@@ -378,7 +318,7 @@ export function evaluateReplay(
         key !== "session" && key !== "time" && value !== undefined,
     ).length,
     dataset: "EQUS.MINI" as const,
-    smaDataset: input.sma?.timeframe === "1d" ? "EQUS.SUMMARY" : "EQUS.MINI",
+    emaDataset: input.ema?.timeframe === "1d" ? "EQUS.SUMMARY" : "EQUS.MINI",
     rsiDataset: input.rsi?.timeframe === "1d" ? "EQUS.SUMMARY" : "EQUS.MINI",
     rows,
     matchCount: rows.filter((row) => row.status === "match").length,

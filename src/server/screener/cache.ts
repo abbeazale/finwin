@@ -8,6 +8,7 @@ import {
   type ReplaySymbol,
 } from "@/lib/screener-replay";
 import type { ReplayBars } from "./replay";
+import type { Bar } from "./candles";
 import { dailySessions } from "./calendar";
 
 const manifestSchema = z.object({
@@ -111,10 +112,9 @@ async function readCache(includeDaily: boolean): Promise<ReplayBars> {
         )
       : Promise.resolve([]),
   ]);
-  const minutes = new Map<
-    ReplaySymbol,
-    Map<number, { close: bigint; volume: bigint }>
-  >(replaySymbols.map((symbol) => [symbol, new Map()]));
+  const minutes = new Map<ReplaySymbol, Map<number, Bar>>(
+    replaySymbols.map((symbol) => [symbol, new Map()]),
+  );
   const daily = new Map<ReplaySymbol, Map<string, bigint>>(
     replaySymbols.map((symbol) => [symbol, new Map()]),
   );
@@ -138,9 +138,13 @@ async function readCache(includeDaily: boolean): Promise<ReplayBars> {
       start >= open &&
       start < open + 390 * 60_000
     )
-      minutes
-        .get(bar.symbol)
-        ?.set(start, { close: bar.close, volume: bar.volume });
+      minutes.get(bar.symbol)?.set(start, {
+        open: bar.open,
+        high: bar.high,
+        low: bar.low,
+        close: bar.close,
+        volume: bar.volume,
+      });
   }
   const dates = new Set(dailySessions.map((session) => session.date));
   for (const line of dailyLines) {

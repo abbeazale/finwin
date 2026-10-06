@@ -145,7 +145,7 @@ export function ScreenForm({
       initial.relativeVolume,
       initial.news,
       initial.float,
-      initial.sma,
+      initial.ema,
       initial.rsi,
     ].filter(Boolean).length,
   );
@@ -339,47 +339,47 @@ export function ScreenForm({
           </Setting>
         </OptionalFilter>
         <OptionalFilter
-          name="smaEnabled"
-          title="Price versus SMA"
+          name="emaEnabled"
+          title="Price versus EMA"
           hint="Above or below the average"
-          initialEnabled={Boolean(initial.sma)}
+          initialEnabled={Boolean(initial.ema)}
           onToggle={countToggle}
-          description="Compares the latest completed price with a simple moving average."
+          description="Compares the latest completed price with an exponential moving average. The EMA starts from the average of its first candles and restarts after a missing candle."
         >
-          <Setting htmlFor="comparison" label="Price is">
+          <Setting htmlFor="emaComparison" label="Price is">
             <NativeSelect
-              id="comparison"
-              name="comparison"
-              defaultValue={initial.sma?.comparison ?? "above"}
+              id="emaComparison"
+              name="emaComparison"
+              defaultValue={initial.ema?.comparison ?? "above"}
             >
-              <NativeSelectOption value="above">Above SMA</NativeSelectOption>
-              <NativeSelectOption value="below">Below SMA</NativeSelectOption>
+              <NativeSelectOption value="above">Above EMA</NativeSelectOption>
+              <NativeSelectOption value="below">Below EMA</NativeSelectOption>
             </NativeSelect>
           </Setting>
-          <Setting htmlFor="timeframe" label="Candles">
+          <Setting htmlFor="emaTimeframe" label="Candles">
             <NativeSelect
-              id="timeframe"
-              name="timeframe"
-              defaultValue={initial.sma?.timeframe ?? "1m"}
+              id="emaTimeframe"
+              name="emaTimeframe"
+              defaultValue={initial.ema?.timeframe ?? "1m"}
             >
               <NativeSelectOption value="1m">1 minute</NativeSelectOption>
               <NativeSelectOption value="5m">5 minutes</NativeSelectOption>
               <NativeSelectOption value="1d">Daily</NativeSelectOption>
             </NativeSelect>
           </Setting>
-          <Setting htmlFor="period" label="Period">
+          <Setting htmlFor="emaPeriod" label="Period">
             <Input
-              id="period"
-              name="period"
+              id="emaPeriod"
+              name="emaPeriod"
               type="number"
               min={1}
               max={200}
               step={1}
-              defaultValue={initial.sma?.period ?? 20}
-              list="sma-presets"
+              defaultValue={initial.ema?.period ?? 20}
+              list="ema-presets"
               required
             />
-            <datalist id="sma-presets">
+            <datalist id="ema-presets">
               <option value={9} />
               <option value={20} />
               <option value={200} />
@@ -392,7 +392,7 @@ export function ScreenForm({
           hint="Momentum against a level"
           initialEnabled={Boolean(initial.rsi)}
           onToggle={countToggle}
-          description="RSI uses its own candle interval, independent of the SMA filter."
+          description="RSI uses its own candle interval, independent of the EMA filter."
         >
           <Setting htmlFor="rsiComparison" label="RSI is">
             <NativeSelect

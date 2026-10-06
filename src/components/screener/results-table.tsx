@@ -6,6 +6,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import type { ReplaySymbol } from "@/lib/screener-replay";
 import type { ReplayResult } from "@/server/screener/replay";
 import { cn } from "@/lib/utils";
 import { replayClock, replayDecimal } from "./format";
@@ -38,9 +39,9 @@ function conditions(input: ReplayResult["input"]) {
   if (input.news) list.push(`News within ${input.news.hours}h`);
   if (input.float)
     list.push(`Float < ${(input.float.maximum / 1_000_000).toLocaleString("en-US")}M`);
-  if (input.sma)
+  if (input.ema)
     list.push(
-      `Price ${input.sma.comparison} SMA ${input.sma.period} (${input.sma.timeframe})`,
+      `Price ${input.ema.comparison} EMA ${input.ema.period} (${input.ema.timeframe})`,
     );
   if (input.rsi)
     list.push(
@@ -49,14 +50,25 @@ function conditions(input: ReplayResult["input"]) {
   return list;
 }
 
-export function ResultsTable({ result }: { result: ReplayResult }) {
+export function ResultsTable({
+  result,
+  selected,
+  onSelect,
+}: {
+  result: ReplayResult;
+  selected: ReplaySymbol | null;
+  onSelect: (symbol: ReplaySymbol) => void;
+}) {
   const { input, rows } = result;
   const noMatchCount = rows.length - result.matchCount - result.excludedCount;
   const priceCandle = sharedValue(rows, (row) =>
     row.status === "excluded" ? null : row.priceCandleEnd,
   );
-  const smaCandle = sharedValue(rows, (row) =>
-    row.status === "excluded" ? null : row.indicatorCandleEnd,
+  const emaCandle = sharedValue(rows, (row) =>
+    row.status === "excluded" ? null : (row.ema?.candleEnd ?? null),
+  );
+  const emaSeed = sharedValue(rows, (row) =>
+    row.status === "excluded" ? null : (row.ema?.seedStart ?? null),
   );
   const rsiCandle = sharedValue(rows, (row) =>
     row.status === "excluded" ? null : (row.rsi?.candleEnd ?? null),
@@ -112,8 +124,8 @@ export function ResultsTable({ result }: { result: ReplayResult }) {
               {input.relativeVolume ? (
                 <TableHead className="text-right">Rel. volume</TableHead>
               ) : null}
-              {input.sma ? (
-                <TableHead className="text-right">SMA</TableHead>
+              {input.ema ? (
+                <TableHead className="text-right">EMA</TableHead>
               ) : null}
               {input.rsi ? (
                 <TableHead className="text-right">RSI</TableHead>
@@ -127,13 +139,32 @@ export function ResultsTable({ result }: { result: ReplayResult }) {
           </TableHeader>
           <TableBody>
             {rows.map((row) => (
-              <TableRow key={row.symbol}>
-                <TableCell className="font-medium">{row.symbol}</TableCell>
+              <TableRow
+                key={row.symbol}
+                data-state={selected === row.symbol ? "selected" : undefined}
+                className={cn(
+                  selected === row.symbol && "bg-[rgba(201,164,107,0.06)]",
+                )}
+              >
+                <TableCell className="font-medium">
+                  <button
+                    type="button"
+                    aria-label={`View ${row.symbol} chart`}
+                    aria-pressed={selected === row.symbol}
+                    onClick={() => onSelect(row.symbol)}
+                    className={cn(
+                      "rounded-md px-1.5 py-0.5 -mx-1.5 underline-offset-4 transition-colors hover:text-brass-hi hover:underline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[var(--brass-hi)]",
+                      selected === row.symbol && "text-brass-hi underline",
+                    )}
+                  >
+                    {row.symbol}
+                  </button>
+                </TableCell>
                 {row.status === "excluded" ? (
                   <TableCell
                     colSpan={
                       2 +
-                      Number(Boolean(input.sma)) +
+                      Number(Boolean(input.ema)) +
                       Number(Boolean(input.dailyChange)) +
                       Number(Boolean(input.float)) +
                       Number(Boolean(input.news)) +
@@ -171,9 +202,9 @@ export function ResultsTable({ result }: { result: ReplayResult }) {
                         {row.relativeVolume.value.toFixed(2)}×
                       </TableCell>
                     ) : null}
-                    {row.sma !== null ? (
+                    {row.ema ? (
                       <TableCell className="text-right tabular-nums">
-                        {replayDecimal.format(row.sma)}
+                        {replayDecimal.format(row.ema.value)}
                       </TableCell>
                     ) : null}
                     {row.rsi ? (
@@ -232,6 +263,17 @@ export function ResultsTable({ result }: { result: ReplayResult }) {
                           Price close {clock(row.priceCandleEnd)}
                         </span>
                       ) : null}
+                      {row.ema && emaCandle && row.ema.candleEnd !== emaCandle ? (
+                        <span className="block text-xs text-muted-foreground">
+                          EMA candle {clock(row.ema.candleEnd)}
+                        </span>
+                      ) : null}
+                      {row.ema && row.ema.seedStart !== emaSeed ? (
+                        <span className="block text-xs text-muted-foreground">
+                          EMA seeded from {row.ema.seedStart.slice(0, 10)}{" "}
+                          {clock(row.ema.seedStart)}
+                        </span>
+                      ) : null}
                       {row.rsi && rsiCandle && row.rsi.candleEnd !== rsiCandle ? (
                         <span className="block text-xs text-muted-foreground">
                           RSI candle {clock(row.rsi.candleEnd)}
@@ -253,8 +295,11 @@ export function ResultsTable({ result }: { result: ReplayResult }) {
       </div>
       <p className="text-xs text-muted-foreground">
         {priceCandle ? `Price close ${clock(priceCandle)} New York. ` : ""}
-        {input.sma && smaCandle
-          ? `SMA candle ${clock(smaCandle)}, source ${result.smaDataset}. `
+        {input.ema && emaCandle
+          ? `EMA candle ${clock(emaCandle)}, source ${result.emaDataset}. `
+          : ""}
+        {input.ema && emaSeed
+          ? `EMA seeded from ${emaSeed.slice(0, 10)} ${clock(emaSeed)}. `
           : ""}
         {input.rsi && rsiCandle
           ? `RSI candle ${clock(rsiCandle)}, source ${result.rsiDataset}. `

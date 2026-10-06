@@ -2,80 +2,87 @@ import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { z } from "zod";
 import { dailySessions } from "../src/server/screener/calendar";
-import { readFile, mkdtemp, mkdir, copyFile, rm } from "node:fs/promises";
+import { mkdtemp, mkdir, copyFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
   replayInputSchema,
   replaySymbols,
   type ReplayInput,
-  type ReplaySymbol,
 } from "../src/lib/screener-replay";
 import { loadReplayBars } from "../src/server/screener/cache";
-import { evaluateReplay, calculateRsi } from "../src/server/screener/replay";
+import { evaluateReplay } from "../src/server/screener/replay";
+import { calculateRsi } from "../src/server/screener/indicators";
 import { screenerRouter } from "../src/server/trpc/routers/screener";
 
 const bars = await loadReplayBars();
-const sma = { timeframe: "1m", period: 20, comparison: "above" } as const;
+const ema = { timeframe: "1m", period: 20, comparison: "above" } as const;
 const input: ReplayInput = {
   session: "2026-09-15",
   time: "10:30",
-  sma,
+  ema,
 };
 const first = evaluateReplay(bars, input);
 assert.deepEqual(evaluateReplay(bars, input), first);
 
-// Independent numeric benchmark directly from the raw download, not the loader.
-const raw: { symbol: ReplaySymbol; start: number; close: number }[] = [];
-for (const line of (
-  await readFile(".local/databento-probe/mini-minute.jsonl", "utf8")
-)
-  .trim()
-  .split("\n")) {
-  const row = JSON.parse(line);
-  raw.push({
-    symbol: row.symbol,
-    start: Date.parse(row.hd.ts_event),
-    close: Number(row.close),
-  });
-}
+// A separately implemented Python/Decimal oracle reads the original JSONL.
+const oracleSchema = z.object({
+  cases: z.array(
+    z.object({
+      symbol: z.enum(replaySymbols),
+      session: z.string(),
+      time: z.string(),
+      timeframe: z.enum(["1m", "5m", "1d"]),
+      rsi: z.number().nullable(),
+      volume: z.number().nullable(),
+      dailyEma200: z.number(),
+    }),
+  ),
+  emas: z.array(
+    z.object({
+      symbol: z.enum(replaySymbols),
+      session: z.string(),
+      time: z.string(),
+      timeframe: z.enum(["1m", "5m", "1d"]),
+      period: z.number(),
+      value: z.number().nullable(),
+    }),
+  ),
+});
+const oracleOutput = oracleSchema.parse(
+  JSON.parse(
+    execFileSync("python3", ["scripts/screener-indicator-oracle.py"], {
+      encoding: "utf8",
+      maxBuffer: 16 * 1024 * 1024,
+    }),
+  ),
+);
+const oracle = oracleOutput.cases;
 let comparisons = 0;
-for (const timeframe of ["1m", "5m"] as const) {
-  for (const period of [1, 9, 20, 30, 200]) {
-    const result = evaluateReplay(bars, {
-      ...input,
-      sma: { ...sma, timeframe, period },
-    });
-    const at = Date.parse(result.asOf);
-    const width = timeframe === "1m" ? 1 : 5;
-    for (const row of result.rows) {
-      assert.notEqual(row.status, "excluded");
-      if (row.status === "excluded") throw new Error(row.reason);
-      assert.ok(row.sma !== null && row.indicatorCandleEnd !== null);
-      const closes = raw
-        .filter((bar) => {
-          const date = new Date(bar.start);
-          const utcMinute = date.getUTCHours() * 60 + date.getUTCMinutes();
-          return (
-            bar.symbol === row.symbol &&
-            bar.start < at &&
-            utcMinute >= 810 &&
-            utcMinute < 1200 &&
-            (utcMinute - 810 + 1) % width === 0
-          );
-        })
-        .sort((a, b) => a.start - b.start)
-        .slice(-period);
-      assert.equal(closes.length, period);
-      const expected = closes.reduce((sum, bar) => sum + bar.close, 0) / period;
-      assert.ok(
-        Math.abs(row.sma - expected) < 1e-9,
-        `${row.symbol} ${timeframe} SMA ${period}`,
-      );
-      assert.ok(Date.parse(row.indicatorCandleEnd) <= at);
-      comparisons++;
-    }
+for (const expected of oracleOutput.emas) {
+  const result = evaluateReplay(bars, {
+    session: expected.session,
+    time: expected.time,
+    ema: { ...ema, timeframe: expected.timeframe, period: expected.period },
+  });
+  const row = result.rows.find((row) => row.symbol === expected.symbol);
+  const label = `${expected.symbol} ${expected.session} ${expected.time} ${expected.timeframe} EMA ${expected.period}`;
+  assert.ok(row, label);
+  if (expected.value === null) {
+    assert.equal(row.status, "excluded", label);
+    continue;
   }
+  if (row.status === "excluded") throw new Error(`${label}: ${row.reason}`);
+  assert.ok(row.ema, label);
+  assert.ok(Math.abs(row.ema.value - expected.value) < 1e-9, label);
+  assert.ok(Date.parse(row.ema.candleEnd) <= Date.parse(result.asOf));
+  assert.ok(row.ema.seedStart <= row.ema.candleEnd);
+  assert.equal(
+    row.status === "match",
+    row.price > row.ema.value,
+    `${label} strict comparison`,
+  );
+  comparisons++;
 }
 
 const at = Date.parse(first.asOf);
@@ -101,12 +108,12 @@ for (const time of ["10:34", "10:35"] as const) {
   const result = evaluateReplay(bars, {
     ...input,
     time,
-    sma: { ...sma, timeframe: "5m" },
+    ema: { ...ema, timeframe: "5m" },
   });
   for (const row of result.rows) {
     if (row.status === "excluded") throw new Error(row.reason);
     assert.equal(
-      row.indicatorCandleEnd,
+      row.ema?.candleEnd,
       `2026-09-15T14:${time === "10:34" ? "30" : "35"}:00.000Z`,
     );
   }
@@ -116,7 +123,7 @@ for (const timeframe of ["1m", "5m"] as const) {
     ...input,
     session: "2026-08-18",
     time: "13:45",
-    sma: { ...sma, timeframe },
+    ema: { ...ema, timeframe },
   });
   assert.equal(
     gap.rows.find((row) => row.symbol === "IWM")?.status,
@@ -128,21 +135,21 @@ const early = evaluateReplay(bars, {
   ...input,
   session: "2026-08-03",
   time: "09:31",
-  sma: { ...sma, period: 200 },
+  ema: { ...ema, period: 200 },
 });
 assert.equal(early.excludedCount, 5);
 const opening = evaluateReplay(bars, {
   ...input,
   time: "09:31",
-  sma: { ...sma, timeframe: "5m" },
+  ema: { ...ema, timeframe: "5m" },
 });
 for (const row of opening.rows) {
   if (row.status === "excluded") throw new Error(row.reason);
-  assert.equal(row.indicatorCandleEnd, "2026-09-14T20:00:00.000Z");
+  assert.equal(row.ema?.candleEnd, "2026-09-14T20:00:00.000Z");
 }
 for (const comparison of ["above", "below"] as const)
   assert.equal(
-    evaluateReplay(bars, { ...input, sma: { ...sma, period: 1, comparison } })
+    evaluateReplay(bars, { ...input, ema: { ...ema, period: 1, comparison } })
       .matchCount,
     0,
   );
@@ -152,8 +159,8 @@ for (const changes of [
   { session: "2026-09-16" },
   { time: "09:30" },
   { time: "16:01" },
-  { sma: { ...sma, period: 0 } },
-  { sma: { ...sma, period: 201 } },
+  { ema: { ...ema, period: 0 } },
+  { ema: { ...ema, period: 201 } },
 ]) {
   assert.equal(
     replayInputSchema.safeParse({ ...input, ...changes }).success,
@@ -161,38 +168,19 @@ for (const changes of [
   );
 }
 
-// A separately implemented Python/Decimal oracle reads the original JSONL.
-const oracleSchema = z.array(
-  z.object({
-    symbol: z.enum(replaySymbols),
-    session: z.string(),
-    time: z.string(),
-    timeframe: z.enum(["1m", "5m", "1d"]),
-    rsi: z.number().nullable(),
-    volume: z.number().nullable(),
-    dailySma200: z.number(),
-  }),
-);
-const oracle = oracleSchema.parse(
-  JSON.parse(
-    execFileSync("python3", ["scripts/screener-indicator-oracle.py"], {
-      encoding: "utf8",
-    }),
-  ),
-);
 for (const expected of oracle) {
   const setup: ReplayInput = {
     ...input,
     session: expected.session,
     time: expected.time,
-    sma: { ...sma, timeframe: "1d", period: 200 },
+    ema: { ...ema, timeframe: "1d", period: 200 },
   };
   const dailyRow = evaluateReplay(bars, setup).rows.find(
     (row) => row.symbol === expected.symbol,
   );
   assert.ok(dailyRow && dailyRow.status !== "excluded");
-  assert.ok(dailyRow.sma !== null);
-  assert.ok(Math.abs(dailyRow.sma - expected.dailySma200) < 1e-9);
+  assert.ok(dailyRow.ema);
+  assert.ok(Math.abs(dailyRow.ema.value - expected.dailyEma200) < 1e-9);
   const withRsi = {
     ...setup,
     rsi: {
@@ -208,14 +196,14 @@ for (const expected of oracle) {
   assert.ok(row);
   if (expected.rsi === null) assert.equal(row.status, "excluded");
   else {
-    assert.ok(row.status !== "excluded" && row.rsi && row.sma !== null);
+    assert.ok(row.status !== "excluded" && row.rsi && row.ema);
     assert.ok(
       Math.abs(row.rsi.value - expected.rsi) < 1e-9,
       `${expected.symbol} ${expected.timeframe} RSI`,
     );
     assert.equal(
       row.status === "match",
-      row.price > row.sma && row.rsi.value > 0,
+      row.price > row.ema.value && row.rsi.value > 0,
     );
   }
   const volumeRow = evaluateReplay(bars, {
@@ -228,20 +216,21 @@ for (const expected of oracle) {
     assert.ok(
       volumeRow.status !== "excluded" &&
         volumeRow.relativeVolume &&
-        volumeRow.sma !== null,
+        volumeRow.ema,
     );
     assert.ok(
       Math.abs(volumeRow.relativeVolume.value - expected.volume) < 1e-12,
     );
     assert.equal(
       volumeRow.status === "match",
-      volumeRow.price > volumeRow.sma && volumeRow.relativeVolume.value >= 1,
+      volumeRow.price > volumeRow.ema.value &&
+        volumeRow.relativeVolume.value >= 1,
     );
   }
 }
 const mixed: ReplayInput = {
   ...input,
-  sma: { ...sma, timeframe: "1d", period: 200 },
+  ema: { ...ema, timeframe: "1d", period: 200 },
   rsi: { timeframe: "5m", period: 14, comparison: "above", threshold: 40 },
   relativeVolume: { minimum: 0.5 },
 };
@@ -265,12 +254,12 @@ assert.deepEqual(
 );
 const closeDaily = evaluateReplay(bars, {
   ...input,
-  sma: { ...sma, timeframe: "1d" },
+  ema: { ...ema, timeframe: "1d" },
   time: "16:00",
 });
 for (const row of closeDaily.rows) {
   assert.ok(row.status !== "excluded");
-  assert.equal(row.indicatorCandleEnd, "2026-09-14T20:00:00.000Z");
+  assert.equal(row.ema?.candleEnd, "2026-09-14T20:00:00.000Z");
 }
 assert.equal(dailySessions.length, 282);
 assert.equal(
@@ -399,7 +388,7 @@ await assert.rejects(
 await assert.rejects(
   screenerRouter
     .createCaller(context)
-    .replay({ ...input, sma: { ...sma, period: 0 } }),
+    .replay({ ...input, ema: { ...ema, period: 0 } }),
   { code: "BAD_REQUEST" },
 );
 console.log(

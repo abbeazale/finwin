@@ -18,7 +18,7 @@ for (
 }
 
 export const screenFilterSchema = z.strictObject({
-  sma: z
+  ema: z
     .object({
       timeframe: z.enum(["1m", "5m", "1d"]),
       period: z.number().int().min(1).max(200),
@@ -101,13 +101,13 @@ export function parseReplayForm(
   const result = replayInputSchema.safeParse({
     session: fields.get("session"),
     time: fields.get("time"),
-    sma:
-      fields.get("smaEnabled") !== "on"
+    ema:
+      fields.get("emaEnabled") !== "on"
         ? undefined
         : {
-            timeframe: fields.get("timeframe"),
-            comparison: fields.get("comparison"),
-            period: formNumber(fields.get("period")),
+            timeframe: fields.get("emaTimeframe"),
+            comparison: fields.get("emaComparison"),
+            period: formNumber(fields.get("emaPeriod")),
           },
     priceRange:
       fields.get("priceEnabled") === "on"

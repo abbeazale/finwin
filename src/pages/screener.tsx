@@ -1,12 +1,23 @@
 import { useState } from "react";
+import { skipToken } from "@tanstack/react-query";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { PageStatus } from "@/components/page-status";
 import { AppShell } from "@/components/dashboard/app-shell";
 import { PageHeading, ShellLoading } from "@/components/dashboard/desk-ui";
+import {
+  initialChartSettings,
+  toChartInput,
+  type ChartSettings,
+} from "@/components/screener/chart-settings";
+import { ResearchPanel } from "@/components/screener/research-panel";
 import { ResultsTable } from "@/components/screener/results-table";
 import { ScreenForm } from "@/components/screener/screen-form";
 import { useRequireSession } from "@/hooks/use-require-session";
-import { nextReplayMinute, type ReplayInput } from "@/lib/screener-replay";
+import {
+  nextReplayMinute,
+  type ReplayInput,
+  type ReplaySymbol,
+} from "@/lib/screener-replay";
 import { trpc } from "@/lib/trpc";
 
 const initialScreen: ReplayInput = {
@@ -17,6 +28,12 @@ const initialScreen: ReplayInput = {
 export default function ScreenerPage() {
   const { session, isPending } = useRequireSession();
   const [screen, setScreen] = useState(initialScreen);
+  // Chart state lives outside the keyed form so screen changes keep the
+  // selection and the chart settings the user has explored.
+  const [selected, setSelected] = useState<ReplaySymbol | null>(null);
+  const [chartSettings, setChartSettings] = useState<ChartSettings | null>(
+    null,
+  );
   const capabilities = trpc.screener.capabilities.useQuery(undefined, {
     enabled: Boolean(session),
     retry: false,
@@ -28,6 +45,18 @@ export default function ScreenerPage() {
     staleTime: Infinity,
     refetchOnWindowFocus: false,
   });
+
+  const chart = trpc.screener.chart.useQuery(
+    session && selected && chartSettings
+      ? toChartInput(selected, screen, chartSettings)
+      : skipToken,
+    { retry: false, staleTime: Infinity, refetchOnWindowFocus: false },
+  );
+
+  function handleSelect(symbol: ReplaySymbol) {
+    if (!chartSettings) setChartSettings(initialChartSettings(screen));
+    setSelected(symbol);
+  }
 
   function handleRun(next: ReplayInput) {
     if (JSON.stringify(next) === JSON.stringify(screen)) void replay.refetch();
@@ -114,8 +143,35 @@ export default function ScreenerPage() {
               <AlertDescription>{replay.error.message}</AlertDescription>
             </Alert>
           ) : null}
-          {result && !replay.error ? <ResultsTable result={result} /> : null}
+          {result && !replay.error ? (
+            <ResultsTable
+              result={result}
+              selected={selected}
+              onSelect={handleSelect}
+            />
+          ) : null}
+          {result && !replay.error && !selected ? (
+            <p className="text-sm text-muted-foreground">
+              Select a symbol to see its price history up to this minute.
+            </p>
+          ) : null}
         </section>
+        {selected && chartSettings ? (
+          <ResearchPanel
+            symbol={selected}
+            screen={screen}
+            row={result?.rows.find((row) => row.symbol === selected)}
+            screenDatasets={result}
+            settings={chartSettings}
+            onSettings={setChartSettings}
+            onReset={() => setChartSettings(initialChartSettings(screen))}
+            onClose={() => setSelected(null)}
+            data={chart.data}
+            error={chart.error?.message ?? null}
+            isFetching={chart.isFetching}
+            onRetry={() => void chart.refetch()}
+          />
+        ) : null}
       </div>
     </AppShell>
   );
