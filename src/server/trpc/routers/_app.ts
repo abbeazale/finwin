@@ -2,6 +2,7 @@ import { budgetsRouter } from "./budgets";
 import { dashboardRouter } from "./dashboard";
 import { investmentsRouter } from "./investments";
 import { onboardingRouter } from "./onboarding";
+import { screenerRouter } from "./screener";
 import { sandboxRouter } from "./sandbox";
 import { router } from "../trpc";
 import { plaidRouter } from "./plaid";
@@ -13,6 +14,7 @@ export const appRouter = router({
   investments: investmentsRouter,
   onboarding: onboardingRouter,
   sandbox: sandboxRouter,
+  screener: screenerRouter,
   plaid: plaidRouter,
   transactions: transactionsRouter,
 });

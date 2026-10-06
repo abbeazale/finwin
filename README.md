@@ -300,3 +300,13 @@ minutes up to 12 hours. `POST /api/internal/plaid/revocations/retry` with
 hand. After 12 failed attempts a row is marked `abandoned` and its credential
 is deleted; that emits a `REVOCATION_ABANDONED` log, and an operator must then
 remove the Item in the Plaid dashboard by hand.
+
+## Historical stock screener preview
+
+Open `/screener` from the desk navigation after signing in. Choose a recorded session/time, one-minute, five-minute or daily candles, an SMA period from 1 to 200, and above/below. Optionally add RSI with its own interval/period/threshold and a minimum same-time relative volume over 20 prior sessions. Every enabled condition must match. Run screen shows matching instruments, nonmatches and explained missing-data exclusions; Advance result 1 minute steps the applied setup forward.
+
+This preview uses the existing five-symbol Databento EQUS.MINI sample in `.local/databento-probe/`, with unadjusted USD prices. It needs the original `manifest.json` and `mini-minute.jsonl`; daily conditions also need `summary-daily.jsonl`. It verifies the recorded checksums and makes no provider requests. The ignored cache is not included in a clone or deployment; an absent cache produces an unavailable message. Restart after restoring it. No owner allowlist or bank connection is required.
+
+Prices are completed historical minute closes, not live quotes. Supported sessions are August 3 through September 15, 2026, excluding weekends and Labor Day. Daily indicators use the previous session from EQUS.SUMMARY; intraday indicators and relative volume use EQUS.MINI. Volume is feed-specific. Paper-trade submission and saved screens are not available yet.
+
+Validate the cached sample end to end with `bun scripts/check-screener-replay.ts`, which also runs an independent Python Decimal benchmark. Local page-render checks run with `bun test scripts/screener-page.test.ts`; that test remains uncommitted.

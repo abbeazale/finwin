@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { useDeferredValue, useState } from "react";
 import {
   ArrowLeft,
@@ -10,6 +9,9 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageStatus } from "@/components/page-status";
+import { AppShell } from "@/components/dashboard/app-shell";
+import { Notice, PageHeading, ShellLoading } from "@/components/dashboard/desk-ui";
+import { formatDateTile } from "@/components/dashboard/metrics";
 import { useRequireSession } from "@/hooks/use-require-session";
 import { formatCurrency } from "@/lib/currency";
 import { parseLocalDate } from "@/lib/date";
@@ -133,7 +135,11 @@ export default function TransactionsPage() {
   }
 
   if (sessionLoading || (isLoading && !data)) {
-    return <PageStatus label="Warming the tape…" />;
+    return (
+      <AppShell>
+        <ShellLoading label="Loading transactions…" />
+      </AppShell>
+    );
   }
 
   if (!session) {
@@ -141,384 +147,338 @@ export default function TransactionsPage() {
   }
 
   return (
-    <div className="relative min-h-screen bg-ink-0 text-bone">
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className="absolute -top-32 right-[14%] h-[28rem] w-[28rem] rounded-full blur-3xl"
-          style={{ background: "radial-gradient(circle, rgba(232,199,145,0.05), transparent 65%)" }}
-        />
-        <div
-          className="absolute -bottom-40 left-0 h-[30rem] w-[48rem] blur-3xl"
-          style={{ background: "radial-gradient(ellipse, rgba(255,154,60,0.04), transparent 60%)" }}
-        />
-      </div>
+    <AppShell
+      actions={
+        isFetching ? (
+          <span className="hidden items-center gap-2 text-[12.5px] text-brass-hi sm:flex">
+            <span className="h-1.5 w-1.5 rounded-full bg-brass animate-pulse-dot" />
+            Refreshing
+          </span>
+        ) : null
+      }
+    >
+      <PageHeading
+        kicker={`${data?.totalCount ?? 0} transactions across ${data?.accounts.length ?? 0} accounts`}
+        title={
+          <>
+            Every <span className="italic text-brass-hi">transaction.</span>
+          </>
+        }
+        description="Everything your banks have imported. Filter the list, and give uncategorized rows a category so they count toward your budgets."
+      />
 
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-6 py-10 sm:px-10">
-        <header className="mb-12 flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/dashboard"
-              className="label-eyebrow inline-flex items-center gap-2 transition-colors hover:text-brass-hi"
+      {data && data.uncategorizedCount > 0 ? (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-[16px] border border-[rgba(212,154,74,0.3)] bg-[rgba(212,154,74,0.05)] px-5 py-4">
+          <div className="flex items-start gap-3.5">
+            <div className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[rgba(212,154,74,0.32)] bg-[rgba(212,154,74,0.08)] text-amber">
+              <BadgeAlert className="size-4" />
+            </div>
+            <div>
+              <p className="text-[14px] text-bone">
+                <span className="text-amber">{data.uncategorizedCount}</span>{" "}
+                uncategorized transaction{data.uncategorizedCount === 1 ? "" : "s"} to review
+              </p>
+              <p className="mt-1 text-[12.5px] text-bone-mute">
+                They don’t count toward a budget until they have a category.
+              </p>
+            </div>
+          </div>
+          <Button
+            type="button"
+            variant="ghost"
+            className="btn-soft"
+            onClick={() => setCategoryFilter("uncategorized")}
+          >
+            Show uncategorized
+            <ArrowRight className="size-3.5" />
+          </Button>
+        </div>
+      ) : null}
+
+      {error ? (
+        <Notice tone="error" icon={<CircleAlert />}>
+          {error.message}
+        </Notice>
+      ) : null}
+
+      {categoryMessage ? (
+        <Notice tone="error" icon={<CircleAlert />}>
+          {categoryMessage}
+        </Notice>
+      ) : null}
+
+      <section className="desk-panel mb-6 p-6">
+        <div className="mb-5 flex items-center justify-between gap-4">
+          <h2 className="display text-[22px] leading-none text-bone">Filters</h2>
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={resetFilters}
+            disabled={!hasFilters}
+            className="h-auto px-0 py-0 text-[13px] font-normal text-bone-mute shadow-none hover:bg-transparent hover:text-brass-hi disabled:opacity-40"
+          >
+            Clear filters
+          </Button>
+        </div>
+
+        <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
+          <FilterField label="Account">
+            <select
+              value={accountId}
+              onChange={(event) => setAccountId(event.target.value)}
+              className="form-input"
             >
-              <ArrowLeft className="size-3" />
-              Back to desk
-            </Link>
-            <div className="flex items-center gap-4">
-              <span className="label-eyebrow">Ledger · 02 / 05</span>
-              {isFetching ? (
-                <span className="label-eyebrow flex items-center gap-2 text-brass-hi">
-                  <span className="h-1 w-1 rounded-full bg-brass animate-pulse-dot" />
-                  Refreshing
-                </span>
-              ) : null}
-            </div>
-          </div>
+              <option value="">All accounts</option>
+              {data?.accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {formatAccountLabel(account.name, account.mask, account.isActive)}
+                </option>
+              ))}
+            </select>
+          </FilterField>
 
-          <div>
-            <span className="label-eyebrow-brass">§ Transactions</span>
-            <div className="mt-3 flex flex-wrap items-end justify-between gap-4">
-              <h1 className="display text-[clamp(2rem,4vw,3.3rem)] leading-[1] text-bone">
-                The living <span className="italic text-brass-hi">ledger.</span>
-              </h1>
-              <span className="num text-[13px] text-bone-mute">
-                <span className="text-bone">{data?.totalCount ?? 0}</span> visible ·{" "}
-                <span className="text-bone">{data?.accounts.length ?? 0}</span> accounts
-              </span>
-            </div>
-            <p className="mt-4 max-w-2xl text-[13px] leading-[1.7] text-bone-mute">
-              Imported tape, read-only by design. Inspect, filter, and surface uncategorized
-              rows before budget math depends on them.
-            </p>
-          </div>
-        </header>
-
-        {data && data.uncategorizedCount > 0 ? (
-          <div className="mb-8 flex flex-wrap items-center justify-between gap-4 rounded-md border border-[rgba(212,154,74,0.32)] bg-[rgba(212,154,74,0.06)] px-5 py-4">
-            <div className="flex items-start gap-3">
-              <div className="mt-0.5 flex size-8 items-center justify-center rounded border border-[rgba(212,154,74,0.32)] bg-[rgba(212,154,74,0.08)] text-[var(--amber)]">
-                <BadgeAlert className="size-4" />
-              </div>
-              <div>
-                <p className="text-[13px] text-bone">
-                  <span className="num text-[var(--amber)]">{data.uncategorizedCount}</span>{" "}
-                  uncategorized row{data.uncategorizedCount === 1 ? "" : "s"} awaiting review.
-                </p>
-                <p className="mt-1 text-[12px] text-bone-mute">
-                  Excluded from budget math until assigned.
-                </p>
-              </div>
-            </div>
-            <Button
-              type="button"
-              variant="outline"
-              className="h-10 gap-2 rounded-md border-[rgba(212,154,74,0.32)] bg-[rgba(17,17,16,0.65)] px-4 text-[11px] uppercase tracking-[0.12em] text-[var(--amber)] shadow-none hover:border-[rgba(212,154,74,0.5)] hover:bg-[rgba(17,17,16,0.65)] hover:text-bone"
-              onClick={() => setCategoryFilter("uncategorized")}
+          <FilterField label="Category">
+            <select
+              value={categoryFilter}
+              onChange={(event) => setCategoryFilter(event.target.value)}
+              className="form-input"
             >
-              Focus uncategorized
-              <ArrowRight className="size-3" />
-            </Button>
+              <option value="all">All categories</option>
+              <option value="uncategorized">Uncategorized</option>
+              {data?.categories.map((category) => (
+                <option key={category.id} value={category.id}>
+                  {category.groupName} · {category.name}
+                </option>
+              ))}
+            </select>
+          </FilterField>
+
+          <FilterField label="Status">
+            <select
+              value={pending}
+              onChange={(event) => {
+                const nextValue = event.target.value;
+                if (isPendingFilterValue(nextValue)) {
+                  setPending(nextValue);
+                }
+              }}
+              className="form-input"
+            >
+              <option value="all">Pending and posted</option>
+              <option value="pending">Pending only</option>
+              <option value="posted">Posted only</option>
+            </select>
+          </FilterField>
+
+          <FilterField label="From">
+            <input
+              type="date"
+              value={dateFrom}
+              onChange={(event) => setDateFrom(event.target.value)}
+              className="form-input"
+            />
+          </FilterField>
+
+          <FilterField label="To">
+            <input
+              type="date"
+              value={dateTo}
+              onChange={(event) => setDateTo(event.target.value)}
+              className="form-input"
+            />
+          </FilterField>
+        </div>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <label className="inline-flex cursor-pointer items-center gap-2.5 text-[13px] text-bone-mute">
+            <input
+              type="checkbox"
+              checked={includeInactiveAccounts}
+              onChange={(event) => setIncludeInactiveAccounts(event.target.checked)}
+              className="size-4 rounded-[4px] border border-[var(--stroke-2)] bg-[var(--ink-0)] accent-[var(--brass)]"
+            />
+            Include inactive accounts
+          </label>
+          <span className="flex items-center gap-2 text-[12.5px] text-bone-faint">
+            <CalendarRange className="size-3.5" />
+            {PAGE_SIZE} per page, newest first
+          </span>
+        </div>
+      </section>
+
+      <section className="desk-panel">
+        <div className="grid grid-cols-[44px_1fr_auto] gap-4 border-b border-[var(--stroke)] px-6 pb-3 pt-5 md:grid-cols-[44px_1.6fr_1fr_140px]">
+          <span className="table-head">Date</span>
+          <span className="table-head">Merchant</span>
+          <span className="table-head hidden md:inline">Account and category</span>
+          <span className="table-head text-right">Amount</span>
+        </div>
+
+        {transactions.length === 0 ? (
+          <div className="px-6 py-20 text-center">
+            <div className="mx-auto flex max-w-md flex-col items-center gap-4">
+              <div className="flex size-12 items-center justify-center rounded-full border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.06)] text-brass-hi">
+                <Landmark className="size-5" />
+              </div>
+              <h2 className="display text-[28px] leading-tight text-bone">
+                Nothing here yet.
+              </h2>
+              <p className="text-[13.5px] leading-[1.7] text-bone-mute">
+                {hasFilters
+                  ? "No transactions match these filters. Clear them or widen the dates."
+                  : "No imported transactions yet. Connect a bank and sync it first."}
+              </p>
+            </div>
           </div>
-        ) : null}
+        ) : (
+          <ul className="px-3 py-2">
+            {transactions.map((transaction) => {
+              const amount = Number(transaction.amount);
+              const isExpense = amount <= 0;
+              const displayAmount = formatMoney(Math.abs(amount), transaction.currency);
+              const categoryLabel = transaction.categoryName
+                ? `${transaction.categoryGroupName} · ${transaction.categoryName}`
+                : "Uncategorized";
+              const isUpdatingCategory =
+                setCategoryMutation.isPending &&
+                setCategoryMutation.variables?.transactionId === transaction.id;
+              const tile = formatDateTile(transaction.date);
+              const categorySelect = (
+                <TransactionCategorySelect
+                  transactionId={transaction.id}
+                  categoryId={transaction.categoryId}
+                  categoryLabel={categoryLabel}
+                  categoryGroups={categoryGroups}
+                  disabled={isUpdatingCategory}
+                  onChange={(nextCategoryId) => {
+                    setCategoryMutation.mutate({
+                      transactionId: transaction.id,
+                      categoryId: nextCategoryId,
+                    });
+                  }}
+                />
+              );
 
-        {error ? (
-          <p className="mb-8 flex items-center gap-3 rounded-md border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
-            <CircleAlert className="size-3.5" />
-            {error.message}
-          </p>
-        ) : null}
+              return (
+                <li
+                  key={transaction.id}
+                  className="grid grid-cols-[44px_1fr_auto] gap-4 rounded-[12px] px-3 py-3 transition-colors hover:bg-[rgba(232,225,210,0.03)] md:grid-cols-[44px_1.6fr_1fr_140px] md:items-center"
+                >
+                  <div
+                    className="flex size-11 flex-col items-center justify-center rounded-[11px] border border-[var(--stroke)] bg-[var(--ink-0)]"
+                    title={
+                      transaction.authorizedDate &&
+                      transaction.authorizedDate !== transaction.date
+                        ? `Authorized ${formatDateLabel(transaction.authorizedDate)}`
+                        : undefined
+                    }
+                  >
+                    <span className="text-[9.5px] leading-none text-bone-faint">
+                      {tile.month}
+                    </span>
+                    <span className="display mt-0.5 text-[18px] leading-none text-bone">
+                      {tile.day}
+                    </span>
+                  </div>
 
-        {categoryMessage ? (
-          <p className="mb-8 flex items-center gap-3 rounded-md border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-2.5 text-[12px] text-oxide-hi">
-            <CircleAlert className="size-3.5" />
-            {categoryMessage}
-          </p>
-        ) : null}
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <p className="truncate text-[14px] text-bone">
+                        {transaction.merchantName || transaction.name}
+                      </p>
+                      {transaction.pending ? (
+                        <span className="pill pill--soft pill-amber">Pending</span>
+                      ) : null}
+                      {!transaction.accountIsActive ? (
+                        <span className="pill pill--soft pill-bone">Inactive</span>
+                      ) : null}
+                    </div>
+                    {transaction.merchantName &&
+                    transaction.name !== transaction.merchantName ? (
+                      <p className="mt-0.5 truncate text-[12px] text-bone-faint">
+                        {transaction.name}
+                      </p>
+                    ) : null}
+                    <p className="mt-1 truncate text-[12px] text-bone-mute md:hidden">
+                      {formatAccountLabel(
+                        transaction.accountName,
+                        transaction.accountMask,
+                        transaction.accountIsActive,
+                      )}
+                    </p>
+                    <div className="mt-2 md:hidden">{categorySelect}</div>
+                  </div>
 
-        <section className="mb-8 overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
-          <div className="flex items-center justify-between border-b border-[var(--stroke)] px-5 py-3">
-            <span className="label-eyebrow-brass">Filter</span>
+                  <div className="hidden min-w-0 md:block">
+                    <p className="truncate text-[13px] text-bone">
+                      {formatAccountLabel(
+                        transaction.accountName,
+                        transaction.accountMask,
+                        transaction.accountIsActive,
+                      )}
+                    </p>
+                    <div className="mt-1.5">{categorySelect}</div>
+                  </div>
+
+                  <div className="text-right">
+                    <p
+                      className={`num text-[14px] tracking-tight ${
+                        isExpense ? "text-bone" : "text-sage-hi"
+                      }`}
+                    >
+                      {isExpense ? "−" : "+"}
+                      {displayAmount}
+                    </p>
+                    {isUpdatingCategory ? (
+                      <p className="mt-1 text-[11.5px] text-brass-hi">Saving…</p>
+                    ) : null}
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--stroke)] px-6 py-4">
+          <span className="text-[12.5px] text-bone-faint">
+            Showing {rangeStart}–{rangeEnd} of {totalCount}
+          </span>
+          <div className="flex items-center gap-2">
             <Button
               type="button"
               variant="ghost"
-              onClick={resetFilters}
-              disabled={!hasFilters}
-              className="label-eyebrow h-auto rounded-md px-2 py-1 shadow-none hover:bg-transparent hover:text-brass-hi disabled:opacity-40"
+              className="btn-soft"
+              disabled={offset <= 0 || isFetching}
+              onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
             >
-              Reset →
+              <ArrowLeft className="size-3.5" />
+              Previous
             </Button>
-          </div>
-
-          <div className="grid gap-px bg-[var(--stroke)] md:grid-cols-2 xl:grid-cols-5">
-            <FilterCell label="Account">
-              <select
-                value={accountId}
-                onChange={(event) => setAccountId(event.target.value)}
-                className="filter-select"
-              >
-                <option value="">All accounts</option>
-                {data?.accounts.map((account) => (
-                  <option key={account.id} value={account.id}>
-                    {formatAccountLabel(account.name, account.mask, account.isActive)}
-                  </option>
-                ))}
-              </select>
-            </FilterCell>
-
-            <FilterCell label="Category">
-              <select
-                value={categoryFilter}
-                onChange={(event) => setCategoryFilter(event.target.value)}
-                className="filter-select"
-              >
-                <option value="all">All categories</option>
-                <option value="uncategorized">Uncategorized</option>
-                {data?.categories.map((category) => (
-                  <option key={category.id} value={category.id}>
-                    {category.groupName} · {category.name}
-                  </option>
-                ))}
-              </select>
-            </FilterCell>
-
-            <FilterCell label="Status">
-              <select
-                value={pending}
-                onChange={(event) => {
-                  const nextValue = event.target.value;
-                  if (isPendingFilterValue(nextValue)) {
-                    setPending(nextValue);
-                  }
-                }}
-                className="filter-select"
-              >
-                <option value="all">All rows</option>
-                <option value="pending">Pending only</option>
-                <option value="posted">Posted only</option>
-              </select>
-            </FilterCell>
-
-            <FilterCell label="From">
-              <input
-                type="date"
-                value={dateFrom}
-                onChange={(event) => setDateFrom(event.target.value)}
-                className="filter-select num"
-              />
-            </FilterCell>
-
-            <FilterCell label="To">
-              <input
-                type="date"
-                value={dateTo}
-                onChange={(event) => setDateTo(event.target.value)}
-                className="filter-select num"
-              />
-            </FilterCell>
-          </div>
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--stroke)] px-5 py-3">
-            <label className="inline-flex items-center gap-2.5 text-[12px] text-bone-mute">
-              <input
-                type="checkbox"
-                checked={includeInactiveAccounts}
-                onChange={(event) => setIncludeInactiveAccounts(event.target.checked)}
-                className="size-3.5 rounded-[1px] border border-[var(--stroke-2)] bg-[var(--ink-0)] accent-[var(--brass)]"
-              />
-              Include inactive accounts
-            </label>
-            <span className="label-eyebrow flex items-center gap-2">
-              <CalendarRange className="size-3" />
-              Latest 100 · newest first
-            </span>
-          </div>
-        </section>
-
-        <section className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
-          <div className="grid grid-cols-[88px_1fr_auto] gap-4 border-b border-[var(--stroke)] px-5 py-3 md:grid-cols-[88px_1.6fr_1fr_140px]">
-            <span className="label-eyebrow">Date</span>
-            <span className="label-eyebrow">Merchant</span>
-            <span className="label-eyebrow hidden md:inline">Account · Category</span>
-            <span className="label-eyebrow text-right">Amount</span>
-          </div>
-
-          {transactions.length === 0 ? (
-            <div className="px-6 py-20 text-center">
-              <div className="mx-auto flex max-w-md flex-col items-center gap-4">
-                <div className="flex size-12 items-center justify-center rounded-md border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.06)] text-brass-hi">
-                  <Landmark className="size-5" />
-                </div>
-                <h2 className="display text-[28px] leading-tight text-bone">No matching tape.</h2>
-                <p className="text-[13px] leading-[1.7] text-bone-mute">
-                  {hasFilters
-                    ? "These filters hide every transaction. Reset or widen the date range."
-                    : "No imported transactions yet. Link and sync a bank connection first."}
-                </p>
-              </div>
-            </div>
-          ) : (
-            <ul className="divide-y divide-[var(--stroke)]">
-              {transactions.map((transaction) => {
-                const amount = Number(transaction.amount);
-                const isExpense = amount <= 0;
-                const displayAmount = formatMoney(Math.abs(amount), transaction.currency);
-                const categoryLabel = transaction.categoryName
-                  ? `${transaction.categoryGroupName} · ${transaction.categoryName}`
-                  : "Uncategorized";
-                const isUpdatingCategory =
-                  setCategoryMutation.isPending &&
-                  setCategoryMutation.variables?.transactionId === transaction.id;
-
-                return (
-                  <li
-                    key={transaction.id}
-                    className="group grid grid-cols-[88px_1fr_auto] gap-4 px-5 py-3.5 transition-colors hover:bg-[var(--ink-2-solid)] md:grid-cols-[88px_1.6fr_1fr_140px] md:items-center"
-                  >
-                    <div className="min-w-0">
-                      <p className="num text-[12px] text-bone">
-                        {formatDateLabel(transaction.date)}
-                      </p>
-                      {transaction.authorizedDate &&
-                      transaction.authorizedDate !== transaction.date ? (
-                        <p className="label-eyebrow mt-1 text-bone-faint">
-                          auth {transaction.authorizedDate.slice(5)}
-                        </p>
-                      ) : null}
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="truncate text-[13.5px] text-bone">
-                          {transaction.merchantName || transaction.name}
-                        </p>
-                        {transaction.pending ? (
-                          <span className="pill pill-amber">pending</span>
-                        ) : null}
-                        {!transaction.accountIsActive ? (
-                          <span className="pill pill-bone">inactive</span>
-                        ) : null}
-                      </div>
-                      {transaction.merchantName &&
-                      transaction.name !== transaction.merchantName ? (
-                        <p className="mt-0.5 truncate text-[11.5px] text-bone-faint">
-                          {transaction.name}
-                        </p>
-                      ) : null}
-                      <p className="mt-1 truncate text-[11px] text-bone-mute md:hidden">
-                        {formatAccountLabel(
-                          transaction.accountName,
-                          transaction.accountMask,
-                          transaction.accountIsActive,
-                        )}
-                      </p>
-                      <div className="mt-2 md:hidden">
-                        <TransactionCategorySelect
-                          transactionId={transaction.id}
-                          categoryId={transaction.categoryId}
-                          categoryLabel={categoryLabel}
-                          categoryGroups={categoryGroups}
-                          disabled={isUpdatingCategory}
-                          onChange={(nextCategoryId) => {
-                            setCategoryMutation.mutate({
-                              transactionId: transaction.id,
-                              categoryId: nextCategoryId,
-                            });
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="hidden min-w-0 md:block">
-                      <p className="truncate text-[12.5px] text-bone">
-                        {formatAccountLabel(
-                          transaction.accountName,
-                          transaction.accountMask,
-                          transaction.accountIsActive,
-                        )}
-                      </p>
-                      <div className="mt-1">
-                        <TransactionCategorySelect
-                          transactionId={transaction.id}
-                          categoryId={transaction.categoryId}
-                          categoryLabel={categoryLabel}
-                          categoryGroups={categoryGroups}
-                          disabled={isUpdatingCategory}
-                          onChange={(nextCategoryId) => {
-                            setCategoryMutation.mutate({
-                              transactionId: transaction.id,
-                              categoryId: nextCategoryId,
-                            });
-                          }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="text-right">
-                      <p
-                        className={`num text-[14px] tracking-tight ${
-                          isExpense ? "text-oxide-hi" : "text-sage-hi"
-                        }`}
-                      >
-                        {isExpense ? "−" : "+"}
-                        {displayAmount}
-                      </p>
-                      {isUpdatingCategory ? (
-                        <p className="mt-1 text-[10px] uppercase tracking-[0.12em] text-brass-hi">
-                          Saving…
-                        </p>
-                      ) : null}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          )}
-
-          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-[var(--stroke)] px-5 py-3">
-            <span className="label-eyebrow">
-              Showing {rangeStart}-{rangeEnd} of {totalCount}
-            </span>
-            <div className="flex items-center gap-2">
+            {data?.hasMore ? (
               <Button
                 type="button"
                 variant="ghost"
-                size="sm"
-                className="rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
-                disabled={offset <= 0 || isFetching}
-                onClick={() => goToOffset(Math.max(0, offset - PAGE_SIZE))}
+                className="btn-soft"
+                disabled={isFetching}
+                onClick={() => goToOffset(offset + PAGE_SIZE)}
               >
-                <ArrowLeft className="size-3.5" />
-                Previous
+                Next
+                <ArrowRight className="size-3.5" />
               </Button>
-              {data?.hasMore ? (
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="sm"
-                  className="rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
-                  disabled={isFetching}
-                  onClick={() => goToOffset(offset + PAGE_SIZE)}
-                >
-                  Next
-                  <ArrowRight className="size-3.5" />
-                </Button>
-              ) : (
-                <span className="label-eyebrow">End of tape</span>
-              )}
-            </div>
+            ) : (
+              <span className="px-2 text-[12.5px] text-bone-faint">End of list</span>
+            )}
           </div>
-        </section>
-      </div>
-
-    </div>
+        </div>
+      </section>
+    </AppShell>
   );
 }
 
-function FilterCell({ label, children }: { label: string; children: React.ReactNode }) {
+function FilterField({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="group flex flex-col bg-[var(--ink-1)]">
-      <span className="label-eyebrow border-b border-[var(--stroke)] px-3 py-2">
-        {label}
-      </span>
+    <label className="flex flex-col gap-2">
+      <span className="field-label">{label}</span>
       {children}
     </label>
   );
