@@ -17,7 +17,7 @@ for (
     replaySessions.push(key);
 }
 
-export const screenFilterSchema = z.strictObject({
+const screenFilterSchema = z.strictObject({
   ema: z
     .object({
       timeframe: z.enum(["1m", "5m", "1d"]),

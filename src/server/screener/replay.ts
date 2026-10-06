@@ -202,10 +202,12 @@ export function evaluateReplay(
     }
     let float: Extract<ReplayRow, { price: number }>["float"] = null;
     if (input.float) {
-      const snapshot = research.floats
+      const records = research.floats.filter(
+        (value) => value.symbol === symbol,
+      );
+      const snapshot = records
         .filter(
           (value) =>
-            value.symbol === symbol &&
             Date.parse(value.effectiveAt) <= at &&
             Date.parse(value.publishedAt) <= at,
         )
@@ -214,16 +216,19 @@ export function evaluateReplay(
             Date.parse(b.effectiveAt) - Date.parse(a.effectiveAt) ||
             Date.parse(b.publishedAt) - Date.parse(a.publishedAt),
         )[0];
-      if (!snapshot)
+      if (!snapshot) {
+        const earliest = records.map((value) => value.effectiveAt).sort()[0];
         return {
           symbol,
           status: "excluded",
-          reason:
-            "No historical share-float record is available at this replay time.",
+          reason: earliest
+            ? `No free-float value was in effect yet. The earliest saved value applies from ${earliest.slice(0, 10)}.`
+            : "No free-float data for this instrument. ETFs have none.",
         };
+      }
       float = snapshot;
       if (snapshot.shares >= input.float.maximum)
-        failedConditions.push("Float");
+        failedConditions.push("Free float");
     }
     let news: Extract<ReplayRow, { price: number }>["news"] = null;
     if (input.news) {

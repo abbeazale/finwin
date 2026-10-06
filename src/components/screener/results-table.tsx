@@ -38,7 +38,7 @@ function conditions(input: ReplayResult["input"]) {
     list.push(`Relative volume ≥ ${input.relativeVolume.minimum}×`);
   if (input.news) list.push(`News within ${input.news.hours}h`);
   if (input.float)
-    list.push(`Float < ${(input.float.maximum / 1_000_000).toLocaleString("en-US")}M`);
+    list.push(`Free float < ${(input.float.maximum / 1_000_000).toLocaleString("en-US")}M`);
   if (input.ema)
     list.push(
       `Price ${input.ema.comparison} EMA ${input.ema.period} (${input.ema.timeframe})`,
@@ -131,7 +131,7 @@ export function ResultsTable({
                 <TableHead className="text-right">RSI</TableHead>
               ) : null}
               {input.float ? (
-                <TableHead className="text-right">Float</TableHead>
+                <TableHead className="text-right">Free float</TableHead>
               ) : null}
               {input.news ? <TableHead>Recent news</TableHead> : null}
               <TableHead>Result</TableHead>

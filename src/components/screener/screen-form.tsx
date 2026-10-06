@@ -312,16 +312,16 @@ export function ScreenForm({
         </OptionalFilter>
         <OptionalFilter
           name="floatEnabled"
-          title="Share float"
+          title="Free float"
           hint="Small tradable supply"
           initialEnabled={Boolean(initial.float)}
           onToggle={countToggle}
-          description="Publicly tradable shares must be below this limit. Uses dated float records available at the replay time."
+          description="Shares available for public trading, without insiders, holders of 5% or more and locked-up shares. Source: Massive. Each value applies from its effective date, and FinWin keeps a daily copy, so earlier replay times can have no value."
           unavailable={
             !capabilities
               ? "Checking float coverage…"
               : !capabilities.float
-                ? "Historical share-float data is not connected. Current shares outstanding cannot stand in for historical float."
+                ? "Free-float data is not connected. Shares outstanding cannot stand in for free float."
                 : undefined
           }
         >
