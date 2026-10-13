@@ -5,18 +5,22 @@ import {
   hasCompletedOnboarding,
 } from "@/lib/page-auth";
 import { formatBudgetStatus } from "@/lib/budget-status";
-import { signOut } from "@/lib/auth-client";
 import { trpc } from "@/lib/trpc";
 import { getInitialDashboardMonth } from "@/server/dashboard/initial-month";
 import Link from "next/link";
-import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { DashboardSidebar } from "@/components/dashboard/sidebar";
-import { DashboardHeader } from "@/components/dashboard/header";
+import { AppShell } from "@/components/dashboard/app-shell";
+import {
+  EmptyPanel,
+  MonthSwitcher,
+  PanelHeading,
+  panelLinkClass,
+} from "@/components/dashboard/desk-ui";
+import { ConnectBank } from "@/components/connect-bank";
+import { RefreshTransactions } from "@/components/refresh-transactions";
 import {
   formatMonthHeading,
   getMonthStartForTimeZone,
-  shiftMonthStart,
 } from "@/lib/date";
 import { resolveProfileTimeZone } from "@/lib/locale";
 import {
@@ -25,17 +29,15 @@ import {
   formatDelta,
   formatMoney,
   formatPercent,
-  formatShortDate,
+  formatDateTile,
   formatSignedMoney,
   formatTooltipLabel,
   getMetricTone,
   getSignalCopy,
 } from "@/components/dashboard/metrics";
-import { useRouter } from "next/router";
-import { useState, useTransition } from "react";
+import { useState } from "react";
 import {
-  ArrowLeft,
-  ArrowRight,
+  ChevronRight,
   CircleCheck,
   CircleDollarSign,
   Settings,
@@ -51,10 +53,11 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 import { getBankLinkNotice } from "@/lib/bank-connection-status";
+import { CityGlow } from "@/components/dashboard/city-glow";
 
 const cashflowChartConfig = {
   inflow: { label: "Inflow", color: "var(--chart-2)" },
-  outflow: { label: "Outflow", color: "var(--chart-5)" },
+  outflow: { label: "Outflow", color: "var(--brass-lo)" },
 } satisfies ChartConfig;
 
 type DashboardProps = {
@@ -68,13 +71,10 @@ export default function Dashboard({
   currency,
   initialMonth,
 }: InferGetServerSidePropsType<typeof getServerSideProps>) {
-  const router = useRouter();
   const utils = trpc.useUtils();
   const [month, setMonth] = useState(initialMonth);
   const [pageMessage, setPageMessage] = useState<string | null>(null);
   const [connectionErrorMessage, setConnectionErrorMessage] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
-  const initials = firstName.slice(0, 2).toUpperCase();
 
   const overviewQuery = trpc.dashboard.overview.useQuery({ month });
   const cashflowQuery = trpc.dashboard.cashflow.useQuery({ month });
@@ -117,21 +117,21 @@ export default function Dashboard({
   const overviewCards = [
     {
       key: "inflow",
-      label: "Inflow · M",
+      label: "Money in",
       value: Number(overview?.totals.inflow ?? 0),
       delta: overview?.deltas.inflow ?? null,
       positiveTone: getMetricTone("inflow", overview?.deltas.inflow ?? null),
     },
     {
       key: "outflow",
-      label: "Outflow · M",
+      label: "Money out",
       value: Number(overview?.totals.outflow ?? 0),
       delta: overview?.deltas.outflow ?? null,
       positiveTone: getMetricTone("outflow", overview?.deltas.outflow ?? null),
     },
     {
       key: "net",
-      label: "Net · M",
+      label: "Net",
       value: Number(overview?.totals.netCashflow ?? 0),
       delta: overview?.deltas.netCashflow ?? null,
       positiveTone: getMetricTone(
@@ -160,53 +160,12 @@ export default function Dashboard({
     ]);
   }
 
-  async function logout() {
-    setPageMessage(null);
-    startTransition(async () => {
-      const { error: signOutError } = await signOut();
-      if (signOutError) {
-        setPageMessage(signOutError.message ?? "Unable to log out.");
-        return;
-      }
-      router.push("/login");
-    });
-  }
-
   return (
-    <div className="relative min-h-screen bg-ink-0 text-bone">
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div
-          className="absolute -top-40 right-[8%] h-[34rem] w-[34rem] rounded-full blur-3xl"
-          style={{
-            background:
-              "radial-gradient(circle, rgba(232,199,145,0.05), transparent 65%)",
-          }}
-        />
-        <div
-          className="absolute -bottom-48 left-0 h-[32rem] w-[50rem] blur-3xl"
-          style={{
-            background:
-              "radial-gradient(ellipse, rgba(255,154,60,0.04), transparent 60%)",
-          }}
-        />
-      </div>
-
-      <div className="relative z-10 mx-auto flex min-h-screen w-full max-w-[1480px]">
-        <DashboardSidebar
-          firstName={firstName}
-          initials={initials}
-          isPending={isPending}
-          currentPath={router.pathname}
-          onLogout={logout}
-        />
-
-        <main className="flex-1 overflow-hidden">
-          <DashboardHeader
-            firstName={firstName}
-            initials={initials}
-            isPending={isPending}
-            currentPath={router.pathname}
-            onLogout={logout}
+    <AppShell
+      firstName={firstName}
+      actions={
+        <>
+          <RefreshTransactions
             onRefreshed={async (result) => {
               await invalidateDashboard();
               if (result.hasConnectionErrors) {
@@ -219,6 +178,9 @@ export default function Dashboard({
                 );
               }
             }}
+          />
+          <ConnectBank
+            className="btn-brass-fill h-[38px] px-4"
             onConnected={async (result) => {
               await invalidateDashboard();
               const notice = getBankLinkNotice(result);
@@ -231,528 +193,482 @@ export default function Dashboard({
               setPageMessage(notice.text);
             }}
           />
+        </>
+      }
+    >
+      <header className="mb-10 flex flex-wrap items-end justify-between gap-8 animate-fade-slide">
+        <div>
+          <p className="display text-[15px] italic leading-none text-bone-faint">
+            {formatMonthHeading(month)}
+            {overview?.comparisonAvailable
+              ? `, compared with ${formatMonthHeading(overview.comparisonMonth)}`
+              : null}
+          </p>
+          <h1 className="display mt-4 text-[clamp(2.6rem,4.4vw,3.9rem)] leading-[1.02] text-bone">
+            Welcome back,{" "}
+            <span className="italic text-brass-hi">{firstName}.</span>
+          </h1>
+          <p className="mt-4 max-w-xl text-[15px] leading-[1.7] text-bone-mute">
+            What came in, what went out, and where the budget is tight
+            this month.
+          </p>
+        </div>
 
-          <div className="px-6 py-8 lg:px-10 lg:py-10">
-            <header className="mb-10 flex flex-wrap items-end justify-between gap-6">
-              <div>
-                <div className="mb-3 flex items-center gap-3">
-                  <span className="label-eyebrow">
-                    Desk · {formatMonthHeading(month)}
-                  </span>
-                  <span className="label-eyebrow">·</span>
-                  <span className="label-eyebrow">
-                    {overview?.comparisonAvailable
-                      ? `vs ${formatMonthHeading(overview.comparisonMonth)}`
-                      : "Live month view"}
-                  </span>
-                </div>
-                <h1 className="display text-[clamp(2.4rem,4vw,3.4rem)] leading-[1] text-bone">
-                  Ledger in <span className="italic text-brass-hi">focus.</span>
-                </h1>
-                <p className="mt-3 max-w-2xl text-[13px] text-bone-mute">
-                  Real cashflow, recent activity, and budget pressure for{" "}
-                  {firstName}&rsquo;s current operating month.
-                </p>
+        <MonthSwitcher month={month} onChange={setMonth} />
+      </header>
+
+      {connectionErrorMessage ? (
+        <Alert variant="destructive" className="mb-6 rounded-[14px]">
+          <TriangleAlert />
+          <AlertTitle>Bank import needs attention</AlertTitle>
+          <AlertDescription>
+            <p>
+              {connectionErrorMessage}{" "}
+              <Link href="/settings/connections" className="underline underline-offset-2">
+                Open Connections to retry.
+              </Link>
+            </p>
+          </AlertDescription>
+        </Alert>
+      ) : bannerMessage ? (
+        <Alert className="mb-6 rounded-[14px]">
+          <CircleCheck />
+          <AlertDescription>{bannerMessage}</AlertDescription>
+        </Alert>
+      ) : null}
+
+      {overview && overview.excludedCurrencyTransactionCount > 0 ? (
+        <p className="mb-6 flex items-center gap-3 rounded-[14px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-3 text-[13px] text-brass-hi">
+          <span className="h-1.5 w-1.5 shrink-0 rounded-full bg-brass" />
+          {overview.excludedCurrencyTransactionCount} transaction
+          {overview.excludedCurrencyTransactionCount === 1 ? "" : "s"} in
+          other currencies excluded; this dashboard is reported in{" "}
+          {currency} without FX conversion.
+        </p>
+      ) : null}
+
+      <DashboardOverviewCards
+        cards={overviewCards}
+        comparisonAvailable={overview?.comparisonAvailable ?? false}
+        comparisonMonth={overview?.comparisonMonth ?? month}
+        currency={currency}
+        isLoading={overviewQuery.isLoading}
+      />
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+        <div className="desk-panel flex flex-col">
+          <PanelHeading
+            title="Cashflow"
+            detail={
+              overview
+                ? `${formatSignedMoney(Number(overview.totals.netCashflow), currency)} net this month`
+                : "Loading this month’s cashflow…"
+            }
+            action={
+              <div className="flex items-center gap-4 pt-1">
+                <LegendDot label="In" color="var(--chart-2)" />
+                <LegendDot label="Out" color="var(--brass-lo)" />
               </div>
-
-              <div className="flex items-center gap-3 rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)] px-3 py-2">
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
-                  onClick={() =>
-                    setMonth((current) => shiftMonthStart(current, -1))
-                  }
+            }
+          />
+          <div className="flex-1 px-6 pb-6 pt-4">
+            {cashflowQuery.isLoading ? (
+              <EmptyPanel>Loading daily money in and out…</EmptyPanel>
+            ) : hasCashflow ? (
+              <ChartContainer
+                config={cashflowChartConfig}
+                className="min-h-[260px] w-full"
+              >
+                <BarChart
+                  accessibilityLayer
+                  data={cashflowChartData}
+                  margin={{ left: 4, right: 4 }}
                 >
-                  <ArrowLeft className="size-3.5" />
-                  <span className="sr-only">Previous month</span>
-                </Button>
-                <div className="min-w-[10rem] text-center">
-                  <div className="label-eyebrow-brass">Operating month</div>
-                  <div className="mt-1 text-[13px] text-bone">
-                    {formatMonthHeading(month)}
-                  </div>
-                </div>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  className="size-8 rounded-[2px] text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
-                  onClick={() =>
-                    setMonth((current) => shiftMonthStart(current, 1))
-                  }
-                >
-                  <ArrowRight className="size-3.5" />
-                  <span className="sr-only">Next month</span>
-                </Button>
-              </div>
-            </header>
-
-            {connectionErrorMessage ? (
-              <Alert variant="destructive" className="mb-6 rounded-[2px]">
-                <TriangleAlert />
-                <AlertTitle>Bank import needs attention</AlertTitle>
-                <AlertDescription>
-                  <p>
-                    {connectionErrorMessage}{" "}
-                    <Link href="/settings/connections" className="underline underline-offset-2">
-                      Open Connections to retry.
-                    </Link>
-                  </p>
-                </AlertDescription>
-              </Alert>
-            ) : bannerMessage ? (
-              <Alert className="mb-6 rounded-[2px]">
-                <CircleCheck />
-                <AlertDescription>{bannerMessage}</AlertDescription>
-              </Alert>
-            ) : null}
-
-            {overview && overview.excludedCurrencyTransactionCount > 0 ? (
-              <p className="mb-6 flex items-center gap-3 rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-2.5 text-[12px] text-brass-hi">
-                <span className="h-1.5 w-1.5 rounded-full bg-brass" />
-                {overview.excludedCurrencyTransactionCount} transaction
-                {overview.excludedCurrencyTransactionCount === 1 ? "" : "s"} in
-                other currencies excluded; this dashboard is reported in{" "}
-                {currency} without FX conversion.
-              </p>
-            ) : null}
-
-            <DashboardOverviewCards
-              cards={overviewCards}
-              comparisonAvailable={overview?.comparisonAvailable ?? false}
-              comparisonMonth={overview?.comparisonMonth ?? month}
-              currency={currency}
-              isLoading={overviewQuery.isLoading}
-            />
-
-            <section className="mt-10 grid gap-10 xl:grid-cols-[1.3fr_1fr]">
-              <div className="flex flex-col rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
-                <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
-                  <div>
-                    <span className="label-eyebrow-brass">
-                      Cashflow · {formatMonthHeading(month)}
-                    </span>
-                    <p className="mt-1 text-[13px] text-bone">
-                      {overview
-                        ? `${formatSignedMoney(Number(overview.totals.netCashflow), currency)} net this month`
-                        : "Loading live month cashflow…"}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-5">
-                    <LegendDot label="Inflow" color="var(--chart-2)" />
-                    <LegendDot label="Outflow" color="var(--chart-5)" />
-                  </div>
-                </div>
-                <div className="px-6 py-6">
-                  {cashflowQuery.isLoading ? (
-                    <div className="flex min-h-[260px] items-center justify-center rounded-[2px] border border-dashed border-[var(--stroke)] bg-[var(--ink-0)] px-6 text-center text-[13px] text-bone-mute">
-                      Loading daily inflow and outflow…
-                    </div>
-                  ) : hasCashflow ? (
-                    <ChartContainer
-                      config={cashflowChartConfig}
-                      className="min-h-[260px] w-full"
-                    >
-                      <BarChart
-                        accessibilityLayer
-                        data={cashflowChartData}
-                        margin={{ left: 4, right: 4 }}
-                      >
-                        <CartesianGrid vertical={false} />
-                        <XAxis
-                          dataKey="date"
-                          tickLine={false}
-                          axisLine={false}
-                          minTickGap={22}
-                          tickMargin={10}
-                          tickFormatter={(value) => value.slice(8)}
-                        />
-                        <ChartTooltip
-                          content={
-                            <ChartTooltipContent
-                              labelFormatter={formatTooltipLabel}
-                            />
-                          }
-                        />
-                        <Bar
-                          dataKey="inflow"
-                          radius={3}
-                          fill="var(--color-inflow)"
-                        />
-                        <Bar
-                          dataKey="outflow"
-                          radius={3}
-                          fill="var(--color-outflow)"
-                        />
-                      </BarChart>
-                    </ChartContainer>
-                  ) : (
-                    <div className="flex min-h-[260px] items-center justify-center rounded-[2px] border border-dashed border-[var(--stroke)] bg-[var(--ink-0)] px-6 text-center text-[13px] text-bone-mute">
-                      No qualifying cashflow rows for this month yet.
-                    </div>
-                  )}
-                </div>
-                <div className="horizon h-px" />
-              </div>
-
-              <div className="flex flex-col rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
-                <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
-                  <span className="label-eyebrow-brass">Ledger · recent</span>
-                  <Link
-                    href="/transactions"
-                    className="label-eyebrow transition-colors hover:text-brass-hi"
-                  >
-                    Full tape →
-                  </Link>
-                </div>
-                {recentTransactionsQuery.isLoading ? (
-                  <div className="px-6 py-6 text-[13px] text-bone-mute">
-                    Loading recent transactions…
-                  </div>
-                ) : recentRows.length > 0 ? (
-                  <ul className="divide-y divide-[var(--stroke)]">
-                    {recentRows.map((row) => {
-                      const amount = Number(row.amount);
-                      const positive = amount > 0;
-                      return (
-                        <li
-                          key={row.id}
-                          className="group grid grid-cols-[80px_1fr_auto] items-center gap-3 px-6 py-3 transition-colors hover:bg-[var(--ink-2-solid)]"
-                        >
-                          <span className="num text-[10px] text-bone-faint">
-                            {formatShortDate(row.date)}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="truncate text-[13px] text-bone">
-                              {row.merchantName ?? row.name}
-                            </p>
-                            <div className="mt-1 flex flex-wrap items-center gap-2">
-                              <span className="label-eyebrow">
-                                {row.categoryName}
-                              </span>
-                              {row.pending ? (
-                                <span className="pill pill-amber">Pending</span>
-                              ) : null}
-                              {!row.accountIsActive ? (
-                                <span className="pill pill-bone">History</span>
-                              ) : null}
-                            </div>
-                          </div>
-                          <span
-                            className={`num text-[13px] ${
-                              positive ? "text-sage-hi" : "text-oxide-hi"
-                            }`}
-                          >
-                            {formatSignedMoney(amount, row.currency)}
-                          </span>
-                        </li>
-                      );
-                    })}
-                  </ul>
-                ) : (
-                  <div className="px-6 py-6 text-[13px] text-bone-mute">
-                    No recent ledger rows for {formatMonthHeading(month)}.
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="mt-10 grid gap-10 xl:grid-cols-[1.3fr_1fr]">
-              <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
-                <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
-                  <div>
-                    <span className="label-eyebrow-brass">
-                      Budget envelopes · {formatMonthHeading(month)}
-                    </span>
-                    <p className="mt-1 text-[12px] text-bone-mute">
-                      {budgetsQuery.data ? (
-                        <>
-                          <span className="text-oxide-hi">
-                            {budgetsQuery.data.totals.overBudgetCount} over
-                          </span>{" "}
-                          ·{" "}
-                          <span className="text-amber">
-                            {budgetsQuery.data.totals.unbudgetedCount}{" "}
-                            unbudgeted
-                          </span>{" "}
-                          ·{" "}
-                          <span className="text-brass-hi">
-                            {dashboardBudgetRows.length} active rows
-                          </span>
-                        </>
-                      ) : budgetsQuery.isLoading ? (
-                        "Loading live budget pressure…"
-                      ) : (
-                        "No budget activity yet."
-                      )}
-                    </p>
-                  </div>
-                  <Link href="/budgets" className="btn-ghost h-9">
-                    <CircleDollarSign className="size-3.5" />
-                    Adjust
-                  </Link>
-                </div>
-                {budgetsQuery.isLoading ? (
-                  <div className="px-6 py-5">
-                    <span className="label-eyebrow">Loading budget rows…</span>
-                  </div>
-                ) : dashboardBudgetRows.length > 0 ? (
-                  <div className="divide-y divide-[var(--stroke)]">
-                    {dashboardBudgetRows.map((row) => {
-                      const budget = Number(row.budgetAmount ?? 0);
-                      const actual = Number(row.actualAmount);
-                      const percent =
-                        budget > 0 ? Math.min((actual / budget) * 100, 150) : 0;
-                      const overflow = budget > 0 && actual > budget;
-                      const barColor =
-                        row.status === "over"
-                          ? "var(--oxide)"
-                          : row.status === "near_limit" ||
-                              row.status === "unbudgeted"
-                            ? "var(--amber)"
-                            : "var(--sage)";
-                      const pillClass =
-                        row.status === "over"
-                          ? "pill-oxide"
-                          : row.status === "near_limit" ||
-                              row.status === "unbudgeted"
-                            ? "pill-amber"
-                            : "pill-sage";
-                      const statusLabel = formatBudgetStatus(row.status);
-
-                      return (
-                        <div key={row.categoryId} className="px-6 py-4">
-                          <div className="mb-2.5 flex items-center justify-between gap-4">
-                            <div className="flex items-baseline gap-3">
-                              <span className="text-[13px] text-bone">
-                                {row.categoryName}
-                              </span>
-                              <span className="num text-[11px] text-bone-faint">
-                                {formatMoney(actual, currency, 0)}{" "}
-                                <span className="text-bone-ghost">
-                                  /{" "}
-                                  {budget > 0
-                                    ? formatMoney(budget, currency, 0)
-                                    : "No target"}
-                                </span>
-                              </span>
-                            </div>
-                            <span className={`pill ${pillClass}`}>
-                              {statusLabel}
-                            </span>
-                          </div>
-                          <div className="relative h-1 overflow-hidden rounded-[1px] bg-[var(--ink-0)]">
-                            <div
-                              className="absolute inset-y-0 left-0 transition-all duration-700"
-                              style={{
-                                width: `${Math.min(percent, 100)}%`,
-                                background: `linear-gradient(90deg, ${barColor}, ${barColor} 60%)`,
-                                boxShadow: `0 0 8px -2px ${barColor}`,
-                              }}
-                            />
-                            {overflow ? (
-                              <div
-                                className="absolute inset-y-0 right-0 w-0.5"
-                                style={{
-                                  background: "var(--oxide-hi)",
-                                  boxShadow: "0 0 8px var(--oxide-hi)",
-                                }}
-                              />
-                            ) : null}
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="px-6 py-6">
-                    <p className="text-[13px] text-bone-mute">
-                      No budget rows yet. Set monthly targets from the budgets
-                      desk.
-                    </p>
-                  </div>
-                )}
-              </div>
-
-              <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] cove">
-                <div className="flex items-center justify-between border-b border-[var(--stroke)] px-6 py-4">
-                  <div>
-                    <span className="label-eyebrow-brass">Spend lanes</span>
-                    <p className="mt-1 text-[12px] text-bone-faint">
-                      {spendingQuery.data
-                        ? `${formatMoney(Number(spendingQuery.data.totals.totalTrackedSpend), currency, 0)} across ${spendingQuery.data.totals.categoryCount} categories`
-                        : "Loading category pressure…"}
-                    </p>
-                  </div>
-                  <Link
-                    href="/transactions"
-                    className="label-eyebrow transition-colors hover:text-brass-hi"
-                  >
-                    Reclassify →
-                  </Link>
-                </div>
-                {spendingQuery.isLoading ? (
-                  <div className="px-6 py-6 text-[13px] text-bone-mute">
-                    Loading category spending…
-                  </div>
-                ) : spendingRows.length > 0 ? (
-                  <div className="divide-y divide-[var(--stroke)]">
-                    {spendingRows.map((row) => {
-                      const share = row.shareOfTotal ?? 0;
-                      return (
-                        <div
-                          key={`${row.categoryId ?? "uncategorized"}-${row.categoryName}`}
-                          className="px-6 py-4"
-                        >
-                          <div className="mb-2 flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <p className="truncate text-[13px] text-bone">
-                                {row.categoryName}
-                              </p>
-                              <span className="label-eyebrow">
-                                {row.groupName}
-                              </span>
-                            </div>
-                            <span className="num text-[12px] text-bone">
-                              {formatMoney(
-                                Number(row.spendAmount),
-                                currency,
-                                0,
-                              )}
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-3">
-                            <div className="relative h-1.5 flex-1 overflow-hidden rounded-[1px] bg-[var(--ink-0)]">
-                              <div
-                                className="absolute inset-y-0 left-0 rounded-[1px] bg-brass"
-                                style={{
-                                  width: `${Math.max(share * 100, 6)}%`,
-                                }}
-                              />
-                            </div>
-                            <span className="num text-[10px] text-bone-faint">
-                              {share > 0 ? `${Math.round(share * 100)}%` : "0%"}
-                            </span>
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div className="px-6 py-6 text-[13px] text-bone-mute">
-                    No category spend pressure for {formatMonthHeading(month)}.
-                  </div>
-                )}
-              </div>
-            </section>
-
-            <section className="mt-10 grid gap-10 xl:grid-cols-[2fr_1fr]">
-              <div className="relative overflow-hidden rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[var(--ink-1)] p-8 cove-hi">
-                <div
-                  className="absolute inset-0 opacity-40"
-                  style={{
-                    background:
-                      "radial-gradient(ellipse at 80% 120%, rgba(255,154,60,0.18), transparent 55%), radial-gradient(ellipse at 10% -20%, rgba(232,199,145,0.08), transparent 50%)",
-                  }}
-                />
-                <div className="relative flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <span className="flex size-9 items-center justify-center rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.08)] text-brass-hi">
-                      <CircleDollarSign className="size-3.5" />
-                    </span>
-                    <span className="label-eyebrow-brass">
-                      Desk signal · deterministic read
-                    </span>
-                  </div>
-                  <span className="label-eyebrow">
-                    {savingsRate === null
-                      ? "No savings rate yet"
-                      : `${formatPercent(savingsRate)} saved`}
-                  </span>
-                </div>
-                <p className="relative mt-6 max-w-3xl font-[family-name:var(--font-display)] text-[22px] leading-[1.4] tracking-tight text-bone">
-                  {getSignalCopy({
-                    month,
-                    currency,
-                    overview,
-                    topSpendRow,
-                    budgetsQueryData: budgetsQuery.data ?? null,
-                  })}
-                </p>
-                <div className="relative mt-6 flex flex-wrap items-center gap-3 border-t border-[var(--stroke)] pt-4">
-                  <span className="pill pill-bone">
-                    {overview?.comparisonAvailable
-                      ? `${formatDelta(overview.deltas.netCashflow)} net shift`
-                      : "First comparable month pending"}
-                  </span>
-                  <span className="pill pill-bone">
-                    {budgetsQuery.data
-                      ? `${budgetsQuery.data.totals.overBudgetCount} over · ${budgetsQuery.data.totals.unbudgetedCount} unbudgeted`
-                      : "Budget pressure loading"}
-                  </span>
-                </div>
-              </div>
-
-              <div className="rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-1)] p-8 cove">
-                <span className="label-eyebrow-brass">Quick hands</span>
-                <ul className="mt-6 flex flex-col gap-2">
-                  {[
-                    {
-                      icon: Wallet,
-                      label: "Review ledger",
-                      href: "/transactions",
-                      key: "L",
-                    },
-                    {
-                      icon: Target,
-                      label: "Adjust envelope",
-                      href: "/budgets",
-                      key: "B",
-                    },
-                    {
-                      icon: Settings,
-                      label: "Manage connections",
-                      href: "/settings/connections",
-                      key: "C",
-                    },
-                  ].map((action) => (
-                    <li key={action.label}>
-                      <Button
-                        asChild
-                        type="button"
-                        variant="ghost"
-                        className="group h-auto w-full justify-between rounded-[2px] border border-transparent px-3 py-2 text-left shadow-none hover:border-[var(--stroke-2)] hover:bg-[var(--ink-2-solid)]"
-                      >
-                        <Link href={action.href}>
-                          <span className="flex items-center gap-3 text-[13px] text-bone">
-                            <action.icon className="size-3.5 text-bone-mute group-hover:text-brass-hi" />
-                            {action.label}
-                          </span>
-                          <span className="font-[family-name:var(--font-mono)] text-[10px] text-bone-faint">
-                            ⌘{action.key}
-                          </span>
-                        </Link>
-                      </Button>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            </section>
-
-            <footer className="mt-14 flex flex-wrap items-center justify-between gap-4 border-t border-[var(--stroke)] pt-6">
-              <span className="label-eyebrow">
-                Month · {formatMonthHeading(month)}
-              </span>
-              <span className="label-eyebrow">Live ledger · Plaid-backed</span>
-            </footer>
+                  <CartesianGrid vertical={false} strokeDasharray="2 6" />
+                  <XAxis
+                    dataKey="date"
+                    tickLine={false}
+                    axisLine={false}
+                    minTickGap={22}
+                    tickMargin={10}
+                    tickFormatter={(value) => value.slice(8)}
+                  />
+                  <ChartTooltip
+                    content={
+                      <ChartTooltipContent
+                        labelFormatter={formatTooltipLabel}
+                      />
+                    }
+                  />
+                  <Bar
+                    dataKey="inflow"
+                    radius={4}
+                    fill="var(--color-inflow)"
+                  />
+                  <Bar
+                    dataKey="outflow"
+                    radius={4}
+                    fill="var(--color-outflow)"
+                  />
+                </BarChart>
+              </ChartContainer>
+            ) : (
+              <EmptyPanel>No money in or out for this month yet.</EmptyPanel>
+            )}
           </div>
-        </main>
-      </div>
-    </div>
+        </div>
+
+        <div className="desk-panel flex flex-col">
+          <PanelHeading
+            title="Recent activity"
+            detail="The latest transactions this month"
+            action={
+              <Link href="/transactions" className={panelLinkClass}>
+                See all →
+              </Link>
+            }
+          />
+          {recentTransactionsQuery.isLoading ? (
+            <p className="px-6 pb-6 pt-2 text-[13px] text-bone-mute">
+              Loading recent transactions…
+            </p>
+          ) : recentRows.length > 0 ? (
+            <ul className="px-3 pb-3 pt-1">
+              {recentRows.map((row) => {
+                const amount = Number(row.amount);
+                const positive = amount > 0;
+                const tile = formatDateTile(row.date);
+                return (
+                  <li
+                    key={row.id}
+                    className="grid grid-cols-[auto_1fr_auto] items-center gap-4 rounded-[12px] px-3 py-2.5 transition-colors hover:bg-[rgba(232,225,210,0.03)]"
+                  >
+                    <div className="flex size-11 flex-col items-center justify-center rounded-[11px] border border-[var(--stroke)] bg-[var(--ink-0)]">
+                      <span className="text-[9.5px] leading-none text-bone-faint">
+                        {tile.month}
+                      </span>
+                      <span className="display mt-0.5 text-[18px] leading-none text-bone">
+                        {tile.day}
+                      </span>
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-[14px] text-bone">
+                        {row.merchantName ?? row.name}
+                      </p>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <span className="text-[12px] text-bone-faint">
+                          {row.categoryName}
+                        </span>
+                        {row.pending ? (
+                          <span className="pill pill--soft pill-amber">Pending</span>
+                        ) : null}
+                        {!row.accountIsActive ? (
+                          <span className="pill pill--soft pill-bone">History</span>
+                        ) : null}
+                      </div>
+                    </div>
+                    <span
+                      className={`num text-[13px] ${
+                        positive ? "text-sage-hi" : "text-bone"
+                      }`}
+                    >
+                      {formatSignedMoney(amount, row.currency)}
+                    </span>
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="px-6 pb-6 pt-2 text-[13px] text-bone-mute">
+              No transactions for {formatMonthHeading(month)} yet.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-[1.3fr_1fr]">
+        <div className="desk-panel">
+          <PanelHeading
+            title="Budgets"
+            detail={
+              budgetsQuery.data ? (
+                <>
+                  <span className="text-oxide-hi">
+                    {budgetsQuery.data.totals.overBudgetCount} over
+                  </span>
+                  {" · "}
+                  <span className="text-amber">
+                    {budgetsQuery.data.totals.unbudgetedCount} without a
+                    target
+                  </span>
+                  {" · "}
+                  {dashboardBudgetRows.length} shown
+                </>
+              ) : budgetsQuery.isLoading ? (
+                "Loading budgets…"
+              ) : (
+                "No budget activity yet."
+              )
+            }
+            action={
+              <Link href="/budgets" className="btn-soft">
+                <CircleDollarSign className="size-3.5" />
+                Adjust
+              </Link>
+            }
+          />
+          {budgetsQuery.isLoading ? (
+            <p className="px-6 pb-6 pt-2 text-[13px] text-bone-mute">
+              Loading budget rows…
+            </p>
+          ) : dashboardBudgetRows.length > 0 ? (
+            <div className="flex flex-col gap-5 px-6 pb-7 pt-3">
+              {dashboardBudgetRows.map((row) => {
+                const budget = Number(row.budgetAmount ?? 0);
+                const actual = Number(row.actualAmount);
+                const percent =
+                  budget > 0 ? Math.min((actual / budget) * 100, 150) : 0;
+                const overflow = budget > 0 && actual > budget;
+                const barColor =
+                  row.status === "over"
+                    ? "var(--oxide)"
+                    : row.status === "near_limit" ||
+                        row.status === "unbudgeted"
+                      ? "var(--amber)"
+                      : "var(--sage)";
+                const pillClass =
+                  row.status === "over"
+                    ? "pill-oxide"
+                    : row.status === "near_limit" ||
+                        row.status === "unbudgeted"
+                      ? "pill-amber"
+                      : "pill-sage";
+                const statusLabel = formatBudgetStatus(row.status);
+
+                return (
+                  <div key={row.categoryId}>
+                    <div className="mb-2.5 flex items-center justify-between gap-4">
+                      <div className="flex min-w-0 items-baseline gap-3">
+                        <span className="truncate text-[14px] text-bone">
+                          {row.categoryName}
+                        </span>
+                        <span className="num shrink-0 text-[11.5px] text-bone-mute">
+                          {formatMoney(actual, currency, 0)}{" "}
+                          <span className="text-bone-faint">
+                            of{" "}
+                            {budget > 0
+                              ? formatMoney(budget, currency, 0)
+                              : "no target"}
+                          </span>
+                        </span>
+                      </div>
+                      <span className={`pill pill--soft ${pillClass}`}>
+                        {statusLabel}
+                      </span>
+                    </div>
+                    <div className="relative h-1.5 overflow-hidden rounded-full bg-[var(--ink-0)]">
+                      <div
+                        className="absolute inset-y-0 left-0 rounded-full transition-all duration-700"
+                        style={{
+                          width: `${Math.min(percent, 100)}%`,
+                          background: barColor,
+                          boxShadow: `0 0 10px -2px ${barColor}`,
+                        }}
+                      />
+                      {overflow ? (
+                        <div
+                          className="absolute inset-y-0 right-0 w-1 rounded-full"
+                          style={{
+                            background: "var(--oxide-hi)",
+                            boxShadow: "0 0 8px var(--oxide-hi)",
+                          }}
+                        />
+                      ) : null}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="px-6 pb-6 pt-2 text-[13px] text-bone-mute">
+              No budgets yet. Set monthly targets on the Budgets page.
+            </p>
+          )}
+        </div>
+
+        <div className="desk-panel">
+          <PanelHeading
+            title="Where it went"
+            detail={
+              spendingQuery.data
+                ? `${formatMoney(Number(spendingQuery.data.totals.totalTrackedSpend), currency, 0)} across ${spendingQuery.data.totals.categoryCount} categories`
+                : "Loading spending by category…"
+            }
+            action={
+              <Link href="/transactions" className={panelLinkClass}>
+                Recategorize →
+              </Link>
+            }
+          />
+          {spendingQuery.isLoading ? (
+            <p className="px-6 pb-6 pt-2 text-[13px] text-bone-mute">
+              Loading category spending…
+            </p>
+          ) : spendingRows.length > 0 ? (
+            <div className="flex flex-col gap-5 px-6 pb-7 pt-3">
+              {spendingRows.map((row) => {
+                const share = row.shareOfTotal ?? 0;
+                return (
+                  <div
+                    key={`${row.categoryId ?? "uncategorized"}-${row.categoryName}`}
+                  >
+                    <div className="mb-2.5 flex items-baseline justify-between gap-4">
+                      <p className="min-w-0 truncate text-[14px] text-bone">
+                        {row.categoryName}
+                        <span className="ml-2 text-[12px] text-bone-faint">
+                          {row.groupName}
+                        </span>
+                      </p>
+                      <span className="num shrink-0 text-[12.5px] text-bone">
+                        {formatMoney(
+                          Number(row.spendAmount),
+                          currency,
+                          0,
+                        )}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--ink-0)]">
+                        <div
+                          className="absolute inset-y-0 left-0 rounded-full bg-gradient-to-r from-[var(--brass-lo)] to-[var(--brass-hi)]"
+                          style={{
+                            width: `${Math.max(share * 100, 6)}%`,
+                          }}
+                        />
+                      </div>
+                      <span className="num w-9 text-right text-[11px] text-bone-faint">
+                        {share > 0 ? `${Math.round(share * 100)}%` : "0%"}
+                      </span>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          ) : (
+            <p className="px-6 pb-6 pt-2 text-[13px] text-bone-mute">
+              No spending recorded for {formatMonthHeading(month)}.
+            </p>
+          )}
+        </div>
+      </section>
+
+      <section className="mt-6 grid gap-6 xl:grid-cols-[2fr_1fr]">
+        <div className="desk-panel desk-panel--warm px-8 pb-32 pt-8">
+          <div
+            className="pointer-events-none absolute inset-0"
+            style={{
+              background:
+                "radial-gradient(ellipse at 80% 120%, rgba(255,154,60,0.14), transparent 55%), radial-gradient(ellipse at 10% -20%, rgba(232,199,145,0.07), transparent 50%)",
+            }}
+          />
+          <CityGlow />
+          <div className="relative">
+            <div className="flex flex-wrap items-baseline justify-between gap-4">
+              <h2 className="display text-[17px] italic leading-none text-brass-hi">
+                The month, in brief
+              </h2>
+              <span className="text-[13px] text-bone-mute">
+                {savingsRate === null
+                  ? "No savings rate yet"
+                  : `${formatPercent(savingsRate)} saved`}
+              </span>
+            </div>
+            <p className="display mt-6 max-w-3xl text-[clamp(1.45rem,2.2vw,1.85rem)] leading-[1.35] text-bone">
+              {getSignalCopy({
+                month,
+                currency,
+                overview,
+                topSpendRow,
+                budgetsQueryData: budgetsQuery.data ?? null,
+              })}
+            </p>
+            <div className="mt-7 flex flex-wrap items-center gap-2">
+              <span className="pill pill--soft pill-brass">
+                {overview?.comparisonAvailable
+                  ? `${formatDelta(overview.deltas.netCashflow)} net vs last month`
+                  : "No earlier month to compare"}
+              </span>
+              <span className="pill pill--soft pill-bone">
+                {budgetsQuery.data
+                  ? `${budgetsQuery.data.totals.overBudgetCount} over · ${budgetsQuery.data.totals.unbudgetedCount} without a target`
+                  : "Loading budgets…"}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div className="desk-panel p-6">
+          <h2 className="display px-2 pt-2 text-[24px] leading-none text-bone">
+            Shortcuts
+          </h2>
+          <ul className="mt-5 flex flex-col gap-1">
+            {shortcuts.map((action) => (
+              <li key={action.label}>
+                <Link
+                  href={action.href}
+                  className="group flex items-center gap-4 rounded-[12px] px-2 py-2.5 transition-colors hover:bg-[rgba(232,225,210,0.04)]"
+                >
+                  <span className="flex size-10 shrink-0 items-center justify-center rounded-full border border-[var(--stroke-brass)] bg-[rgba(201,164,107,0.06)] text-brass transition-colors group-hover:border-[var(--stroke-brass-hi)] group-hover:text-brass-hi">
+                    <action.icon className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-[14px] text-bone">
+                      {action.label}
+                    </span>
+                    <span className="block truncate text-[12px] text-bone-faint">
+                      {action.detail}
+                    </span>
+                  </span>
+                  <ChevronRight className="size-4 text-bone-faint transition-all group-hover:translate-x-0.5 group-hover:text-brass-hi" />
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <footer className="mt-14 flex flex-wrap items-baseline justify-between gap-4 border-t border-[var(--stroke)] pt-6">
+        <span className="text-[12px] text-bone-faint">
+          Figures in {currency}, from your imported transactions.
+        </span>
+        <span className="display text-[14px] italic leading-none text-bone-faint">
+          est. mmxxvi
+        </span>
+      </footer>
+    </AppShell>
   );
 }
+
+const shortcuts = [
+  {
+    icon: Wallet,
+    label: "Review transactions",
+    detail: "Check categories and pending items",
+    href: "/transactions",
+  },
+  {
+    icon: Target,
+    label: "Adjust budgets",
+    detail: "Move this month’s targets",
+    href: "/budgets",
+  },
+  {
+    icon: Settings,
+    label: "Manage connections",
+    detail: "Reconnect or add a bank",
+    href: "/settings/connections",
+  },
+];
 
 export const getServerSideProps: GetServerSideProps<DashboardProps> = async (
   context,

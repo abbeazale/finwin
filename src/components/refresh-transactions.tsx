@@ -5,7 +5,7 @@ import { trpc, type RouterOutputs } from "@/lib/trpc";
 
 type SyncTransactionsResult = RouterOutputs["plaid"]["syncTransactions"]["results"][number];
 
-export type RefreshResult = Pick<SyncTransactionsResult, "added" | "modified" | "removed"> & {
+type RefreshResult = Pick<SyncTransactionsResult, "added" | "modified" | "removed"> & {
   hasConnectionErrors: boolean;
 };
 
@@ -48,7 +48,7 @@ export function RefreshTransactions({ onRefreshed }: Props) {
         variant="ghost"
         onClick={refresh}
         disabled={loading}
-        className="btn-ghost disabled:opacity-60"
+        className="btn-soft disabled:opacity-60"
       >
         <RefreshCw data-icon="inline-start" className={loading ? "animate-spin" : undefined} />
         {loading ? "Syncing…" : "Sync"}

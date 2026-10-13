@@ -27,18 +27,20 @@ export function DashboardSidebar({
   onLogout,
 }: DashboardSidebarProps) {
   return (
-    <aside className="hidden w-[240px] shrink-0 flex-col border-r border-[var(--stroke)] bg-[var(--ink-1)] lg:flex">
-      <div className="flex items-baseline justify-between border-b border-[var(--stroke)] px-6 py-5">
-        <Link href="/" className="display text-[26px] leading-none text-bone">
+    <aside
+      className="sticky top-0 hidden h-screen w-[248px] shrink-0 flex-col border-r border-[var(--stroke)] lg:flex"
+      style={{
+        background:
+          "linear-gradient(180deg, var(--ink-1) 0%, rgba(17,17,16,0.6) 100%)",
+      }}
+    >
+      <div className="px-7 pb-6 pt-7">
+        <Link href="/" className="display text-[27px] leading-none text-bone">
           Fin<span className="italic text-brass">Win</span>
         </Link>
-        <span className="label-eyebrow">v0.1</span>
       </div>
 
-      <nav className="flex flex-1 flex-col gap-0.5 p-3">
-        <div className="px-3 pb-2 pt-1">
-          <span className="label-eyebrow">Desk</span>
-        </div>
+      <nav className="flex flex-1 flex-col gap-1 px-4">
         {dashboardNavItems.map((item) => (
           <DashboardNavItem
             key={item.label}
@@ -48,23 +50,23 @@ export function DashboardSidebar({
         ))}
       </nav>
 
-      <div className="border-t border-[var(--stroke)] p-3">
-        <div className="flex items-center gap-3 rounded-[2px] border border-[var(--stroke)] bg-[var(--ink-0)] px-3 py-3">
-          <div className="flex size-8 items-center justify-center rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.08)] text-[10px] text-brass-hi">
+      <div className="p-4">
+        <div className="flex items-center gap-3 rounded-[14px] border border-[var(--stroke-2)] bg-[var(--ink-0)] px-3 py-3 cove">
+          <div className="flex size-9 shrink-0 items-center justify-center rounded-full border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.08)] text-[11px] font-medium text-brass-hi">
             {initials}
           </div>
           <div className="min-w-0 flex-1">
-            <p className="truncate text-[12px] text-bone">{firstName}</p>
-            <p className="truncate text-[10px] text-bone-faint">On the desk</p>
+            <p className="truncate text-[13px] text-bone">{firstName}</p>
+            <p className="truncate text-[11.5px] text-bone-faint">Signed in</p>
           </div>
           <Button
             type="button"
             variant="ghost"
-            className="label-eyebrow h-auto shrink-0 rounded-[2px] px-1 py-0 shadow-none hover:bg-transparent hover:text-oxide-hi"
+            className="h-auto shrink-0 rounded-[8px] px-2 py-1 text-[12px] font-normal text-bone-mute shadow-none hover:bg-transparent hover:text-oxide-hi"
             onClick={onLogout}
             disabled={isPending}
           >
-            {isPending ? "…" : "exit"}
+            {isPending ? "…" : "Sign out"}
           </Button>
         </div>
       </div>
@@ -75,21 +77,17 @@ export function DashboardSidebar({
 function DashboardNavItem({ item, currentPath }: DashboardNavItemProps) {
   const Icon = item.icon;
   const active = isDashboardNavItemActive(item, currentPath);
-  const className = `group relative flex h-10 items-center gap-3 rounded-[2px] px-3 text-left text-[12px] uppercase tracking-[0.08em] transition-all ${
+  const className = `group flex h-11 items-center gap-3 rounded-[12px] px-3.5 text-left text-[14px] transition-all ${
     active
-      ? "bg-[rgba(201,164,107,0.08)] text-brass-hi"
-      : "text-bone-mute hover:bg-[var(--ink-2-solid)] hover:text-bone"
+      ? "bg-[rgba(201,164,107,0.09)] text-brass-hi shadow-[inset_0_0_0_1px_var(--stroke-brass)]"
+      : "text-bone-mute hover:bg-[rgba(232,225,210,0.04)] hover:text-bone"
   }`;
   const content = (
     <>
-      {active ? (
-        <span className="absolute left-0 top-1/2 h-5 w-[2px] -translate-y-1/2 bg-brass" />
-      ) : null}
-      <Icon className="size-3.5" />
+      <Icon
+        className={`size-4 ${active ? "text-brass" : "text-bone-faint group-hover:text-bone-mute"}`}
+      />
       <span>{item.label}</span>
-      {active ? (
-        <span className="ml-auto size-1.5 rounded-full bg-brass animate-pulse-dot" />
-      ) : null}
     </>
   );
 

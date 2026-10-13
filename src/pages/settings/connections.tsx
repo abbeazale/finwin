@@ -1,10 +1,16 @@
-import Link from "next/link";
 import { useState } from "react";
-import { ArrowLeft, Building2, Plug, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
+import { Building2, Plug, RefreshCw, Trash2, TriangleAlert } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useRequireSession } from "@/hooks/use-require-session";
 import { ConnectBank, type ConnectBankResult } from "@/components/connect-bank";
 import { PageStatus } from "@/components/page-status";
+import { AppShell } from "@/components/dashboard/app-shell";
+import {
+  Notice,
+  PageHeading,
+  SettingsTabs,
+  ShellLoading,
+} from "@/components/dashboard/desk-ui";
 import { Button } from "@/components/ui/button";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
@@ -13,9 +19,9 @@ import {
   type BankConnectionStatus,
 } from "@/lib/bank-connection-status";
 
-type Notice = { text: string; tone: "info" | "warn" };
+type ConnectionNotice = { text: string; tone: "info" | "warn" };
 
-const UNLINK_NOTICES: Record<string, Notice> = {
+const UNLINK_NOTICES: Record<string, ConnectionNotice> = {
   revoked: {
     text: "Connection unlinked and access revoked at your bank. Transaction history stays in your ledger.",
     tone: "info",
@@ -31,7 +37,7 @@ const UNLINK_NOTICES: Record<string, Notice> = {
 };
 
 export default function ConnectionsSettings() {
-  const [message, setMessage] = useState<Notice | null>(null);
+  const [message, setMessage] = useState<ConnectionNotice | null>(null);
 
   const { session, isPending: sessionLoading } = useRequireSession();
 
@@ -95,296 +101,226 @@ export default function ConnectionsSettings() {
   }
 
   if (isLoading || sessionLoading) {
-    return <PageStatus label="Checking bank wiring…" />;
+    return (
+      <AppShell>
+        <ShellLoading label="Checking your bank connections…" />
+      </AppShell>
+    );
   }
 
   if (!session) return <PageStatus label="Redirecting…" />;
 
   return (
-    <div className="relative min-h-screen bg-ink-0 text-bone">
-      <div className="pointer-events-none fixed inset-0 z-0">
-        <div className="absolute -top-40 right-[15%] h-[30rem] w-[30rem] rounded-full blur-3xl" style={{ background: "radial-gradient(circle, rgba(232,199,145,0.05), transparent 65%)" }} />
-        <div className="absolute -bottom-40 left-0 h-[28rem] w-[48rem] blur-3xl" style={{ background: "radial-gradient(ellipse, rgba(255,154,60,0.04), transparent 60%)" }} />
-      </div>
+    <AppShell>
+      <PageHeading
+        kicker="Settings"
+        title={
+          <>
+            Bank <span className="italic text-brass-hi">connections.</span>
+          </>
+        }
+        description="The banks FinWin imports from. Unlink one at any time and its transaction history stays."
+        aside={
+          <ConnectBank
+            onConnected={(result) => void handleConnected(result)}
+          />
+        }
+      />
+      <SettingsTabs active="connections" />
 
-      <div className="relative z-10 mx-auto w-full max-w-5xl px-6 py-10 sm:px-10">
-        <div className="mb-12 flex flex-col gap-6">
-          <div className="flex items-center justify-between">
-            <Link
-              href="/dashboard"
-              className="label-eyebrow inline-flex items-center gap-2 transition-colors hover:text-brass-hi"
-            >
-              <ArrowLeft className="size-3" />
-              Back to desk
-            </Link>
-            <span className="label-eyebrow">Settings · 01 / 04</span>
-          </div>
+      {message ? (
+        <Notice tone={message.tone === "warn" ? "warn" : "brass"}>
+          {message.text}
+        </Notice>
+      ) : null}
 
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div>
-              <span className="label-eyebrow-brass">§ Infrastructure</span>
-              <h1 className="display mt-3 text-[clamp(2rem,4vw,3.2rem)] leading-[1] text-bone">
-                Bank <span className="italic text-brass-hi">wiring.</span>
-              </h1>
-              <p className="mt-3 max-w-md text-[13px] leading-[1.7] text-bone-mute">
-                The plumbing between your accounts and the desk. Unlink anytime — history stays.
-              </p>
+      {connections.length === 0 ? (
+        <div className="desk-panel p-16 text-center">
+          <div className="relative flex flex-col items-center gap-4">
+            <div className="flex size-12 items-center justify-center rounded-full border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.06)] text-brass-hi">
+              <Plug className="size-5" />
             </div>
-            <ConnectBank onConnected={(result) => void handleConnected(result)} />
-          </div>
-
-          <div className="flex items-center gap-px overflow-x-auto border-b border-[var(--stroke)]">
-            {[
-              { label: "Connections", active: true, href: "/settings/connections" },
-              { label: "Profile", active: false, href: null },
-              { label: "Notifications", active: false, href: null },
-              { label: "Security", active: false, href: "/settings/security" },
-            ].map((t) => (
-              <Button
-                key={t.label}
-                asChild={Boolean(t.href)}
-                type="button"
-                variant="ghost"
-                className={`relative h-auto rounded-none px-4 py-3 text-[11px] uppercase tracking-[0.12em] shadow-none hover:bg-transparent ${
-                  t.active ? "text-brass-hi" : "text-bone-mute hover:text-bone"
-                }`}
-              >
-                {t.href ? (
-                  <Link href={t.href}>
-                    {t.label}
-                    {t.active ? (
-                      <span className="absolute inset-x-3 -bottom-px h-[2px] bg-brass" style={{ boxShadow: "0 0 8px var(--brass-glow)" }} />
-                    ) : null}
-                  </Link>
-                ) : (
-                  <>
-                    {t.label}
-                    {t.active ? (
-                      <span className="absolute inset-x-3 -bottom-px h-[2px] bg-brass" style={{ boxShadow: "0 0 8px var(--brass-glow)" }} />
-                    ) : null}
-                  </>
-                )}
-              </Button>
-            ))}
+            <h2 className="display text-[30px] leading-tight text-bone">
+              No banks connected yet.
+            </h2>
+            <p className="max-w-sm text-[14px] leading-[1.7] text-bone-mute">
+              Connect a bank to start importing your transactions.
+            </p>
+            <div className="mt-3">
+              <ConnectBank
+                onConnected={(result) => void handleConnected(result)}
+              />
+            </div>
           </div>
         </div>
-
-        {message ? (
-          <p
-            className={`mb-8 flex items-start gap-3 rounded-[2px] border px-4 py-2.5 text-[12px] ${
-              message.tone === "warn"
-                ? "border-[rgba(232,140,72,0.35)] bg-[rgba(232,140,72,0.06)] text-amber"
-                : "border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] text-brass-hi"
-            }`}
-          >
-            <span
-              className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full animate-pulse-dot ${
-                message.tone === "warn" ? "bg-amber" : "bg-brass"
-              }`}
-            />
-            <span>{message.text}</span>
-          </p>
-        ) : null}
-
-        {connections.length === 0 ? (
-          <div className="relative rounded-[2px] border border-[var(--stroke-2)] bg-[var(--ink-1)] p-16 text-center cove brackets">
-            <div
-              className="absolute inset-0 blinds pointer-events-none opacity-30"
-              aria-hidden
-            />
-            <div className="relative flex flex-col items-center gap-4">
-              <div className="flex size-12 items-center justify-center rounded-[2px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.06)] text-brass-hi">
-                <Plug className="size-5" />
-              </div>
-              <h2 className="display text-[28px] leading-tight text-bone">
-                No wiring yet.
-              </h2>
-              <p className="max-w-sm text-[13px] text-bone-mute">
-                Connect a bank to start pulling transactions into the desk.
-              </p>
-              <div className="mt-2">
-                <ConnectBank onConnected={(result) => void handleConnected(result)} />
-              </div>
-            </div>
-          </div>
-        ) : (
-          <div className="flex flex-col gap-3">
-            <div className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-4 px-5 pb-2">
-              <span className="label-eyebrow">Conn</span>
-              <span className="label-eyebrow">Accounts</span>
-              <span className="label-eyebrow hidden lg:inline">Last sync</span>
-              <span className="label-eyebrow text-right">Action</span>
-            </div>
-            {connections.map((conn) => {
-              const isSyncFailed = conn.status === "sync_failed";
-              const importNeedsRetry = conn.status === "linked" || isSyncFailed;
-              return (
-                <article
-                  key={conn.id}
-                  className={`group relative rounded-[2px] border bg-[var(--ink-1)] p-5 transition-colors cove ${
-                    isSyncFailed
-                      ? "border-[rgba(232,140,72,0.35)] hover:border-[rgba(232,140,72,0.55)]"
-                      : "border-[var(--stroke)] hover:border-[var(--stroke-2)]"
-                  }`}
-                >
-                  {isSyncFailed ? (
-                    <div className="pointer-events-none absolute inset-0 rounded-[2px]" style={{ background: "radial-gradient(ellipse at top left, rgba(232,140,72,0.04), transparent 60%)" }} />
-                  ) : null}
-                  <div className="relative grid gap-5 lg:grid-cols-[auto_1fr_auto_auto] lg:items-center lg:gap-6">
-                    <div className={`flex size-10 items-center justify-center rounded-[2px] border bg-[var(--ink-0)] ${isSyncFailed ? "border-[rgba(232,140,72,0.4)] text-amber" : "border-[var(--stroke-2)] text-brass-hi"}`}>
-                      <Building2 className="size-4" />
-                    </div>
-
-                    <div className="min-w-0">
-                      <div className="mb-2 flex flex-wrap items-center gap-3">
-                        <span className="text-[14px] text-bone">
-                          {conn.accounts.length} account{conn.accounts.length === 1 ? "" : "s"}
-                        </span>
-                        <StatusPill status={conn.status} />
-                        {isSyncFailed && conn.syncErrorCode ? (
-                          <span className="label-eyebrow text-amber">
-                            {formatSyncErrorCode(conn.syncErrorCode)}
-                          </span>
-                        ) : null}
-                        <span className="num text-[10px] text-bone-faint">
-                          #{conn.id.slice(0, 8)}
-                        </span>
-                      </div>
-                      <ul className="flex flex-wrap gap-x-5 gap-y-1 text-[12px] text-bone-mute">
-                        {conn.accounts.map((a, i) => (
-                          <li key={i} className="flex items-center gap-2">
-                            <span className="text-bone">{a.name}</span>
-                            {a.mask ? (
-                              <span className="num text-bone-faint">··{a.mask}</span>
-                            ) : null}
-                            <span className="label-eyebrow">{a.type}</span>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-
-                    <div className="hidden flex-col items-end gap-0.5 lg:flex">
-                      {conn.lastSyncedAt ? (
-                        <>
-                          <span className="num text-[11px] text-bone">
-                            {new Date(conn.lastSyncedAt).toLocaleDateString()}
-                          </span>
-                          <span className="label-eyebrow">
-                            {new Date(conn.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="label-eyebrow text-bone-faint">Never synced</span>
-                      )}
-                      {conn.lastTransactionDate ? (
-                        <span className="label-eyebrow">
-                          LAST TX · {conn.lastTransactionDate.slice(5)}
-                        </span>
-                      ) : null}
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
-                      {isSyncFailed ? (
-                        <ConnectBank
-                          connectionId={conn.id}
-                          label="Reconnect"
-                          onReconnected={() => retrySync(conn.id)}
-                        />
-                      ) : null}
-                      <Button
-                        type="button"
-                        variant="outline"
-                        onClick={() => unlink(conn.id)}
-                        disabled={unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id}
-                        className="h-10 gap-2 rounded-[2px] border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 text-[11px] uppercase tracking-[0.12em] text-oxide-hi shadow-none hover:border-[rgba(194,106,72,0.5)] hover:bg-[rgba(194,106,72,0.12)] hover:text-oxide-hi disabled:opacity-50"
-                      >
-                        <Trash2 data-icon="inline-start" />
-                        {unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id ? "Unlinking…" : "Unlink"}
-                      </Button>
-                    </div>
+      ) : (
+        <div className="flex flex-col gap-4">
+          {connections.map((conn) => {
+            const isSyncFailed = conn.status === "sync_failed";
+            const importNeedsRetry = conn.status === "linked" || isSyncFailed;
+            return (
+              <article
+                key={conn.id}
+                className={`desk-panel p-6 transition-colors ${
+                  isSyncFailed
+                    ? "border-[rgba(232,140,72,0.35)] hover:border-[rgba(232,140,72,0.55)]"
+                    : "hover:border-[var(--stroke-3)]"
+                }`}
+              >
+                {isSyncFailed ? (
+                  <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(ellipse at top left, rgba(232,140,72,0.04), transparent 60%)" }} />
+                ) : null}
+                <div className="relative grid gap-5 lg:grid-cols-[auto_1fr_auto_auto] lg:items-center lg:gap-6">
+                  <div className={`flex size-11 items-center justify-center rounded-full border bg-[var(--ink-0)] ${isSyncFailed ? "border-[rgba(232,140,72,0.4)] text-amber" : "border-[var(--stroke-2)] text-brass-hi"}`}>
+                    <Building2 className="size-4" />
                   </div>
 
-                  {importNeedsRetry ? (
-                    <Alert
-                      variant={isSyncFailed ? "destructive" : "default"}
-                      className="relative mt-4 rounded-[2px]"
+                  <div className="min-w-0">
+                    <div className="mb-2 flex flex-wrap items-center gap-3">
+                      <span className="display text-[22px] leading-none text-bone">
+                        {conn.accounts.length} account{conn.accounts.length === 1 ? "" : "s"}
+                      </span>
+                      <StatusPill status={conn.status} />
+                      {isSyncFailed && conn.syncErrorCode ? (
+                        <span className="text-[12.5px] text-amber">
+                          {formatSyncErrorCode(conn.syncErrorCode)}
+                        </span>
+                      ) : null}
+                    </div>
+                    <ul className="flex flex-wrap gap-x-5 gap-y-1.5 text-[13px] text-bone-mute">
+                      {conn.accounts.map((a, i) => (
+                        <li key={i} className="flex items-center gap-2">
+                          <span className="text-bone">{a.name}</span>
+                          {a.mask ? (
+                            <span className="num text-bone-faint">··{a.mask}</span>
+                          ) : null}
+                          <span className="text-[12px] capitalize text-bone-faint">{a.type}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  <div className="hidden flex-col items-end gap-0.5 lg:flex">
+                    {conn.lastSyncedAt ? (
+                      <>
+                        <span className="text-[13px] text-bone">
+                          Synced {new Date(conn.lastSyncedAt).toLocaleDateString()}
+                        </span>
+                        <span className="text-[12px] text-bone-faint">
+                          {new Date(conn.lastSyncedAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </>
+                    ) : (
+                      <span className="text-[13px] text-bone-faint">Never synced</span>
+                    )}
+                    {conn.lastTransactionDate ? (
+                      <span className="text-[12px] text-bone-faint">
+                        Latest transaction {conn.lastTransactionDate.slice(5)}
+                      </span>
+                    ) : null}
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-2">
+                    {isSyncFailed ? (
+                      <ConnectBank
+                        connectionId={conn.id}
+                        label="Reconnect"
+                        onReconnected={() => retrySync(conn.id)}
+                      />
+                    ) : null}
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => unlink(conn.id)}
+                      disabled={unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id}
+                      className="btn-soft btn-soft--lg text-oxide-hi hover:border-[rgba(194,106,72,0.45)] hover:text-oxide-hi"
                     >
-                      <TriangleAlert />
-                      <AlertTitle>{isSyncFailed ? "Import failed" : "Import pending"}</AlertTitle>
-                      <AlertDescription>
-                        <p>
-                          {isSyncFailed
-                            ? "FinWin saved the connection, but the last import did not finish."
-                            : "This connection has not completed its first import yet."}
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          onClick={() => retrySync(conn.id)}
-                          disabled={
+                      <Trash2 data-icon="inline-start" />
+                      {unlinkMutation.isPending && unlinkMutation.variables?.id === conn.id ? "Unlinking…" : "Unlink"}
+                    </Button>
+                  </div>
+                </div>
+
+                {importNeedsRetry ? (
+                  <Alert
+                    variant={isSyncFailed ? "destructive" : "default"}
+                    className="relative mt-5 rounded-[14px]"
+                  >
+                    <TriangleAlert />
+                    <AlertTitle>{isSyncFailed ? "Import failed" : "Import pending"}</AlertTitle>
+                    <AlertDescription>
+                      <p>
+                        {isSyncFailed
+                          ? "FinWin saved the connection, but the last import did not finish."
+                          : "This connection has not completed its first import yet."}
+                      </p>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        className="btn-soft mt-2"
+                        onClick={() => retrySync(conn.id)}
+                        disabled={
+                          retrySyncMutation.isPending &&
+                          retrySyncMutation.variables?.connectionId === conn.id
+                        }
+                      >
+                        <RefreshCw
+                          data-icon="inline-start"
+                          className={
                             retrySyncMutation.isPending &&
                             retrySyncMutation.variables?.connectionId === conn.id
+                              ? "animate-spin"
+                              : undefined
                           }
-                        >
-                          <RefreshCw
-                            data-icon="inline-start"
-                            className={
-                              retrySyncMutation.isPending &&
-                              retrySyncMutation.variables?.connectionId === conn.id
-                                ? "animate-spin"
-                                : undefined
-                            }
-                          />
-                          {retrySyncMutation.isPending &&
-                          retrySyncMutation.variables?.connectionId === conn.id
-                            ? "Retrying import…"
-                            : "Retry import"}
-                        </Button>
-                      </AlertDescription>
-                    </Alert>
-                  ) : null}
+                        />
+                        {retrySyncMutation.isPending &&
+                        retrySyncMutation.variables?.connectionId === conn.id
+                          ? "Retrying import…"
+                          : "Retry import"}
+                      </Button>
+                    </AlertDescription>
+                  </Alert>
+                ) : null}
 
-                  {!isSyncFailed ? (
-                    <div className="pointer-events-none absolute left-0 top-0 h-px w-0 bg-brass transition-all duration-500 group-hover:w-full" />
-                  ) : null}
-                </article>
-              );
-            })}
-          </div>
-        )}
+              </article>
+            );
+          })}
+        </div>
+      )}
 
-        <footer className="mt-16 grid gap-8 border-t border-[var(--stroke)] pt-8 sm:grid-cols-3">
-          <div>
-            <span className="label-eyebrow">Data stays</span>
-            <p className="mt-2 text-[12px] text-bone-mute">
-              Unlinking removes the pipe and revokes bank access. All transaction
-              history stays in your ledger.
-            </p>
-          </div>
-          <div>
-            <span className="label-eyebrow">Plaid cursor</span>
-            <p className="mt-2 text-[12px] text-bone-mute">
-              Sync runs on-demand and via webhook on new transactions.
-            </p>
-          </div>
-          <div>
-            <span className="label-eyebrow">Security</span>
-            <p className="mt-2 text-[12px] text-bone-mute">
-              ES256-verified webhooks. Tokens server-side only.
-            </p>
-          </div>
-        </footer>
-      </div>
-    </div>
+      <footer className="mt-14 grid gap-8 border-t border-[var(--stroke)] pt-8 sm:grid-cols-3">
+        <div>
+          <h3 className="display text-[18px] text-bone">Your history stays</h3>
+          <p className="mt-2 text-[13px] leading-[1.7] text-bone-mute">
+            Unlinking revokes FinWin&rsquo;s access at your bank. Every
+            imported transaction stays where it is.
+          </p>
+        </div>
+        <div>
+          <h3 className="display text-[18px] text-bone">Syncing</h3>
+          <p className="mt-2 text-[13px] leading-[1.7] text-bone-mute">
+            New transactions arrive on their own, and you can sync at any
+            time.
+          </p>
+        </div>
+        <div>
+          <h3 className="display text-[18px] text-bone">Security</h3>
+          <p className="mt-2 text-[13px] leading-[1.7] text-bone-mute">
+            Your bank access keys stay on FinWin&rsquo;s servers and never
+            reach the browser.
+          </p>
+        </div>
+      </footer>
+    </AppShell>
   );
 }
 
 function StatusPill({ status }: { status: BankConnectionStatus }) {
   const map: Record<BankConnectionStatus, string> = {
-    linked: "pill pill-bone",
-    syncing: "pill pill-brass",
-    ready: "pill pill-sage",
-    sync_failed: "pill pill-amber",
+    linked: "pill pill--soft pill-bone",
+    syncing: "pill pill--soft pill-brass",
+    ready: "pill pill--soft pill-sage",
+    sync_failed: "pill pill--soft pill-amber",
   };
   return (
     <span className={map[status]}>

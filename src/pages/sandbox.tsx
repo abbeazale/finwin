@@ -1,18 +1,22 @@
-import Link from "next/link";
 import { useEffect, useState, type FormEvent, type ReactNode } from "react";
 import {
-  ArrowLeft,
   Beaker,
   CircleAlert,
   FlaskConical,
   Plus,
   Search,
   Trash2,
-  TrendingUp,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { PageStatus } from "@/components/page-status";
+import { AppShell } from "@/components/dashboard/app-shell";
+import {
+  Notice,
+  PageHeading,
+  PanelHeading,
+  ShellLoading,
+} from "@/components/dashboard/desk-ui";
 import { useRequireSession } from "@/hooks/use-require-session";
 import { formatCurrency } from "@/lib/currency";
 import { trpc, type RouterOutputs } from "@/lib/trpc";
@@ -62,9 +66,13 @@ export default function SandboxPage() {
   });
 
   if (sessionLoading || (portfoliosQuery.isLoading && !portfoliosQuery.data)) {
-    return <PageStatus label="Preparing the paper desk..." />;
+    return (
+      <AppShell>
+        <ShellLoading label="Preparing the sandbox…" />
+      </AppShell>
+    );
   }
-  if (!session) return <PageStatus label="Redirecting..." />;
+  if (!session) return <PageStatus label="Redirecting…" />;
 
   const portfolio = portfolioQuery.data;
   const trades = tradesQuery.data ?? [];
@@ -75,174 +83,161 @@ export default function SandboxPage() {
     pageError;
 
   return (
-    <div className="relative min-h-screen overflow-hidden bg-ink-0 text-bone">
-      <div className="pointer-events-none fixed inset-0">
-        <div className="absolute -right-40 -top-48 size-[38rem] rounded-full bg-[rgba(122,154,126,0.07)] blur-3xl" />
-        <div className="absolute -bottom-64 -left-48 size-[42rem] rounded-full bg-[rgba(201,164,107,0.07)] blur-3xl" />
-      </div>
-      <div className="relative mx-auto w-full max-w-7xl px-6 py-10 sm:px-10">
-        <header className="mb-8 flex flex-col gap-7">
-          <div className="flex flex-wrap items-center justify-between gap-4">
-            <Link
-              href="/dashboard"
-              className="label-eyebrow inline-flex items-center gap-2 transition-colors hover:text-brass-hi"
+    <AppShell
+      actions={
+        <span className="pill pill--soft pill-brass hidden sm:inline-flex">
+          <FlaskConical className="size-3" /> Practice money only
+        </span>
+      }
+    >
+      <PageHeading
+        kicker="Paper trading, not real money"
+        title={
+          <>
+            Test the idea.{" "}
+            <span className="italic text-sage-hi">Keep the lesson.</span>
+          </>
+        }
+        description="Record practice buys and sells against live prices. Backdate any trade and the whole portfolio is recalculated."
+        aside={
+          <div className="flex flex-wrap items-end gap-3">
+            {portfolios.length > 0 ? (
+              <label className="grid min-w-60 gap-2">
+                <span className="field-label">Portfolio</span>
+                <select
+                  className="form-input"
+                  value={effectivePortfolioId}
+                  onChange={(event) =>
+                    setSelectedPortfolioId(event.target.value)
+                  }
+                >
+                  {portfolios.map((item) => (
+                    <option key={item.id} value={item.id}>
+                      {item.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              className="btn-soft btn-soft--lg"
+              onClick={() => setCreateOpen(true)}
             >
-              <ArrowLeft className="size-3" /> Back to desk
-            </Link>
-            <span className="inline-flex items-center gap-2 rounded-full border border-[rgba(201,164,107,0.28)] bg-[rgba(201,164,107,0.06)] px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-brass-hi">
-              <FlaskConical className="size-3" /> Paper trading · not real money
-            </span>
-          </div>
-          <div className="flex flex-wrap items-end justify-between gap-6">
-            <div>
-              <span className="label-eyebrow-brass">§ Sandbox</span>
-              <h1 className="display mt-3 text-[clamp(2.2rem,5vw,4rem)] leading-none text-bone">
-                Test the thesis.
-                <br />
-                <span className="italic text-sage-hi">Keep the lesson.</span>
-              </h1>
-              <p className="mt-4 max-w-xl text-[13px] leading-[1.7] text-bone-mute">
-                Replay hypothetical buys and sells against live prices. Backdate
-                any trade and the entire ledger recomputes from first
-                principles.
-              </p>
-            </div>
-            <div className="flex flex-wrap items-end gap-3">
-              {portfolios.length > 0 ? (
-                <label className="grid min-w-60 gap-1">
-                  <span className="label-eyebrow text-bone-faint">
-                    Portfolio
-                  </span>
-                  <select
-                    className="filter-select min-h-10"
-                    value={effectivePortfolioId}
-                    onChange={(event) =>
-                      setSelectedPortfolioId(event.target.value)
-                    }
-                  >
-                    {portfolios.map((item) => (
-                      <option key={item.id} value={item.id}>
-                        {item.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              ) : null}
+              <Plus className="size-4" /> Portfolio
+            </Button>
+            {portfolio ? (
               <Button
                 type="button"
-                variant="outline"
-                onClick={() => setCreateOpen(true)}
+                variant="ghost"
+                className="btn-brass-fill h-11 px-5"
+                onClick={() => setTradeOpen(true)}
               >
-                <Plus data-icon="inline-start" /> Portfolio
+                <Beaker className="size-4" /> New trade
               </Button>
-              {portfolio ? (
-                <Button type="button" onClick={() => setTradeOpen(true)}>
-                  <Beaker data-icon="inline-start" /> New trade
-                </Button>
-              ) : null}
-            </div>
-          </div>
-        </header>
-
-        {error ? <ErrorNotice message={error} /> : null}
-
-        {!portfolio && !portfolioQuery.isLoading ? (
-          <EmptyPortfolio onCreate={() => setCreateOpen(true)} />
-        ) : portfolio ? (
-          <main className="grid gap-6">
-            <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-              <SummaryTile
-                label="Market value"
-                value={formatUsd(portfolio.marketValue)}
-                detail={`${portfolio.holdings.length} open position${portfolio.holdings.length === 1 ? "" : "s"}`}
-              />
-              <SummaryTile
-                label="Cash"
-                value={formatUsd(portfolio.cashBalance)}
-                detail={`Started with ${formatUsd(portfolio.startingCash)}`}
-              />
-              <SummaryTile
-                label="Total value"
-                value={formatUsd(portfolio.totalValue)}
-                detail={`Realized ${formatSignedUsd(portfolio.realizedGain)}`}
-              />
-              <SummaryTile
-                label="Total return"
-                value={formatSignedUsd(portfolio.totalReturn)}
-                detail={
-                  portfolio.totalReturnPercent === null
-                    ? "—"
-                    : `${signed(Number(portfolio.totalReturnPercent))}%`
-                }
-                tone={Number(portfolio.totalReturn) < 0 ? "oxide" : "sage"}
-              />
-            </section>
-
-            {portfolio.missingQuoteCount > 0 ? (
-              <div className="flex items-center gap-3 rounded-md border border-[rgba(201,164,107,0.28)] bg-[rgba(201,164,107,0.05)] px-4 py-3 text-[12px] text-brass-hi">
-                <CircleAlert className="size-4 shrink-0" />
-                {portfolio.missingQuoteCount} position
-                {portfolio.missingQuoteCount === 1 ? " has" : "s have"} no
-                current quote. Cost basis remains visible; missing prices are
-                excluded from market value.
-              </div>
             ) : null}
+          </div>
+        }
+      />
 
-            <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
-              <HoldingsPanel
-                holdings={portfolio.holdings}
-                loading={portfolioQuery.isLoading}
-              />
-              <PortfolioPanel
-                key={portfolio.id}
-                portfolio={portfolio}
-                busy={renamePortfolio.isPending || deletePortfolio.isPending}
-                onRename={(name) =>
-                  renamePortfolio.mutate({ id: portfolio.id, name })
-                }
-                onDelete={() => {
-                  if (
-                    window.confirm(
-                      `Delete “${portfolio.name}” and every trade in it?`,
-                    )
-                  )
-                    deletePortfolio.mutate({ id: portfolio.id });
-                }}
-              />
-            </section>
-            <TradesPanel
-              trades={trades}
-              loading={tradesQuery.isLoading}
-              deletingId={deleteTrade.variables?.id}
-              onDelete={(id) => deleteTrade.mutate({ id })}
+      {error ? <ErrorNotice message={error} className="mb-6" /> : null}
+
+      {!portfolio && !portfolioQuery.isLoading ? (
+        <EmptyPortfolio onCreate={() => setCreateOpen(true)} />
+      ) : portfolio ? (
+        <div className="grid gap-6">
+          <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <SummaryTile
+              label="Market value"
+              value={formatUsd(portfolio.marketValue)}
+              detail={`${portfolio.holdings.length} open position${portfolio.holdings.length === 1 ? "" : "s"}`}
             />
-          </main>
-        ) : (
-          <PanelStatus label="Replaying portfolio..." />
-        )}
-      </div>
+            <SummaryTile
+              label="Cash"
+              value={formatUsd(portfolio.cashBalance)}
+              detail={`Started with ${formatUsd(portfolio.startingCash)}`}
+            />
+            <SummaryTile
+              label="Total value"
+              value={formatUsd(portfolio.totalValue)}
+              detail={`Realized ${formatSignedUsd(portfolio.realizedGain)}`}
+            />
+            <SummaryTile
+              label="Total return"
+              value={formatSignedUsd(portfolio.totalReturn)}
+              detail={
+                portfolio.totalReturnPercent === null
+                  ? "—"
+                  : `${signed(Number(portfolio.totalReturnPercent))}%`
+              }
+              tone={Number(portfolio.totalReturn) < 0 ? "oxide" : "sage"}
+            />
+          </section>
 
-      <CreatePortfolioModal
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={(id) => {
-          setSelectedPortfolioId(id);
-          setCreateOpen(false);
+          {portfolio.missingQuoteCount > 0 ? (
+            <Notice tone="brass" icon={<CircleAlert />} className="">
+              {portfolio.missingQuoteCount} position
+              {portfolio.missingQuoteCount === 1 ? " has" : "s have"} no
+              current quote. Cost basis remains visible; missing prices are
+              excluded from market value.
+            </Notice>
+          ) : null}
+
+          <section className="grid gap-6 2xl:grid-cols-[1.2fr_0.8fr]">
+            <HoldingsPanel
+              holdings={portfolio.holdings}
+              loading={portfolioQuery.isLoading}
+            />
+            <PortfolioPanel
+              key={portfolio.id}
+              portfolio={portfolio}
+              busy={renamePortfolio.isPending || deletePortfolio.isPending}
+              onRename={(name) =>
+                renamePortfolio.mutate({ id: portfolio.id, name })
+              }
+              onDelete={() => {
+                if (
+                  window.confirm(
+                    `Delete “${portfolio.name}” and every trade in it?`,
+                  )
+                )
+                  deletePortfolio.mutate({ id: portfolio.id });
+              }}
+            />
+          </section>
+          <TradesPanel
+            trades={trades}
+            loading={tradesQuery.isLoading}
+            deletingId={deleteTrade.variables?.id}
+            onDelete={(id) => deleteTrade.mutate({ id })}
+          />
+        </div>
+      ) : (
+        <PanelStatus label="Recalculating the portfolio…" />
+      )}
+
+    <CreatePortfolioModal
+      open={createOpen}
+      onClose={() => setCreateOpen(false)}
+      onCreated={(id) => {
+        setSelectedPortfolioId(id);
+        setCreateOpen(false);
+        void utils.sandbox.invalidate();
+      }}
+    />
+    {portfolio ? (
+      <TradeModal
+        open={tradeOpen}
+        onClose={() => setTradeOpen(false)}
+        portfolioId={portfolio.id}
+        onPlaced={() => {
+          setTradeOpen(false);
           void utils.sandbox.invalidate();
         }}
       />
-      {portfolio ? (
-        <TradeModal
-          open={tradeOpen}
-          onClose={() => setTradeOpen(false)}
-          portfolioId={portfolio.id}
-          onPlaced={() => {
-            setTradeOpen(false);
-            void utils.sandbox.invalidate();
-          }}
-        />
-      ) : null}
-    </div>
+    ) : null}
+    </AppShell>
   );
 }
 
@@ -284,7 +279,7 @@ function Modal({
       <div className="fixed inset-0 bg-black/70 backdrop-blur-sm animate-fade-in" />
       <div
         onMouseDown={(event) => event.stopPropagation()}
-        className={`relative z-10 flex max-h-[calc(100dvh-4rem)] w-full ${size === "lg" ? "max-w-lg" : "max-w-md"} flex-col overflow-hidden rounded-lg border border-[var(--stroke-2)] bg-[var(--ink-1)] cove animate-fade-slide`}
+        className={`desk-panel relative z-10 flex max-h-[calc(100dvh-4rem)] w-full ${size === "lg" ? "max-w-lg" : "max-w-md"} flex-col rounded-[20px] animate-fade-slide`}
       >
         {children}
       </div>
@@ -308,17 +303,17 @@ function ModalHeader({
   onClose: () => void;
 }) {
   return (
-    <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--stroke)] px-6 py-5">
-      <div className="flex items-start gap-3.5">
-        <span className="mt-0.5 flex size-10 shrink-0 items-center justify-center rounded-lg border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.06)] text-brass-hi">
+    <div className="flex shrink-0 items-start justify-between gap-4 border-b border-[var(--stroke)] px-6 py-6">
+      <div className="flex items-start gap-4">
+        <span className="mt-0.5 flex size-11 shrink-0 items-center justify-center rounded-full border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.06)] text-brass-hi">
           {icon}
         </span>
         <div>
-          <span className="label-eyebrow-brass">{eyebrow}</span>
-          <h2 id={id} className="display mt-1 text-2xl leading-tight text-bone">
+          <span className="display text-[14px] italic text-brass-hi">{eyebrow}</span>
+          <h2 id={id} className="display mt-1 text-[26px] leading-tight text-bone">
             {title}
           </h2>
-          <p className="mt-1.5 text-[12px] leading-relaxed text-bone-mute">
+          <p className="mt-1.5 text-[13px] leading-relaxed text-bone-mute">
             {subtitle}
           </p>
         </div>
@@ -327,7 +322,7 @@ function ModalHeader({
         type="button"
         onClick={onClose}
         aria-label="Close dialog"
-        className="-mr-1.5 -mt-1.5 shrink-0 rounded-md p-1.5 text-bone-mute transition-colors hover:bg-[var(--ink-3)] hover:text-bone"
+        className="-mr-1.5 -mt-1.5 shrink-0 rounded-full p-1.5 text-bone-mute transition-colors hover:bg-[rgba(232,225,210,0.05)] hover:text-bone"
       >
         <X className="size-4" />
       </button>
@@ -337,9 +332,7 @@ function ModalHeader({
 
 function FieldLabel({ children }: { children: ReactNode }) {
   return (
-    <span className="text-[11px] font-medium uppercase tracking-[0.1em] text-bone-mute">
-      {children}
-    </span>
+    <span className="field-label">{children}</span>
   );
 }
 
@@ -384,9 +377,9 @@ function CreatePortfolioModal({
         <ModalHeader
           id="create-portfolio-title"
           icon={<FlaskConical className="size-5" />}
-          eyebrow="New experiment"
+          eyebrow="New portfolio"
           title="Create a paper portfolio"
-          subtitle="Give this thesis its own clean cash ledger."
+          subtitle="Each portfolio gets its own practice cash to trade with."
           onClose={handleClose}
         />
         <div className="flex flex-col gap-5 overflow-y-auto px-6 py-6">
@@ -419,17 +412,22 @@ function CreatePortfolioModal({
                 className="form-input form-input--lead-symbol font-mono"
               />
             </div>
-            <span className="text-[11px] text-bone-faint">
-              Fictional cash the ledger starts from.
+            <span className="text-[12px] text-bone-faint">
+              Practice cash the portfolio starts with.
             </span>
           </label>
           {error ? <ErrorNotice message={error} /> : null}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[var(--stroke)] px-6 py-4">
-          <Button type="button" variant="ghost" onClick={handleClose}>
+          <Button type="button" variant="ghost" className="btn-soft btn-soft--lg" onClick={handleClose}>
             Cancel
           </Button>
-          <Button type="submit" disabled={mutation.isPending}>
+          <Button
+            type="submit"
+            variant="ghost"
+            className="btn-brass-fill h-11 px-5"
+            disabled={mutation.isPending}
+          >
             {mutation.isPending ? "Creating…" : "Create portfolio"}
           </Button>
         </div>
@@ -511,7 +509,7 @@ function TradeModal({
           icon={<Beaker className="size-5" />}
           eyebrow={side === "buy" ? "Paper buy" : "Paper sell"}
           title="Record a hypothetical trade"
-          subtitle="Live quote first. Every field stays editable for what-if replay."
+          subtitle="The live quote fills in first. You can change any field to test a what-if."
           onClose={handleClose}
         />
         <div className="flex flex-col gap-5 overflow-y-auto px-6 py-6">
@@ -529,12 +527,12 @@ function TradeModal({
                 />
               </div>
               {searchQuery.isFetching ? (
-                <span className="text-[11px] text-bone-faint">
-                  Searching Finnhub…
+                <span className="text-[12px] text-bone-faint">
+                  Searching…
                 </span>
               ) : null}
               {searchQuery.data?.length ? (
-                <div className="mt-1 max-h-56 overflow-y-auto rounded-md border border-[var(--stroke)] bg-[var(--ink-0)]">
+                <div className="mt-1 max-h-56 overflow-y-auto rounded-[12px] border border-[var(--stroke-2)] bg-[var(--ink-0)]">
                   {searchQuery.data.map((result) => (
                     <button
                       type="button"
@@ -543,9 +541,9 @@ function TradeModal({
                         setSymbol(result.symbol);
                         setQuery(result.description);
                       }}
-                      className="flex w-full items-center justify-between gap-4 border-b border-[var(--stroke)] px-4 py-3 text-left transition-colors last:border-0 hover:bg-[var(--ink-2-solid)]"
+                      className="flex w-full items-center justify-between gap-4 border-b border-[var(--stroke)] px-4 py-3 text-left transition-colors last:border-0 hover:bg-[rgba(232,225,210,0.04)]"
                     >
-                      <span className="text-[12px] text-bone">
+                      <span className="text-[13px] text-bone">
                         {result.description}
                       </span>
                       <span className="font-mono text-[11px] text-brass-hi">
@@ -558,10 +556,10 @@ function TradeModal({
             </div>
           ) : (
             <>
-              <div className="flex items-center justify-between gap-4 rounded-md border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-3.5">
+              <div className="flex items-center justify-between gap-4 rounded-[14px] border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.05)] px-4 py-3.5">
                 <div>
-                  <span className="font-mono text-lg text-bone">{symbol}</span>
-                  <p className="mt-1 text-[11px] text-bone-faint">
+                  <span className="display text-[24px] leading-none text-bone">{symbol}</span>
+                  <p className="mt-1.5 text-[12px] text-bone-faint">
                     {quoteQuery.isLoading
                       ? "Loading live quote…"
                       : `Live ${formatUsd(quoteQuery.data?.price ?? null)} · ${signed(Number(quoteQuery.data?.changePercent ?? 0))}% today`}
@@ -569,8 +567,8 @@ function TradeModal({
                 </div>
                 <Button
                   type="button"
-                  size="sm"
                   variant="ghost"
+                  className="btn-soft"
                   onClick={() => {
                     setSymbol("");
                     setPrice("");
@@ -579,18 +577,18 @@ function TradeModal({
                   Change
                 </Button>
               </div>
-              <div className="grid grid-cols-2 gap-1.5 rounded-md border border-[var(--stroke)] bg-[var(--ink-0)] p-1.5">
+              <div className="grid grid-cols-2 gap-1 rounded-full border border-[var(--stroke-2)] bg-[var(--ink-0)] p-1">
                 <button
                   type="button"
                   onClick={() => setSide("buy")}
-                  className={`rounded px-3 py-2.5 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${side === "buy" ? "bg-[rgba(122,154,126,0.16)] text-sage-hi shadow-[inset_0_0_0_1px_rgba(122,154,126,0.3)]" : "text-bone-faint hover:text-bone-mute"}`}
+                  className={`rounded-full px-3 py-2.5 text-[13px] font-medium transition-colors ${side === "buy" ? "bg-[rgba(122,154,126,0.16)] text-sage-hi shadow-[inset_0_0_0_1px_rgba(122,154,126,0.3)]" : "text-bone-faint hover:text-bone-mute"}`}
                 >
                   Buy
                 </button>
                 <button
                   type="button"
                   onClick={() => setSide("sell")}
-                  className={`rounded px-3 py-2.5 text-[11px] font-medium uppercase tracking-[0.14em] transition-colors ${side === "sell" ? "bg-[rgba(194,106,72,0.16)] text-oxide-hi shadow-[inset_0_0_0_1px_rgba(194,106,72,0.32)]" : "text-bone-faint hover:text-bone-mute"}`}
+                  className={`rounded-full px-3 py-2.5 text-[13px] font-medium transition-colors ${side === "sell" ? "bg-[rgba(194,106,72,0.16)] text-oxide-hi shadow-[inset_0_0_0_1px_rgba(194,106,72,0.32)]" : "text-bone-faint hover:text-bone-mute"}`}
                 >
                   Sell
                 </button>
@@ -639,7 +637,7 @@ function TradeModal({
               <label className="grid gap-2">
                 <FieldLabel>
                   Note{" "}
-                  <span className="normal-case tracking-normal text-bone-faint">
+                  <span className="text-bone-faint">
                     (optional)
                   </span>
                 </FieldLabel>
@@ -652,14 +650,12 @@ function TradeModal({
                   placeholder="What thesis are you testing?"
                 />
               </label>
-              <div className="rounded-md border border-[var(--stroke)] bg-[var(--ink-0)] p-4 text-[12px]">
-                <p className="text-[10px] uppercase tracking-[0.1em] text-bone-faint">
-                  Trade value
-                </p>
-                <p className="mt-1.5 font-mono text-bone">{formatUsd(total)}</p>
-                <p className="mt-2 text-[11px] leading-relaxed text-bone-faint">
-                  Cash and share limits are validated by replaying the full
-                  timeline at this execution time.
+              <div className="rounded-[14px] border border-[var(--stroke)] bg-[var(--ink-0)] p-4">
+                <p className="field-label">Trade value</p>
+                <p className="display mt-2 text-[24px] leading-none text-bone">{formatUsd(total)}</p>
+                <p className="mt-3 text-[12px] leading-relaxed text-bone-faint">
+                  Cash and share limits are checked against every trade up to
+                  this execution time.
                 </p>
               </div>
             </>
@@ -673,15 +669,17 @@ function TradeModal({
           ) : null}
         </div>
         <div className="flex shrink-0 items-center justify-end gap-3 border-t border-[var(--stroke)] px-6 py-4">
-          <Button type="button" variant="ghost" onClick={handleClose}>
+          <Button type="button" variant="ghost" className="btn-soft btn-soft--lg" onClick={handleClose}>
             Cancel
           </Button>
           {symbol ? (
             <Button
               type="submit"
+              variant="ghost"
+              className="btn-brass-fill h-11 px-5"
               disabled={mutation.isPending || quoteQuery.isLoading}
             >
-              {mutation.isPending ? "Replaying timeline…" : `Confirm ${side}`}
+              {mutation.isPending ? "Checking the timeline…" : `Confirm ${side}`}
             </Button>
           ) : null}
         </div>
@@ -698,11 +696,10 @@ function HoldingsPanel({
   loading: boolean;
 }) {
   return (
-    <section className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
+    <section className="desk-panel">
       <PanelHeading
-        icon={<TrendingUp className="size-4" />}
-        label="Open positions"
-        count={holdings.length}
+        title="Open positions"
+        detail={`${holdings.length} position${holdings.length === 1 ? "" : "s"}`}
       />
       {loading ? (
         <PanelStatus label="Valuing positions..." />
@@ -710,10 +707,10 @@ function HoldingsPanel({
         <PanelStatus label="No open positions yet. Place a buy to begin." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-[12px]">
-            <thead className="border-b border-[var(--stroke)] text-bone-faint">
+          <table className="w-full min-w-[760px] text-left text-[13px]">
+            <thead className="table-head border-b border-[var(--stroke)]">
               <tr>
-                <th className="px-5 py-3 font-normal">Symbol</th>
+                <th className="px-6 py-3 font-normal">Symbol</th>
                 <th className="px-3 py-3 font-normal">Shares</th>
                 <th className="px-3 py-3 font-normal">Avg cost</th>
                 <th className="px-3 py-3 font-normal">Live</th>
@@ -724,7 +721,7 @@ function HoldingsPanel({
             <tbody className="divide-y divide-[var(--stroke)]">
               {holdings.map((holding) => (
                 <tr key={holding.symbol}>
-                  <td className="px-5 py-4 font-mono text-brass-hi">
+                  <td className="px-6 py-4 font-mono text-brass-hi">
                     {holding.symbol}
                   </td>
                   <td className="px-3 py-4 font-mono text-bone-mute">
@@ -781,11 +778,10 @@ function TradesPanel({
   onDelete: (id: string) => void;
 }) {
   return (
-    <section className="overflow-hidden rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
+    <section className="desk-panel">
       <PanelHeading
-        icon={<Beaker className="size-4" />}
-        label="Trade history"
-        count={trades.length}
+        title="Trade history"
+        detail={`${trades.length} trade${trades.length === 1 ? "" : "s"}`}
       />
       {loading ? (
         <PanelStatus label="Replaying activity..." />
@@ -793,16 +789,16 @@ function TradesPanel({
         <PanelStatus label="No trades recorded in this portfolio." />
       ) : (
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[800px] text-left text-[12px]">
-            <thead className="border-b border-[var(--stroke)] text-bone-faint">
+          <table className="w-full min-w-[800px] text-left text-[13px]">
+            <thead className="table-head border-b border-[var(--stroke)]">
               <tr>
-                <th className="px-5 py-3 font-normal">Executed</th>
+                <th className="px-6 py-3 font-normal">Executed</th>
                 <th className="px-3 py-3 font-normal">Trade</th>
                 <th className="px-3 py-3 font-normal">Shares</th>
                 <th className="px-3 py-3 font-normal">Price</th>
                 <th className="px-3 py-3 font-normal">Total</th>
                 <th className="px-3 py-3 font-normal">Note</th>
-                <th className="px-5 py-3 font-normal">
+                <th className="px-6 py-3 font-normal">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
@@ -810,17 +806,17 @@ function TradesPanel({
             <tbody className="divide-y divide-[var(--stroke)]">
               {[...trades].reverse().map((trade) => (
                 <tr key={trade.id}>
-                  <td className="px-5 py-4 text-bone-mute">
+                  <td className="px-6 py-4 text-bone-mute">
                     {formatDateTime(trade.executedAt)}
                   </td>
                   <td className="px-3 py-4">
                     <span
-                      className={
-                        trade.side === "buy" ? "text-sage-hi" : "text-oxide-hi"
-                      }
+                      className={`pill pill--soft ${
+                        trade.side === "buy" ? "pill-sage" : "pill-oxide"
+                      }`}
                     >
-                      {trade.side.toUpperCase()}
-                    </span>{" "}
+                      {trade.side === "buy" ? "Buy" : "Sell"}
+                    </span>
                     <span className="ml-2 font-mono text-brass-hi">
                       {trade.symbol}
                     </span>
@@ -833,7 +829,7 @@ function TradesPanel({
                   <td className="max-w-56 truncate px-3 py-4 text-bone-faint">
                     {trade.note ?? "—"}
                   </td>
-                  <td className="px-5 py-4 text-right">
+                  <td className="px-6 py-4 text-right">
                     <Button
                       type="button"
                       size="icon-sm"
@@ -843,7 +839,7 @@ function TradesPanel({
                       onClick={() => {
                         if (
                           window.confirm(
-                            "Delete this trade? The remaining timeline must still be valid.",
+                            "Delete this trade? The trades after it must still add up.",
                           )
                         )
                           onDelete(trade.id);
@@ -876,12 +872,9 @@ function PortfolioPanel({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(portfolio.name);
   return (
-    <section className="rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] cove">
-      <PanelHeading
-        icon={<FlaskConical className="size-4" />}
-        label="Experiment ledger"
-      />
-      <div className="flex flex-col gap-5 p-5">
+    <section className="desk-panel">
+      <PanelHeading title="This portfolio" />
+      <div className="flex flex-col gap-5 px-6 pb-6 pt-4">
         {editing ? (
           <form
             onSubmit={(event) => {
@@ -898,16 +891,21 @@ function PortfolioPanel({
               value={name}
               onChange={(event) => setName(event.target.value)}
             />
-            <Button type="submit" size="sm" disabled={busy}>
+            <Button
+              type="submit"
+              variant="ghost"
+              className="btn-brass-fill h-11 px-4"
+              disabled={busy}
+            >
               Save
             </Button>
           </form>
         ) : (
           <div>
-            <p className="display text-2xl text-bone">{portfolio.name}</p>
+            <p className="display text-[28px] leading-tight text-bone">{portfolio.name}</p>
             <button
               type="button"
-              className="mt-2 text-[11px] uppercase tracking-[0.12em] text-brass-hi"
+              className="mt-1 text-[13px] text-brass-hi transition-colors hover:text-bone"
               onClick={() => setEditing(true)}
             >
               Rename
@@ -934,8 +932,8 @@ function PortfolioPanel({
         </div>
         <Button
           type="button"
-          variant="destructive"
-          size="sm"
+          variant="ghost"
+          className="btn-soft text-oxide-hi hover:border-[rgba(194,106,72,0.4)] hover:text-oxide-hi"
           disabled={busy}
           onClick={onDelete}
         >
@@ -946,27 +944,6 @@ function PortfolioPanel({
   );
 }
 
-function PanelHeading({
-  icon,
-  label,
-  count,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  count?: number;
-}) {
-  return (
-    <div className="flex items-center gap-2.5 border-b border-[var(--stroke)] px-5 py-4 text-brass-hi">
-      {icon}
-      <span className="label-eyebrow-brass">{label}</span>
-      {count !== undefined ? (
-        <span className="label-eyebrow ml-auto text-bone-faint">
-          {count} rows
-        </span>
-      ) : null}
-    </div>
-  );
-}
 function SummaryTile({
   label,
   value,
@@ -985,57 +962,65 @@ function SummaryTile({
         ? "text-oxide-hi"
         : "text-bone";
   return (
-    <div className="rounded-md border border-[var(--stroke)] bg-[var(--ink-1)] p-5 cove">
-      <span className="label-eyebrow text-bone-faint">{label}</span>
+    <div className="desk-panel p-6">
+      <span className="field-label">{label}</span>
       <p
-        className={`display mt-3 text-[clamp(1.55rem,3vw,2.15rem)] ${toneClass}`}
+        className={`display mt-4 whitespace-nowrap text-[clamp(1.45rem,1.9vw,2.2rem)] leading-none ${toneClass}`}
       >
         {value}
       </p>
-      <p className="mt-2 text-[11px] text-bone-faint">{detail}</p>
+      <p className="mt-4 text-[12.5px] text-bone-faint">{detail}</p>
     </div>
   );
 }
 function Metric({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded border border-[var(--stroke)] bg-[var(--ink-0)] p-3">
-      <p className="text-[10px] uppercase tracking-[0.12em] text-bone-faint">
-        {label}
-      </p>
-      <p className="mt-2 font-mono text-[12px] text-bone">{value}</p>
+    <div className="rounded-[12px] border border-[var(--stroke)] bg-[rgba(10,10,9,0.55)] p-3.5">
+      <p className="text-[12px] text-bone-faint">{label}</p>
+      <p className="num mt-2 text-[13px] text-bone">{value}</p>
     </div>
   );
 }
 function PanelStatus({ label }: { label: string }) {
   return (
-    <div className="px-5 py-12 text-center text-[12px] text-bone-faint">
+    <div className="px-6 py-12 text-center text-[13px] text-bone-mute">
       {label}
     </div>
   );
 }
-function ErrorNotice({ message }: { message: string }) {
+function ErrorNotice({
+  message,
+  className = "",
+}: {
+  message: string;
+  className?: string;
+}) {
   return (
-    <div className="flex items-center gap-3 rounded-md border border-[rgba(194,106,72,0.3)] bg-[rgba(194,106,72,0.06)] px-4 py-3 text-[12px] text-oxide-hi">
-      <CircleAlert className="size-4 shrink-0" />
+    <Notice tone="error" icon={<CircleAlert />} className={className}>
       {message}
-    </div>
+    </Notice>
   );
 }
 function EmptyPortfolio({ onCreate }: { onCreate: () => void }) {
   return (
-    <section className="flex min-h-96 flex-col items-center justify-center rounded-md border border-dashed border-[var(--stroke-2)] bg-[var(--ink-1)] px-6 text-center cove">
+    <section className="desk-panel flex min-h-96 flex-col items-center justify-center px-6 text-center">
       <div className="flex size-12 items-center justify-center rounded-full border border-[var(--stroke-brass-hi)] bg-[rgba(201,164,107,0.06)] text-brass-hi">
         <FlaskConical className="size-5" />
       </div>
-      <h2 className="display mt-5 text-2xl text-bone">
-        Start with a clean ledger
+      <h2 className="display mt-5 text-[30px] leading-tight text-bone">
+        Start a practice portfolio
       </h2>
-      <p className="mt-2 max-w-sm text-[12px] leading-relaxed text-bone-mute">
-        Create a named portfolio, choose the fictional cash balance, and test
-        your first trade.
+      <p className="mt-3 max-w-sm text-[14px] leading-relaxed text-bone-mute">
+        Name it, choose how much practice cash it starts with, and record your
+        first trade.
       </p>
-      <Button type="button" className="mt-6" onClick={onCreate}>
-        <Plus data-icon="inline-start" /> Create portfolio
+      <Button
+        type="button"
+        variant="ghost"
+        className="btn-brass-fill mt-7 h-11 px-5"
+        onClick={onCreate}
+      >
+        <Plus className="size-4" /> Create portfolio
       </Button>
     </section>
   );

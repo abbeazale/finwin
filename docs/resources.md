@@ -2,6 +2,8 @@
 
 ## Key Files
 
+- `scripts/databento-probe.py` — bounded historical sample evaluation; `python3 scripts/databento-probe.py --offline` rechecks cached data without credentials. Online estimates/downloads use `DATABENTO_API_KEY` from the environment. Raw data is ignored under `.local/databento-probe/`.
+- `docs/databento-feasibility.md` — measured sample coverage, estimated costs, validation and remaining live-data/volume limitations.
 - `README.md`
 - `src/db/schema.ts` — full Drizzle schema (transactions, budgets, investments, categories, bank accounts/connections, auth tables)
 - `src/server/trpc/routers/_app.ts` — tRPC root router; add new routers here
@@ -99,6 +101,25 @@
 
 ## Notes
 
+### Screener data research, 2026-09-15
+
+- [Accepted screener design](spec/stock-screener.md), confirmed 2026-09-16, records the interview decisions, $50 USD/month ceiling, replay fallback, and feasibility/acceptance checks. Provider feasibility remains unverified.
+- FMP is provisionally selected for screener design. Subscription tier and permission to display data to customers remain open; alternatives below are research only.
+- Owner account check: user reports FMP Basic access at 250 calls/day with EOD historical, profile and reference data. This does not establish access to the designed intraday inputs. Databento historical minute bars are the recommended next evaluation for the accepted replay fallback; live-provider selection is unchanged pending evaluation. Estimate a bounded stock/ETF sample plus daily history before consuming signup credits, and verify the selected feed's volume coverage.
+- Budget review 2026-09-16: free preferred, $50 USD/month ceiling. [Databento stocks](https://databento.com/stocks) confirms credits can offset historical or live subscription costs; current US-equities live recurring price under this ceiling has not been established. Its US Equities Mini advertises free redistribution with an active subscription, subject to the specific feed's coverage/terms. FMP free remains EOD; its pricing lists one-minute intraday charting in Ultimate. Neither provider has been demonstrated to meet the full selected screener scope at this budget. Annual-equivalent prices are not month-to-month commitments.
+- FMP feasibility check: [cycle times](https://site.financialmodelingprep.com/developer/docs/cycle-times) labels screener and intraday indicators real-time and daily indicators daily, without a numerical 60-second guarantee. [One-minute candles](https://site.financialmodelingprep.com/developer/docs/stable/intraday-1-min) are documented, enabling local indicators in principle; full-universe throughput, timestamp semantics, regular-hours selection, adjustments and ETF completeness need real-data evaluation. No built-in same-time relative-volume endpoint was verified.
+- FMP pricing discrepancy: a later official-page fetch displayed Ultimate at $99/month billed annually, differing from $149 in the earlier fetch below. One-minute charting is listed in Ultimate. Recheck selected billing/configuration before any budget decision; neither is a commercial FinWin quote.
+- [Databento credits FAQ](https://databento.com/docs/faqs/usage-pricing-and-data-credits): $125 signup credit per team, expires after six months; can cover historical data or first subscription month. This is not a recurring free tier. [Pricing](https://databento.com/pricing) and publisher-specific terms still govern live access and redistribution.
+- [FMP pricing](https://site.financialmodelingprep.com/developer/docs/pricing), checked 2026-09-15: free Basic is listed as end-of-day with 250 calls/day and 500 MB per rolling 30 days. Paid Starter/Premium/Ultimate are labeled real-time, showing $22/$59/$149 per month billed annually. Display or redistribution requires a specific agreement. [Stock screener endpoint](https://site.financialmodelingprep.com/developer/docs/stable/search-company-screener) supports price, volume, market-cap and sector filters, but its generic free-real-time copy conflicts with the plan table. Endpoint entitlement, refresh cadence, and commercial price remain unverified.
+- [Alpha Vantage documentation](https://www.alphavantage.co/documentation/): candidate combining historical/intraday prices, indicators, fundamentals, news/sentiment, and premium real-time quotes in batches of up to 100 symbols. [Free usage](https://www.alphavantage.co/support/) is 25 requests/day. [Terms](https://www.alphavantage.co/terms_of_service/) default to personal non-commercial use absent written agreement; customer-facing FinWin pricing is unresolved. Bulk quotes do not eliminate per-symbol historical/indicator ingestion requirements.
+- [Alpha Vantage premium](https://www.alphavantage.co/premium/), official public pricing form checked 2026-09-15: $49.99/month for 75 requests/minute and 15-minute delayed US data; $99.99/month for 150 requests/minute and real-time US data; $149.99/month for 300 requests/minute and real-time US data. No daily limits; data entitlement steps still apply. These are personal-use prices, not FinWin commercial quotes.
+- [Massive pricing](https://massive.com/pricing): individual plans list $0 end-of-day, $29/month 15-minute delayed with five years of history, $79/month with ten years, and $199/month real-time. These are not commercial display quotes.
+- [Alpaca market data](https://docs.alpaca.markets/us/docs/about-market-data-api): individual Trading API free real-time feed is IEX-only; $99/month includes all US exchanges. Customer-facing use needs separate entitlement review.
+- [Twelve Data business](https://twelvedata.com/pricing-business): Venture advertises external display and shows a $499/month configuration, while the comparison table says from $149/month. Confirm actual configuration and exchange rights before budgeting; neither number is an accepted FinWin quote.
+- [Twelve Data usage terms](https://support.twelvedata.com/en/articles/5332349-commercial-and-personal-usage): commercial display remains subject to exchange licensing requirements.
+
+### Engineering notes
+
 - Prefer `bun run db:migrate` for retained databases; reserve `bun run dbreset` for disposable local data.
 - Run `bun run seed` after a fresh migrate or `dbreset` — migrations don't seed categories.
 - tRPC context carries `userId: string | null`; all protected procedures enforce non-null via `protectedProcedure`.
@@ -108,3 +129,16 @@
 - `bank_accounts.is_active=false` marks accounts from unlinked connections. Transactions stay for historical budgets.
 - `src/app` is intentionally gone; keep routing in Pages Router unless the project deliberately migrates.
 - `bank_accounts.nickname` is user-owned display metadata. Plaid sync owns `bank_accounts.name` and should not overwrite nicknames.
+
+### Historical screener implementation, 2026-09-16
+
+- `/screener` uses `src/server/trpc/routers/screener.ts` and pure `src/server/screener/replay.ts`; `src/server/screener/cache.ts` verifies the pinned local minute sample before loading it. All signed-in accounts have access, with no owner environment variable.
+- [Replay calculation contract](spec/screener-replay-calculations.md) covers timestamps, SMA, sparse bars, unadjusted prices and the bounded [NYSE calendar](https://www.nyse.com/publicdocs/nyse/ICE_NYSE_2026_Yearly_Trading_Calendar.pdf).
+- `bun scripts/check-screener-replay.ts` verifies real sample math and tRPC access. `bun test scripts/screener-page.test.ts` verifies rendered result/error markup. The latter is a local test and must not be committed.
+- No data is bundled for deployment. Restore the original ignored `.local/databento-probe/` cache on a local server to run the preview. A deployed cache-distribution solution and customer display rights remain separate work.
+
+### Replay indicators, 2026-09-16
+
+- Daily SMA/RSI read the pinned `summary-daily.jsonl` only when required. One-minute/five-minute SMA/RSI and relative volume use `mini-minute.jsonl`. No new downloads or credentials.
+- `scripts/screener-indicator-oracle.py` independently calculates indicators with Python Decimal; `bun scripts/check-screener-replay.ts` runs it and compares actual app results. Python 3.10+ with New York timezone data is required.
+- RSI uses Wilder smoothing with explicit gap reseeding and a flat value of 50. Relative volume uses exactly 20 previous MINI session prefixes. Definitions and calendar/TA-Lib reference links are in the [calculation contract](spec/screener-replay-calculations.md).

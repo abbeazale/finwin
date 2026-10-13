@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.local/databento-probe/
 
 # next.js
 /.next/
@@ -44,3 +45,8 @@ ngrok*.yml
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# local screener notes (uncommitted prototype material)
+/CONTEXT.md
+/docs/databento-feasibility.md
+/scripts/screener-page.test.ts

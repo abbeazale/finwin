@@ -90,7 +90,8 @@ export function ConnectBank({
     }
   }
 
-  const buttonClass = className ?? (isUpdate ? "btn-ghost" : "btn-brass");
+  const buttonClass =
+    className ?? (isUpdate ? "btn-soft btn-soft--lg" : "btn-brass-fill h-11 px-5");
   const Icon = isUpdate ? RotateCw : Plus;
 
   return (
