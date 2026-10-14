@@ -11,6 +11,8 @@ Wants=network-online.target
 User=finwin
 WorkingDirectory=/opt/finwin
 EnvironmentFile=/etc/finwin-market-data.env
+# The schema is idempotent, so every start (and every deploy) applies it.
+ExecStartPre=/usr/local/bin/bun market-data/src/migrate.ts
 ExecStart=/usr/local/bin/bun market-data/src/server.ts
 Restart=always
 RestartSec=5

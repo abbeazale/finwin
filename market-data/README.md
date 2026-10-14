@@ -71,25 +71,51 @@ MARKET_DATA_TOKEN=$(openssl rand -hex 32) bun market-data/src/server.ts
 Then set `MARKET_DATA_URL=http://127.0.0.1:8787` and the same `MARKET_DATA_TOKEN`
 in FinWin's `.env`. The screener checks start their own server on a private port.
 
-## Linux server setup
+## Linux server
 
-Not done yet. Steps for the always-on Linux laptop:
+The server is the Omarchy (Arch) laptop `omarchy` on the tailnet
+(`omarchy.tailb46a58.ts.net`), set up 2026-10-13.
 
-1. Install Postgres, Bun and Tailscale. Keep Postgres on localhost.
-2. Clone the repository to `/opt/finwin`, run `bun install` in `market-data/`.
-3. Create the database and a `finwin` system user. Copy
-   `deploy/finwin-market-data.env.example` to `/etc/finwin-market-data.env`
-   (mode 600) and fill it in.
-4. Run `migrate`, then `backfill`, or restore a dump of the Mac database
-   (`pg_dump finwin_market | psql …`) and copy the raw archive.
-5. Install the units in `deploy/`: the API service and the weekday 21:30 New York
-   ingest timer. `journalctl -u finwin-market-data-ingest` shows each run.
-6. Stop the laptop from sleeping on lid close: `HandleLidSwitch=ignore` in
-   `/etc/systemd/logind.conf`. Turn on "restore on AC power" in the firmware if it
-   has one.
-7. Expose the API: `tailscale funnel --bg 8787`. Put the resulting
-   `https://<machine>.<tailnet>.ts.net` URL and the token in Vercel as
-   `MARKET_DATA_URL` and `MARKET_DATA_TOKEN`.
+| Part | Where |
+|---|---|
+| Code | `/opt/finwin`, a git checkout owned by `abbe` that accepts pushes to the `deploy` branch (`receive.denyCurrentBranch=updateInstead`) |
+| Bun | `/usr/local/bin/bun`, the only copy on the machine. Upgrade with `sudo /usr/local/bin/bun upgrade` |
+| Postgres | pacman `postgresql`, data in `/var/lib/postgres/data` (btrfs copy-on-write off), listens on localhost only. Role `finwin` owns `finwin_market`; role `abbe` (peer login) is a member of `finwin` |
+| Service user | `finwin`, no login shell |
+| Raw archive | `/var/lib/finwin-market-data/raw`, owned by `finwin` |
+| Secrets | `/etc/finwin-market-data.env`, root, mode 600 |
+| Units | root-owned copies of `deploy/*.service` and `*.timer` in `/etc/systemd/system` |
+| Lid | `/etc/systemd/logind.conf.d/90-finwin-server.conf` ignores lid close on AC and battery |
+| sudo | `/etc/sudoers.d/finwin-market-data` lets `abbe` restart the API and start the ingest without a password. Nothing else |
+
+### Deploy
+
+Commit, then from the Mac:
+
+```sh
+bash market-data/deploy/deploy.sh
+```
+
+It pushes HEAD to the server, runs `bun install`, and restarts the API. The
+API unit applies the schema before it starts. If a unit file changed, the
+script stops and prints the `sudo install` command to run on the server.
+
+### Operate
+
+```sh
+ssh omarchy journalctl -u finwin-market-data -u finwin-market-data-ingest -n 50
+ssh omarchy sudo systemctl start finwin-market-data-ingest.service   # ingest now
+ssh omarchy psql -d finwin_market -c "select * from ingest_runs order by id desc limit 5"
+```
+
+### Limits
+
+- The disk is LUKS-encrypted and unlocked by passphrase at boot. After a
+  reboot, the server stays off the tailnet until someone types the passphrase
+  at the laptop. TPM2 unlock (`sd-encrypt` and `systemd-cryptenroll`) would
+  remove this; do it at the machine, not over SSH.
+- Funnel publishes `https://omarchy.tailb46a58.ts.net` to the internet.
+  Every route except `/v1/health` needs the token.
 
 While the server is off or offline, the screener shows "Market data unavailable".
 The rest of FinWin keeps working.

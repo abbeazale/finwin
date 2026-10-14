@@ -1,6 +1,6 @@
 # Screener market-data service
 
-Status: implemented on branch `market-data-service`, 2026-10-12, running against a local Postgres on the Mac. Linux server, Tailscale Funnel and Vercel settings are not set up yet.
+Status: implemented on branch `market-data-service`, 2026-10-12. The API and the daily ingest run on the Linux laptop `omarchy` since 2026-10-13. Tailscale Funnel and Vercel settings are not set up yet.
 
 ## Why
 
