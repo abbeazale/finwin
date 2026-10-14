@@ -7,15 +7,13 @@ import {
   NativeSelect,
   NativeSelectOption,
 } from "@/components/ui/native-select";
-import {
-  parseReplayForm,
-  replaySessions,
-  type ReplayInput,
-} from "@/lib/screener-replay";
+import { parseReplayForm, type ReplayInput } from "@/lib/screener-replay";
 import { cn } from "@/lib/utils";
 
 type ScreenFormProps = {
   initial: ReplayInput;
+  // Stored sessions, newest first.
+  sessions: readonly string[];
   capabilities?: { news: boolean; float: boolean };
   isFetching: boolean;
   canAdvance: boolean;
@@ -131,6 +129,7 @@ function Setting({
 
 export function ScreenForm({
   initial,
+  sessions,
   capabilities,
   isFetching,
   canAdvance,
@@ -167,7 +166,7 @@ export function ScreenForm({
       <div className="panel sticky top-[76px] z-10 flex flex-wrap items-end gap-3 bg-[rgba(17,17,16,0.85)] p-4 backdrop-blur-xl">
         <Setting htmlFor="session" label="Session">
           <NativeSelect id="session" name="session" defaultValue={initial.session}>
-            {replaySessions.map((date) => (
+            {sessions.map((date) => (
               <NativeSelectOption key={date} value={date}>
                 {date}
               </NativeSelectOption>
@@ -267,7 +266,7 @@ export function ScreenForm({
           hint="Busier than usual"
           initialEnabled={Boolean(initial.relativeVolume)}
           onToggle={countToggle}
-          description="Volume so far against the average through this time in 20 prior sessions. 5× is five times usual activity. MINI feed only."
+          description="Volume so far against the average through this time in 20 prior sessions. 5× is five times usual activity."
         >
           <Setting htmlFor="volumeMinimum" label="Minimum (×)">
             <Input

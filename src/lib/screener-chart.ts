@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { replayInputSchema, replaySymbols } from "./screener-replay";
+import {
+  beforeSessionClose,
+  replayMomentShape,
+  replaySymbols,
+} from "./screener-replay";
 
 export const chartTimeframes = [
   "1m",
@@ -40,8 +44,7 @@ const timeframe = z.enum(chartTimeframes);
 // concrete timeframe; the UI resolves "Chart interval" before the request.
 export const chartInputSchema = z.strictObject({
   symbol: z.enum(replaySymbols),
-  session: replayInputSchema.shape.session,
-  time: replayInputSchema.shape.time,
+  ...replayMomentShape,
   timeframe,
   ema: z
     .array(
@@ -60,5 +63,5 @@ export const chartInputSchema = z.strictObject({
   rsi: z
     .strictObject({ period: z.number().int().min(2).max(200), timeframe })
     .optional(),
-});
+}).refine(...beforeSessionClose);
 export type ChartInput = z.infer<typeof chartInputSchema>;

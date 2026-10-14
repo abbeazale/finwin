@@ -1,0 +1,11 @@
+# 21:30 New York on weekdays, after the close. Persistent runs a missed job
+# as soon as the machine is back.
+[Unit]
+Description=Run the FinWin market-data ingest after each session
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 21:30:00 America/New_York
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -142,3 +142,35 @@
 - Daily SMA/RSI read the pinned `summary-daily.jsonl` only when required. One-minute/five-minute SMA/RSI and relative volume use `mini-minute.jsonl`. No new downloads or credentials.
 - `scripts/screener-indicator-oracle.py` independently calculates indicators with Python Decimal; `bun scripts/check-screener-replay.ts` runs it and compares actual app results. Python 3.10+ with New York timezone data is required.
 - RSI uses Wilder smoothing with explicit gap reseeding and a flat value of 50. Relative volume uses exactly 20 previous MINI session prefixes. Definitions and calendar/TA-Lib reference links are in the [calculation contract](spec/screener-replay-calculations.md).
+
+### Stock charts and coverage review, 2026-10-04
+
+- `src/components/screener/results-table.tsx` is the current table-only result view. `src/server/screener/cache.ts` validates raw OHLCV but retains only minute close/volume and daily close; preserve full bars before adding a candlestick series endpoint.
+- `src/server/screener/research.ts` implements optional historical news and local shares metadata, not a chart endpoint. `scripts/fetch-massive-floats.py` replaced the SEC shares-outstanding script on 2026-10-06; see the float section below.
+- [TradingView Lightweight Charts documentation](https://tradingview.github.io/lightweight-charts/docs) is a candidate for the proposed stock charts. It supports candlestick, histogram and line series, runs client-side and requires TradingView attribution. No package has been installed or selected.
+- [Databento dataset symbol discovery](https://databento.com/docs/examples/symbology/all-dataset-symbols) and [large historical symbol requests](https://databento.com/docs/examples/basics-historical/requesting) are references for the proposed larger replay evaluation. Available dataset symbols are not automatically the agreed US common-stock universe; eligibility and historical coverage still need validation.
+
+### Chart planning references, 2026-10-04
+
+- [Historical screener chart specification](spec/screener-charts.md) and [implementation units/verification](plan/screener-charts.md) describe the next chart milestone. User chose full-width below results, independent indicators initialized from the screen and EMA rather than SMA. The coordinated screen/EMA correction is planned; no renderer/API/EMA implementation has been made.
+- [Lightweight Charts panes](https://tradingview.github.io/lightweight-charts/docs/panes), [React example](https://tradingview.github.io/lightweight-charts/tutorials/react/simple) and [time-zone behavior](https://tradingview.github.io/lightweight-charts/docs/time-zones) support the proposed client-only renderer. Keep UTC data instants and format captions/ticks explicitly in New York time; verify browser output.
+- [EQUS.SUMMARY feed specification](https://databento.com/docs/venues-and-datasets/equs-summary) identifies the final approximately 20:15 ET summary as the `ohlcv-1d` source and states that it includes post-market volume. This resolves the volume-scope uncertainty in the earlier feasibility notes; it does not make publication revision history or regular-session-only daily OHLC equivalent to MINI. Daily chart support needs its own source/session contract.
+- [Fidelity EMA guide](https://www.fidelity.com/learning-center/trading-investing/technical-analysis/technical-indicator-guide/ema) documents the exponential recurrence and an arithmetic-mean initial seed. [TradingView EMA definition](https://www.tradingview.com/support/solutions/43000592270-exponential-moving-average/) describes the common 2/(N+1) weighting. FinWin's proposed contract explicitly defines seed history, missing-candle resets and unrounded comparisons; provider/chart-platform equality still requires comparable inputs and benchmarks.
+- Chart scope refinement: user selected individual EMA 9/20/200 toggles and interval choices including 1m/10m/daily, with daily bars built from regular-session MINI minute data and shorter history. Chart requests therefore use the verified minute cache only. Preserve SUMMARY provenance in existing screen context; a 200-day chart EMA is unavailable until sufficient regular-day history is added. Proposed additional selector choices are 5m/15m/30m/1h.
+
+### Free float source research, 2026-10-05
+
+- [Provider comparison and official references](float-data-research.md): Massive documents an experimental latest-float API on its free individual Stocks Basic plan, with 5 calls/minute and pages of up to 5,000 records. FMP's free float endpoints are restricted to 87 selected symbols. Yahoo Finance, Finviz and Stock Analysis offer free website lookups with distinct automation restrictions.
+- No authenticated provider probe or integration was performed. Historical point-in-time float and customer display rights remain unverified; the SEC outstanding-shares proxy is unchanged. Recommended next step is a bounded Massive coverage/freshness probe.
+
+### Massive free float in replay, 2026-10-06
+
+- Authenticated probes ([float research](float-data-research.md)) found that Massive, FMP and Finnhub give current float only. FMP's historical endpoint is closed to new subscriptions and its plan blocks small caps. No free source has point-in-time history.
+- User chose Massive for replay: each value applies from the start of its effective date in New York (an explicit assumption), and `scripts/fetch-massive-floats.py` saves the full list daily to build real history. First run: 6,910 rows, no empty values, effective dates 2025-05-02 to 2026-10-05, 2,306 tickers below 20M. Free plan: 5 requests/minute, individual use; customer display rights remain unverified.
+
+### Screener market-data service, 2026-10-12
+
+- [Massive aggregates API](https://massive.com/docs/rest/stocks/aggregates/custom-bars): `GET /v2/aggs/ticker/{ticker}/range/1/{minute|day}/{from}/{to}?adjusted=false`, up to 50,000 rows per page. Probed with the free key on 2026-10-12: minute bars exist for 2024-10-14 and 2026-10-09. Volume is fractional; the daily close is the official close.
+- [Tailscale Funnel](https://tailscale.com/kb/1223/funnel) exposes the market-data API at a stable `*.ts.net` HTTPS address without router port forwarding. The domain's DNS is on Vercel, so Cloudflare Tunnel would need a DNS move.
+- [Bun SQL](https://bun.sh/docs/api/sql) is the Postgres client in `market-data/`; no extra driver. Bun 1.3.0 bulk inserts work in 5,000-row batches.
+- [systemd timers](https://www.freedesktop.org/software/systemd/man/latest/systemd.timer.html): `Persistent=true` runs a missed ingest when the laptop comes back.

@@ -1,21 +1,12 @@
 import { z } from "zod";
+import {
+  isSession,
+  newYorkTime,
+  sessionClose,
+} from "./market-calendar";
 
 export const replaySymbols = ["AAPL", "MSFT", "NVDA", "SPY", "IWM"] as const;
 export type ReplaySymbol = (typeof replaySymbols)[number];
-
-// Bounded sample calendar, not a general exchange calendar. No early closes in
-// this interval; September 7 is Labor Day. All dates are in daylight time.
-export const replaySessions: string[] = [];
-for (
-  let day = Date.parse("2026-08-03T00:00:00Z");
-  day < Date.parse("2026-09-16T00:00:00Z");
-  day += 86_400_000
-) {
-  const date = new Date(day);
-  const key = date.toISOString().slice(0, 10);
-  if (date.getUTCDay() !== 0 && date.getUTCDay() !== 6 && key !== "2026-09-07")
-    replaySessions.push(key);
-}
 
 const screenFilterSchema = z.strictObject({
   ema: z
@@ -56,20 +47,30 @@ const screenFilterSchema = z.strictObject({
 });
 export type ScreenFilter = z.infer<typeof screenFilterSchema>;
 
-export const replayInputSchema = screenFilterSchema.extend({
-  session: z
-    .string()
-    .refine(
-      (value) => replaySessions.includes(value),
-      "Choose a session in the cached sample.",
-    ),
+// Session and time fields, shared with the chart input.
+export const replayMomentShape = {
+  session: z.string().refine(isSession, "Choose a trading session."),
   time: z
     .string()
     .regex(
       /^(09:(3[1-9]|[45]\d)|1[0-5]:[0-5]\d|16:00)$/,
       "Choose 09:31 through 16:00 New York time.",
     ),
-});
+};
+// Early-close sessions end at 13:00.
+export const beforeSessionClose: [
+  (input: { session: string; time: string }) => boolean,
+  { message: string; path: string[] },
+] = [
+  (input) =>
+    !isSession(input.session) ||
+    newYorkTime(input.session, input.time) <= sessionClose(input.session),
+  { message: "The market closed at 13:00 that day.", path: ["time"] },
+];
+
+export const replayInputSchema = screenFilterSchema
+  .extend(replayMomentShape)
+  .refine(...beforeSessionClose);
 export type ReplayInput = z.infer<typeof replayInputSchema>;
 
 const replayClock = new Intl.DateTimeFormat("en-US", {
@@ -79,13 +80,11 @@ const replayClock = new Intl.DateTimeFormat("en-US", {
   hour12: false,
 });
 
-// Next whole minute after the given replay session/time, or null at 16:00.
-// All replay sessions are EDT, so the fixed -04:00 offset matches the contract.
+// Next whole minute after the given replay session/time, or null at the close.
 export function nextReplayMinute(session: string, time: string): string | null {
-  if (time === "16:00") return null;
-  const next = new Date(`${session}T${time}:00-04:00`);
-  next.setTime(next.getTime() + 60_000);
-  return replayClock.format(next);
+  const next = newYorkTime(session, time) + 60_000;
+  if (next > sessionClose(session)) return null;
+  return replayClock.format(new Date(next));
 }
 
 function formNumber(value: FormDataEntryValue | null): number {

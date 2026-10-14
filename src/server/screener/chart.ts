@@ -3,15 +3,14 @@ import {
   type ChartInput,
   type ChartTimeframe,
 } from "@/lib/screener-chart";
-import { replaySessions } from "@/lib/screener-replay";
-import {
-  intradayCandles,
-  regularDailyCandles,
-  sessionOpen,
-  type CandleSlot,
-} from "./candles";
+import { newYorkTime, sessionOpen } from "@/lib/market-calendar";
+import { dailyCandles, intradayCandles, type CandleSlot } from "./candles";
 import { emaPoints, rsiPoints, type IndicatorPoint } from "./indicators";
-import type { ReplayBars } from "./replay";
+import {
+  DAILY_DATASET,
+  MINUTE_DATASET,
+  type ReplayBars,
+} from "./replay";
 
 const INTRADAY_SESSIONS = 5;
 const MAX_INTRADAY_SLOTS = 2_000;
@@ -53,9 +52,9 @@ function serialize(slot: CandleSlot): ChartCandle {
     high: price(high),
     low: price(low),
     close: price(close),
-    // Never round an oversized share count; report it as unavailable.
+    // Millionths of a share; never round an oversized count.
     volume:
-      volume <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(volume) : null,
+      volume <= BigInt(Number.MAX_SAFE_INTEGER) ? Number(volume) / 1e6 : null,
   };
 }
 
@@ -88,27 +87,36 @@ function plotted(
 }
 
 export function buildChart(bars: ReplayBars, input: ChartInput) {
-  const at = Date.parse(`${input.session}T${input.time}:00-04:00`);
+  const at = newYorkTime(input.session, input.time);
   const minutes = bars.minutes.get(input.symbol);
+  const daily = bars.daily.get(input.symbol);
   const native = new Map<ChartTimeframe, CandleSlot[]>();
-  // Every interval is calculated over all eligible sample history before the
+  // Every interval is calculated over the whole loaded window before the
   // display window is trimmed, so panning never reseeds an indicator.
   function slotsFor(timeframe: ChartTimeframe) {
     let slots = native.get(timeframe);
     if (!slots) {
       slots =
         timeframe === "1d"
-          ? regularDailyCandles(minutes, input.session)
-          : intradayCandles(minutes, intradayMinutes[timeframe], at);
+          ? dailyCandles(
+              daily,
+              bars.dailySessions.filter((date) => date < input.session),
+            )
+          : intradayCandles(
+              minutes,
+              intradayMinutes[timeframe],
+              at,
+              bars.sessions,
+            );
       native.set(timeframe, slots);
     }
     return slots;
   }
 
   const all = slotsFor(input.timeframe);
-  const sessionIndex = replaySessions.indexOf(input.session);
+  const sessionIndex = bars.sessions.indexOf(input.session);
   const firstShown = sessionOpen(
-    replaySessions[Math.max(0, sessionIndex - (INTRADAY_SESSIONS - 1))],
+    bars.sessions[Math.max(0, sessionIndex - (INTRADAY_SESSIONS - 1))],
   );
   const shown =
     input.timeframe === "1d"
@@ -145,7 +153,7 @@ export function buildChart(bars: ReplayBars, input: ChartInput) {
       kind,
       period,
       timeframe,
-      dataset: "EQUS.MINI" as const,
+      dataset: timeframe === "1d" ? DAILY_DATASET : MINUTE_DATASET,
       points: values,
       latest: latest(slots, points),
     };
@@ -160,12 +168,11 @@ export function buildChart(bars: ReplayBars, input: ChartInput) {
     timeframe: input.timeframe,
     currency: "USD" as const,
     adjustment: "unadjusted" as const,
-    dataset: "EQUS.MINI" as const,
+    dataset: input.timeframe === "1d" ? DAILY_DATASET : MINUTE_DATASET,
     sessionScope: "regular" as const,
-    volumeScope: "EQUS.MINI feed only" as const,
     coverage: {
-      from: replaySessions[0],
-      through: replaySessions[replaySessions.length - 1],
+      from: (input.timeframe === "1d" ? bars.dailySessions : bars.sessions)[0],
+      through: input.session,
     },
     latestExpected: lastExpected
       ? {

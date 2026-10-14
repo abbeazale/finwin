@@ -547,11 +547,10 @@ export function ResearchPanel({
             datasets={screenDatasets}
           />
           <p>
-            Regular-session candles from {data.dataset} minute bars, in{" "}
-            {data.currency}, {data.adjustment}. Volume is shares per candle,
-            {" "}
-            {data.volumeScope}. Daily candles and daily lines use only earlier
-            sessions and cover {data.coverage.from} to {data.coverage.through}.
+            Regular-session candles from {data.dataset}, in {data.currency},{" "}
+            {data.adjustment}. Volume is shares per candle. Daily candles and
+            daily lines use only earlier sessions. Indicators start from{" "}
+            {data.coverage.from}.
             Charts by{" "}
             <a
               href="https://www.tradingview.com/"
@@ -597,9 +596,6 @@ function ScreenContext({
   return (
     <p>
       Screen at {screen.time}: {parts.join("; ")}.
-      {screen.ema?.timeframe === "1d" || screen.rsi?.timeframe === "1d"
-        ? " The screen's daily values use EQUS.SUMMARY closes; chart daily lines use regular-session MINI candles, so they can differ."
-        : ""}
     </p>
   );
 }

@@ -13,6 +13,7 @@ import { ResearchPanel } from "@/components/screener/research-panel";
 import { ResultsTable } from "@/components/screener/results-table";
 import { ScreenForm } from "@/components/screener/screen-form";
 import { useRequireSession } from "@/hooks/use-require-session";
+import { sessionsBetween } from "@/lib/market-calendar";
 import {
   nextReplayMinute,
   type ReplayInput,
@@ -20,14 +21,9 @@ import {
 } from "@/lib/screener-replay";
 import { trpc } from "@/lib/trpc";
 
-const initialScreen: ReplayInput = {
-  session: "2026-09-15",
-  time: "10:30",
-};
-
 export default function ScreenerPage() {
   const { session, isPending } = useRequireSession();
-  const [screen, setScreen] = useState(initialScreen);
+  const [chosen, setScreen] = useState<ReplayInput | null>(null);
   // Chart state lives outside the keyed form so screen changes keep the
   // selection and the chart settings the user has explored.
   const [selected, setSelected] = useState<ReplaySymbol | null>(null);
@@ -39,7 +35,14 @@ export default function ScreenerPage() {
     retry: false,
     staleTime: 60_000,
   });
-  const replay = trpc.screener.replay.useQuery(screen, {
+  // Until the user runs a screen, start at 10:30 on the latest stored session.
+  const stored = capabilities.data?.sessions ?? null;
+  const screen: ReplayInput | null =
+    chosen ?? (stored ? { session: stored.through, time: "10:30" } : null);
+  const sessions = stored
+    ? sessionsBetween(stored.from, stored.through).reverse()
+    : [];
+  const replay = trpc.screener.replay.useQuery(screen ?? skipToken, {
     enabled: Boolean(session),
     retry: false,
     staleTime: Infinity,
@@ -47,13 +50,14 @@ export default function ScreenerPage() {
   });
 
   const chart = trpc.screener.chart.useQuery(
-    session && selected && chartSettings
+    session && screen && selected && chartSettings
       ? toChartInput(selected, screen, chartSettings)
       : skipToken,
     { retry: false, staleTime: Infinity, refetchOnWindowFocus: false },
   );
 
   function handleSelect(symbol: ReplaySymbol) {
+    if (!screen) return;
     if (!chartSettings) setChartSettings(initialChartSettings(screen));
     setSelected(symbol);
   }
@@ -64,6 +68,7 @@ export default function ScreenerPage() {
   }
 
   function handleAdvance() {
+    if (!screen) return;
     const next = nextReplayMinute(screen.session, screen.time);
     if (!next) return;
     setScreen({ ...screen, time: next });
@@ -100,14 +105,16 @@ export default function ScreenerPage() {
           <div className="mt-3 flex flex-col gap-2 text-muted-foreground">
             <p>
               Price is the last completed one-minute close, and indicators use
-              completed candles only. Intraday prices and volume come from
-              EQUS.MINI; daily indicators come from EQUS.SUMMARY of prior
-              sessions.
+              completed candles only. Prices and volume come from Massive
+              minute bars, regular session only; daily indicators and daily
+              change use Massive daily bars of earlier sessions. New sessions
+              arrive after each market close.
             </p>
             <p>
-              Prices are unadjusted and volume covers the MINI feed only. News
-              comes from Finnhub’s archive, filtered by publication time; later
-              archive corrections can still be present.
+              Intraday indicators start from the 60 sessions before the chosen
+              day, daily indicators from the 300 before it. Prices are
+              unadjusted. News comes from Finnhub’s archive, filtered by
+              publication time; later archive corrections can still be present.
             </p>
             <p>
               Paper trading is unavailable in replay, and full US stock coverage
@@ -115,15 +122,27 @@ export default function ScreenerPage() {
             </p>
           </div>
         </details>
-        <ScreenForm
-          key={JSON.stringify(screen)}
-          initial={screen}
-          capabilities={capabilities.data}
-          isFetching={replay.isFetching}
-          canAdvance={screen.time !== "16:00"}
-          onRun={handleRun}
-          onAdvance={handleAdvance}
-        />
+        {capabilities.data && !stored ? (
+          <Alert variant="destructive">
+            <AlertTitle>Market data unavailable</AlertTitle>
+            <AlertDescription>
+              The market-data server could not be reached or has no stored
+              sessions yet. Check that it is running and online.
+            </AlertDescription>
+          </Alert>
+        ) : null}
+        {screen ? (
+          <ScreenForm
+            key={JSON.stringify(screen)}
+            initial={screen}
+            sessions={sessions}
+            capabilities={capabilities.data}
+            isFetching={replay.isFetching}
+            canAdvance={nextReplayMinute(screen.session, screen.time) !== null}
+            onRun={handleRun}
+            onAdvance={handleAdvance}
+          />
+        ) : null}
         <section
           aria-labelledby="results-heading"
           aria-busy={replay.isFetching}
@@ -156,7 +175,7 @@ export default function ScreenerPage() {
             </p>
           ) : null}
         </section>
-        {selected && chartSettings ? (
+        {screen && selected && chartSettings ? (
           <ResearchPanel
             symbol={selected}
             screen={screen}

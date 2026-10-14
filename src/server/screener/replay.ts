@@ -1,19 +1,25 @@
 import {
-  replaySessions,
   replaySymbols,
   type ReplayInput,
   type ReplaySymbol,
   type ScreenFilter,
 } from "@/lib/screener-replay";
-import { dailySessions } from "./calendar";
-import { intradayCandles, MINUTE, sessionOpen, type Bar } from "./candles";
+import { newYorkTime, sessionClose, sessionOpen } from "@/lib/market-calendar";
+import { intradayCandles, MINUTE, type Bar } from "./candles";
 import { calculateRsi, emaPoints, latestValue } from "./indicators";
 import type { ReplayResearch } from "./research";
 
+// Bars for one replay session. `sessions` is the intraday window, ascending
+// and ending with the replay session; indicators seed from its start.
+// `dailySessions` are the sessions before it that daily indicators use.
 export type ReplayBars = {
+  sessions: readonly string[];
   minutes: ReadonlyMap<ReplaySymbol, ReadonlyMap<number, Bar>>;
-  daily: ReadonlyMap<ReplaySymbol, ReadonlyMap<string, bigint>>;
+  dailySessions: readonly string[];
+  daily: ReadonlyMap<ReplaySymbol, ReadonlyMap<string, Bar>>;
 };
+export const MINUTE_DATASET = "Massive minute bars";
+export const DAILY_DATASET = "Massive daily bars";
 type Candle = { close: bigint | undefined; end: number };
 type ReplayRow = { symbol: ReplaySymbol } & (
   | { status: "excluded"; reason: string }
@@ -59,19 +65,20 @@ function candleSeries(
   at: number,
 ): Candle[] {
   if (timeframe === "1d") {
-    // SUMMARY is finalized end-of-day data. Never use today's daily candle,
-    // even at 16:00: the sample does not prove its publication latency.
-    return dailySessions
-      .filter((dailySession) => dailySession.date < session)
-      .map((session) => ({
-        close: bars.daily.get(symbol)?.get(session.date),
-        end: session.close,
+    // Daily bars are end-of-day data. Never use today's daily candle, even at
+    // the close: its publication time is not known.
+    return bars.dailySessions
+      .filter((date) => date < session)
+      .map((date) => ({
+        close: bars.daily.get(symbol)?.get(date)?.close,
+        end: sessionClose(date),
       }));
   }
   return intradayCandles(
     bars.minutes.get(symbol),
     timeframe === "1m" ? 1 : 5,
     at,
+    bars.sessions,
   ).map((slot) => ({ close: slot.bar?.close, end: slot.end }));
 }
 
@@ -81,16 +88,16 @@ function relativeVolume(
   session: string,
   at: number,
 ): { error: string } | { current: bigint; baseline: bigint } {
-  const index = replaySessions.indexOf(session);
+  const index = bars.sessions.indexOf(session);
   if (index < 20)
     return {
-      error: "Relative volume needs 20 prior sessions in the minute sample.",
+      error: "Relative volume needs 20 prior sessions of stored minutes.",
     };
   const minutes = bars.minutes.get(symbol);
   const elapsed = (at - sessionOpen(session)) / MINUTE;
   let baseline = BigInt(0);
   let current = BigInt(0);
-  for (const baselineSession of replaySessions.slice(index - 20, index + 1)) {
+  for (const baselineSession of bars.sessions.slice(index - 20, index + 1)) {
     const open = sessionOpen(baselineSession);
     for (let minute = 0; minute < elapsed; minute++) {
       const volume = minutes?.get(open + minute * MINUTE)?.volume;
@@ -112,7 +119,7 @@ export function evaluateReplay(
   input: ReplayInput,
   research: ReplayResearch = { news: new Map(), floats: [] },
 ) {
-  const at = Date.parse(`${input.session}T${input.time}:00-04:00`);
+  const at = newYorkTime(input.session, input.time);
   const rows: ReplayRow[] = replaySymbols.map((symbol) => {
     const price = bars.minutes.get(symbol)?.get(at - MINUTE)?.close;
     if (price === undefined)
@@ -145,7 +152,7 @@ export function evaluateReplay(
         return {
           symbol,
           status: "excluded",
-          reason: `EMA needs ${period} consecutive completed ${timeframe} candles after the sample start or last gap.`,
+          reason: `EMA needs ${period} consecutive completed ${timeframe} candles after the history start or last gap.`,
         };
       // Strict comparison against the unrounded EMA; equality matches neither.
       const latest = Number(price) / 1e9;
@@ -173,11 +180,12 @@ export function evaluateReplay(
     let dailyChange: Extract<ReplayRow, { price: number }>["dailyChange"] =
       null;
     if (input.dailyChange) {
-      const previousSession = dailySessions.findLast(
-        (session) => session.date < input.session,
+      const previousSession = bars.dailySessions.findLast(
+        (date) => date < input.session,
       );
-      const previousClose =
-        previousSession && bars.daily.get(symbol)?.get(previousSession.date);
+      const previousClose = previousSession
+        ? bars.daily.get(symbol)?.get(previousSession)?.close
+        : undefined;
       if (
         !previousSession ||
         previousClose === undefined ||
@@ -192,7 +200,7 @@ export function evaluateReplay(
       dailyChange = {
         value: (Number(price - previousClose) / Number(previousClose)) * 100,
         previousClose: Number(previousClose) / 1e9,
-        session: previousSession.date,
+        session: previousSession,
       };
       if (
         (price - previousClose) * BigInt(100_000) <
@@ -270,7 +278,7 @@ export function evaluateReplay(
         return {
           symbol,
           status: "excluded",
-          reason: `RSI needs ${input.rsi.period + 1} consecutive completed ${input.rsi.timeframe} closes after the sample start or last gap.`,
+          reason: `RSI needs ${input.rsi.period + 1} consecutive completed ${input.rsi.timeframe} closes after the history start or last gap.`,
         };
       rsi = {
         value: value.value,
@@ -291,8 +299,8 @@ export function evaluateReplay(
         return { symbol, status: "excluded", reason: result.error };
       volume = {
         value: Number(result.current * BigInt(20)) / Number(result.baseline),
-        currentVolume: Number(result.current),
-        baselineVolume: Number(result.baseline) / 20,
+        currentVolume: Number(result.current) / 1e6,
+        baselineVolume: Number(result.baseline) / 20 / 1e6,
       };
       if (
         result.current * BigInt(20_000) <
@@ -322,9 +330,9 @@ export function evaluateReplay(
       ([key, value]) =>
         key !== "session" && key !== "time" && value !== undefined,
     ).length,
-    dataset: "EQUS.MINI" as const,
-    emaDataset: input.ema?.timeframe === "1d" ? "EQUS.SUMMARY" : "EQUS.MINI",
-    rsiDataset: input.rsi?.timeframe === "1d" ? "EQUS.SUMMARY" : "EQUS.MINI",
+    dataset: MINUTE_DATASET,
+    emaDataset: input.ema?.timeframe === "1d" ? DAILY_DATASET : MINUTE_DATASET,
+    rsiDataset: input.rsi?.timeframe === "1d" ? DAILY_DATASET : MINUTE_DATASET,
     rows,
     matchCount: rows.filter((row) => row.status === "match").length,
     excludedCount: rows.filter((row) => row.status === "excluded").length,
