@@ -5,8 +5,16 @@
     "next.config.{ts,js}",
     "eslint.config.*",
     "postcss.config.*",
-    "scripts/*.ts"
+    "scripts/*.ts",
+    "market-data/src/{ingest,server,migrate}.ts"
   ],
-  "project": ["src/**/*.{ts,tsx}"],
-  "ignoreDependencies": ["shadcn", "tailwindcss", "tw-animate-css"]
+  "project": [
+    "src/**/*.{ts,tsx}",
+    "market-data/src/**/*.ts"
+  ],
+  "ignoreDependencies": [
+    "shadcn",
+    "tailwindcss",
+    "tw-animate-css"
+  ]
 }

@@ -1,0 +1,12 @@
+# Daily Massive download: new minute and daily bars, then the float change log.
+[Unit]
+Description=FinWin market-data daily ingest
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=finwin
+WorkingDirectory=/opt/finwin
+EnvironmentFile=/etc/finwin-market-data.env
+ExecStart=/usr/local/bin/bun market-data/src/ingest.ts daily

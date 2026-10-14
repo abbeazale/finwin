@@ -2,6 +2,7 @@
 
 # dependencies
 /node_modules
+/market-data/node_modules
 /.pnp
 .pnp.*
 .yarn/*
@@ -12,7 +13,7 @@
 
 # testing
 /coverage
-/.local/databento-probe/
+/.local/
 
 # next.js
 /.next/

@@ -37,6 +37,8 @@ const rawEnvironmentSchema = z.object({
   PLAID_TOKEN_ENCRYPTION_CURRENT_KEY_VERSION: optionalString,
   PLAID_TOKEN_ENCRYPTION_KEYS: optionalString,
   FINNHUB_API_KEY: optionalString,
+  MARKET_DATA_URL: optionalString,
+  MARKET_DATA_TOKEN: optionalString,
   OER_KEY: optionalString,
   FX_REFRESH_SECRET: optionalString,
   RESEND_API_KEY: optionalString,
@@ -74,6 +76,8 @@ type ServerEnvironment = {
   plaidTokenEncryptionCurrentKeyVersion: string;
   plaidTokenEncryptionKeys: string;
   finnhubApiKey: string | undefined;
+  marketDataUrl: string | undefined;
+  marketDataToken: string | undefined;
   openExchangeRatesKey: string | undefined;
   fxRefreshSecret: string | undefined;
   resendApiKey: string | undefined;
@@ -456,6 +460,7 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
     plaidSecret,
     raw.FX_REFRESH_SECRET,
     raw.FINNHUB_API_KEY,
+    raw.MARKET_DATA_TOKEN,
     raw.OER_KEY,
     raw.RESEND_API_KEY,
     raw.PLAID_REVOCATION_RETRY_SECRET,
@@ -475,6 +480,18 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
     addIssue(issues, !raw.PLAID_WEBHOOK_URL, "PLAID_WEBHOOK_URL is required for staging and production.");
     validateWebhookUrl(raw.PLAID_WEBHOOK_URL, issues);
   }
+
+  addIssue(
+    issues,
+    Boolean(raw.MARKET_DATA_URL) !== Boolean(raw.MARKET_DATA_TOKEN),
+    "MARKET_DATA_URL and MARKET_DATA_TOKEN must be set together.",
+  );
+  addIssue(
+    issues,
+    Boolean(raw.MARKET_DATA_TOKEN) && (raw.MARKET_DATA_TOKEN?.length ?? 0) < 32,
+    "MARKET_DATA_TOKEN must have at least 32 characters.",
+  );
+  if (raw.MARKET_DATA_URL) validateOrigin("MARKET_DATA_URL", raw.MARKET_DATA_URL, deployment, issues);
 
   if (issues.length > 0) {
     throw new Error(`Invalid FinWin environment:\n- ${issues.join("\n- ")}`);
@@ -505,6 +522,8 @@ export function parseServerEnvironment(source: EnvironmentSource): ServerEnviron
     plaidTokenEncryptionCurrentKeyVersion,
     plaidTokenEncryptionKeys,
     finnhubApiKey: raw.FINNHUB_API_KEY,
+    marketDataUrl: raw.MARKET_DATA_URL ? normalizeOrigin(raw.MARKET_DATA_URL) : undefined,
+    marketDataToken: raw.MARKET_DATA_TOKEN,
     openExchangeRatesKey: raw.OER_KEY,
     fxRefreshSecret: raw.FX_REFRESH_SECRET,
     resendApiKey: raw.RESEND_API_KEY,

@@ -1,6 +1,6 @@
 # Stock screener design
 
-Status: accepted, 2026-09-16. The user confirmed the consolidated design after grilling questions 1 through 34. Product implementation has not started. Provider feasibility and the explicitly deferred prototype details below remain to be resolved.
+Status: accepted, 2026-09-16; scope clarified 2026-09-20; user corrected the moving average to EMA during chart planning on 2026-10-04. Five-symbol replay is implemented with EMA, the additional optional filters and the historical chart panel; larger historical coverage follows, with provider feasibility unresolved.
 
 ## Purpose
 
@@ -10,7 +10,8 @@ The first workflow is finding price and volume conditions worth investigating du
 
 ## Scope and layout
 
-- US exchange-listed common stocks and ETFs, including low-priced stocks. Offer Stocks / ETFs / Both selection. OTC stocks, preferred shares, warrants and other security types are deferred.
+- Target all US exchange-listed common stocks, including low-priced and small-cap stocks, rather than a curated ticker list. The user selected US stocks for the current expansion on 2026-09-20. Retain ETFs as a separate instrument-type option from the original design. OTC stocks, preferred shares, warrants, international exchanges, crypto and forex remain deferred.
+- Coverage must come from a maintained instrument directory with security-type and listing metadata. Show the covered universe and missing-data exclusions; the existing five-symbol cache does not establish full-market coverage. Historical replay must use listings and data appropriate to the selected date, including subsequently delisted stocks when supported, rather than silently screening only today's survivors.
 - Regular trading sessions only. Follow the exchange calendar, including closures and shortened sessions; do not mix extended-hours prices into regular-session results.
 - One consistent workspace: filter builder, results table and instrument research panel.
 - Save filters, visible columns, column order and sorting per screen.
@@ -19,21 +20,30 @@ The first workflow is finding price and volume conditions worth investigating du
 
 ## Screen rules
 
-Every condition must match. A user saves separate screens for alternative setups; grouped OR conditions are deferred.
+Every enabled condition must match. Each filter is independently optional, including EMA, RSI, relative volume, price range, daily change, float and recent news. EMA supersedes the earlier accepted SMA choice after the user's 2026-10-04 correction; the current code still calculates SMA. Disabled filters impose no data requirements. With no filters enabled, show the available universe without filtering, with coverage and timestamps visible. A user saves separate screens for alternative setups; grouped OR conditions are deferred.
 
 | Filter family | Agreed behavior |
 | --- | --- |
 | Basic | Price range, daily percentage change, regular-session trading volume, market cap, sector and exchange |
 | Instrument type | Stocks, ETFs or both |
-| SMA | Latest quote above/below a simple moving average built from completed candle closes |
+| EMA | Latest price above/below an exponential moving average built from completed closes, per the new chart/EMA calculation contract |
 | RSI | User-selected thresholds, default period 14 |
 | Relative volume | Same-time accumulated regular-session volume relative to the prior 20 trading sessions |
+
+### Next filter additions and coverage
+
+- Replay now has independently optional EMA, price range, daily change, RSI, relative volume, news and shares metadata, plus the chart panel; the Free float filter now uses Massive free float (2026-10-06), valid from each value's effective date, with a daily snapshot building history. Larger replay coverage follows.
+- User's example setup: price $2–$20 inclusive, daily change at least +10%, same-time relative volume at least 5×, float strictly below 20 million shares, and recent news. These are editable values, not mandatory defaults.
+- Define daily percentage change against the previous trading session's close. Verify the close convention and corporate-action handling before implementation so splits do not create false matches.
+- Float requires dated public-float metadata, not total shares outstanding. Recent news requires symbol-linked headlines and publication times; the existence of news does not establish causation. A 24-hour window is a proposed editable example, not a fixed agreed requirement.
+- Historical filters must not use news published after the replay time or float metadata unavailable then. Missing required data excludes a symbol with an explanation. Unconnected filters must be marked unavailable rather than offered as working controls.
+- Full US coverage needs a provider/data feasibility check within the existing budget before rollout. A larger ticker list alone does not supply prices, indicator history, volume baselines, float or news. Keep regular-session scope; extended hours were discussed but not selected.
 
 ### Indicators
 
 - Support one-minute, five-minute and daily candles.
 - Each indicator condition chooses its own timeframe. A screen can mix daily and intraday conditions.
-- Periods are editable. SMA presets are 9, 20 and 200; RSI defaults to 14.
+- Periods are editable. EMA presets are 9, 20 and 200; RSI defaults to 14. The new [chart/EMA contract](screener-charts.md) specifies proposed seeding, smoothing, gaps and chart/table agreement before implementation.
 - Indicators use completed candles, not the candle still forming. Current quotes, daily change and accumulated volume can still update each minute.
 - Display the indicator's timeframe and latest completed candle time. A daily indicator using the prior completed session is not itself evidence of stale intraday data.
 - Same-time relative volume compares today's accumulated regular-session volume with average accumulated volume through the same session time across the previous 20 trading sessions. A value of 2 means twice the usual activity for that point in the session.
@@ -64,7 +74,7 @@ Exact numerical conventions require a documented calculation contract during the
 ## Research panel
 
 - Candlestick chart and trading volume.
-- SMA overlays and RSI panel, using supported intervals.
+- EMA overlays and RSI panel. User chose full-width below results, independent controls, separate EMA 9/20/200 toggles on intraday charts, candle intervals including 1m/10m/daily, and regular-hours daily data with the shorter available history. The [chart specification](screener-charts.md) proposes additional interval presets and defines source/warmup differences from existing daily screen calculations; see the [implementation plan](../plan/screener-charts.md).
 - Matched-condition explanations show actual values beside thresholds, including timeframe and indicator period.
 - News headlines, publisher, publication time and links to original articles, subject to the relevant provider agreement.
 - No AI-generated explanations, hosted articles, chart drawing tools or annotations in v1.

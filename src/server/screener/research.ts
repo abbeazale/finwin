@@ -1,23 +1,19 @@
-import { readFile } from "node:fs/promises";
-import path from "node:path";
 import { z } from "zod";
+import { newYorkTime } from "@/lib/market-calendar";
 import {
   replaySymbols,
   type ReplayInput,
   type ReplaySymbol,
 } from "@/lib/screener-replay";
+import { loadFloatRecords } from "./market-data";
 
-const floatSnapshotSchema = z.object({
-  symbol: z.enum(replaySymbols),
-  shares: z.number().int().positive().max(Number.MAX_SAFE_INTEGER),
-  effectiveAt: z.iso.datetime(),
-  publishedAt: z.iso.datetime(),
-  source: z.string().trim().min(1).max(200),
-});
-const floatFileSchema = z.object({
-  snapshots: z.array(floatSnapshotSchema).max(10_000),
-});
-type FloatSnapshot = z.infer<typeof floatSnapshotSchema>;
+type FloatSnapshot = {
+  symbol: ReplaySymbol;
+  shares: number;
+  effectiveAt: string;
+  publishedAt: string;
+  source: string;
+};
 type NewsArticle = {
   headline: string;
   url: string;
@@ -38,15 +34,23 @@ export type ReplayResearch = {
 };
 
 // Optional, sourced historical records. Absence or malformed metadata must never
-// break price-only screens or be interpreted as a zero float.
+// break price-only screens or be interpreted as a zero float. Massive gives only
+// the latest value, so a value is assumed known from the start of its effective
+// date in New York; the source text keeps the date it was first fetched.
 export async function loadReplayFloats(): Promise<FloatSnapshot[]> {
   try {
-    const contents = await readFile(
-      path.join(process.cwd(), ".local/databento-probe/float.json"),
-      "utf8",
-    );
-    const parsed = floatFileSchema.safeParse(JSON.parse(contents));
-    return parsed.success ? parsed.data.snapshots : [];
+    return (await loadFloatRecords()).map((record) => {
+      const available = new Date(
+        newYorkTime(record.effectiveDate, "00:00"),
+      ).toISOString();
+      return {
+        symbol: record.symbol,
+        shares: record.shares,
+        effectiveAt: available,
+        publishedAt: available,
+        source: `Massive free float, effective ${record.effectiveDate}, first fetched ${record.firstSeen}; assumed known from its effective date`,
+      };
+    });
   } catch {
     return [];
   }
@@ -129,7 +133,7 @@ export async function loadReplayNews(
   apiKey: string | undefined,
 ): Promise<ReadonlyMap<ReplaySymbol, NewsCoverage>> {
   if (!input.news) return new Map();
-  const through = Date.parse(`${input.session}T${input.time}:00-04:00`);
+  const through = newYorkTime(input.session, input.time);
   const from = through - input.news.hours * 3_600_000;
   if (!apiKey)
     return new Map(
