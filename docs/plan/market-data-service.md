@@ -14,16 +14,16 @@ Spec: [market-data-service](../spec/market-data-service.md).
 
 1. Postgres 18.6 (localhost only) and one system Bun at `/usr/local/bin/bun`. Old mise versions pruned, Bun removed from mise.
 2. `/opt/finwin` takes pushes to `deploy`; `market-data/deploy/deploy.sh` deploys the committed HEAD from the Mac.
-3. Database restored from the Mac dump (row counts match) and the raw archive copied (checksums match).
-4. Units installed; the API runs the schema before it starts. Lid close ignored on AC and battery. Narrow sudoers rule for restart and ingest.
+3. Database restored from the Mac dump (row counts match) and the raw archive copied (checksums match). One ingest run added 2026-10-13.
+4. Units installed; the API runs the schema before it starts. Lid close ignored on AC and battery. Narrow sudoers rule for restart and ingest; the temporary full sudo rule is removed.
+5. Tailscale Funnel on. `/v1/health` returns 200 from outside the tailnet through both relay addresses; `/v1/coverage` returns 401 without a valid token.
+6. `MARKET_DATA_URL` and `MARKET_DATA_TOKEN` set in Vercel for Production. PR #34 opened against `main`.
 
 ## Next
 
-1. Turn on Funnel in the tailnet (admin console), then `sudo tailscale funnel --bg 8787` on the laptop. Check `/v1/health` from outside the tailnet.
-2. Set `MARKET_DATA_URL` and `MARKET_DATA_TOKEN` in Vercel (production) and redeploy. Open `/screener` on the phone.
-3. Remove `/etc/sudoers.d/90-setup-temp` on the laptop.
-4. After a week, read `ingest_runs` to confirm one successful run per session.
-5. At the laptop: TPM2 unlock for the LUKS disk, so a reboot does not need the passphrase.
+1. Merge PR #34. Vercel deploys production from `main`. Open `/screener` on the phone.
+2. After a week, read `ingest_runs` to confirm one successful run per session.
+3. Reboot without the laptop: not set up. TPM2 unlock is deferred (see the README). If reboots become a problem, prefer remote unlock over Tailscale in the initramfs.
 
 ## Later
 

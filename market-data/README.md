@@ -79,7 +79,7 @@ The server is the Omarchy (Arch) laptop `omarchy` on the tailnet
 | Part | Where |
 |---|---|
 | Code | `/opt/finwin`, a git checkout owned by `abbe` that accepts pushes to the `deploy` branch (`receive.denyCurrentBranch=updateInstead`) |
-| Bun | `/usr/local/bin/bun`, the only copy on the machine. Upgrade with `sudo /usr/local/bin/bun upgrade` |
+| Bun | `/usr/local/bin/bun`, the only copy on the machine. It is outside mise because the `finwin` user cannot read mise installs in `/home/abbe`, so `omarchy-update` does not upgrade it. Upgrade with `sudo /usr/local/bin/bun upgrade`. Do not install Bun from Omarchy's Install > Development menu: it adds a second copy through mise |
 | Postgres | pacman `postgresql`, data in `/var/lib/postgres/data` (btrfs copy-on-write off), listens on localhost only. Role `finwin` owns `finwin_market`; role `abbe` (peer login) is a member of `finwin` |
 | Service user | `finwin`, no login shell |
 | Raw archive | `/var/lib/finwin-market-data/raw`, owned by `finwin` |
@@ -87,6 +87,9 @@ The server is the Omarchy (Arch) laptop `omarchy` on the tailnet
 | Units | root-owned copies of `deploy/*.service` and `*.timer` in `/etc/systemd/system` |
 | Lid | `/etc/systemd/logind.conf.d/90-finwin-server.conf` ignores lid close on AC and battery |
 | sudo | `/etc/sudoers.d/finwin-market-data` lets `abbe` restart the API and start the ingest without a password. Nothing else |
+| SSH from the Mac | `ssh omarchy`. `~/.ssh/config` on the Mac uses the key `~/.ssh/id_ed25519_omarchy` (no passphrase, this host only). Revoke it by deleting its line in `~/.ssh/authorized_keys` on the laptop |
+| Funnel | `sudo tailscale funnel --bg 8787` publishes `https://omarchy.tailb46a58.ts.net`. Turn it off with `sudo tailscale funnel --https=443 off` |
+| Logs | `abbe` is in `systemd-journal`, so `journalctl` needs no sudo |
 
 ### Deploy
 
@@ -112,8 +115,15 @@ ssh omarchy psql -d finwin_market -c "select * from ingest_runs order by id desc
 
 - The disk is LUKS-encrypted and unlocked by passphrase at boot. After a
   reboot, the server stays off the tailnet until someone types the passphrase
-  at the laptop. TPM2 unlock (`sd-encrypt` and `systemd-cryptenroll`) would
-  remove this; do it at the machine, not over SSH.
+  at the laptop. The battery covers short power cuts, and the ingest timer
+  runs a missed job when the machine is back.
+- TPM2 unlock is deferred (2026-10-13). On Omarchy it needs the `sd-encrypt`
+  hook, which does not run Omarchy's `btrfs-overlayfs` hook (read-only snapshot
+  boot from the Limine menu). Omarchy owns the hook file, so an update can undo
+  the change and stop the boot. It also needs SDDM autologin off, and Secure
+  Boot is off, which weakens the TPM binding. If reboots become a problem,
+  prefer remote unlock: SSH and Tailscale in the initramfs
+  (`mkinitcpio-tailscale` with `encryptssh`), which keeps the current hooks.
 - Funnel publishes `https://omarchy.tailb46a58.ts.net` to the internet.
   Every route except `/v1/health` needs the token.
 

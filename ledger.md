@@ -1,5 +1,19 @@
 # FinWin Ledger
 
+## 2026-10-13
+
+### Market-data server on the Omarchy laptop
+
+- SSH from the Mac over Tailscale with a new host-only key (`~/.ssh/id_ed25519_omarchy`, `Host omarchy` in `~/.ssh/config`). Tailscale SSH stays off.
+- Committed the market-data work (`29a2780`) and set up the laptop: Postgres 18.6 on localhost (btrfs copy-on-write off for the data directory), `finwin` system user, root-only env file with a new production token, units, lid close ignored on AC and battery. Restored the Mac database (row counts match) and the raw archive (checksums match). One ingest run added 2026-10-13.
+- Deploy is `market-data/deploy/deploy.sh` (`65ad4c0`): git push over Tailscale SSH to `/opt/finwin`, then install and restart. The API unit applies the schema before it starts. Tested twice: the first run stopped on a changed unit file, the second deployed.
+- Sudo: a temporary full rule for setup, removed after. The permanent rule allows only restarting the API and starting the ingest.
+- Funnel on after the user enabled it in the admin console. Public checks through both relay addresses: health 200, coverage 401 without a valid token.
+- Vercel: `MARKET_DATA_URL` and `MARKET_DATA_TOKEN` added to Production (token sensitive, sent from the laptop by pipe). Did not redeploy: production builds `main`, which does not have the code yet. Pushed the branch to GitHub and opened PR #34; release gate and Vercel preview pass. Cursor Origin mirrors `finwin` from GitHub (inbound), so the PR is on GitHub.
+- Laptop tools, one copy each: Bun moved out of mise to `/usr/local/bin/bun` (the service user cannot read mise installs); old mise versions pruned and `auto_prune` on; mise Python removed (about 40 system packages need pacman Python); gemini and opencode moved from `sudo npm -g` to mise (opencode needs `allow_builds`). Pending, needs the user's password: `sudo npm rm -g @google/gemini-cli @openai/codex opencode-ai && sudo pacman -Rns npm nodejs`.
+- TPM2 disk unlock deferred: it needs `sd-encrypt`, which drops Omarchy's snapshot-boot hook, and Omarchy updates own the hook file. Remote unlock over Tailscale in the initramfs is the preferred fallback.
+- Next: merge PR #34, check `/screener` on the phone, read `ingest_runs` after a week.
+
 ## 2026-10-12
 
 ### Screener market-data service
