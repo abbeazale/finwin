@@ -12,7 +12,7 @@ The screener read a fixed Databento sample (2026-08-03 to 2026-09-15) from `.loc
 - **Storage: Postgres on a machine the user controls**, through `market-data/`, a separate Bun service in this repository. Neon keeps only app data. Development uses Postgres.app on the Mac (`finwin_market`). Production uses the always-on Linux laptop.
 - **Access: read-only HTTP API with a bearer token**, exposed through Tailscale Funnel. Postgres listens only on localhost. FinWin reads `MARKET_DATA_URL` and `MARKET_DATA_TOKEN`; both or neither.
 - **No owner gate.** The user is the only account holder. Massive's free plan is for individual use; if other people get accounts, gate `/screener` first.
-- **Daily ingest** after each session (weekdays 21:30 New York, systemd timer). It downloads again the last three stored sessions, so a session fetched before Massive finished it is replaced.
+- **Daily ingest** after each session (weekdays 21:30 New York, systemd timer). It downloads again the last three stored sessions, so a session fetched before Massive finished it is replaced. Massive can publish a session after 21:30: Friday 2026-10-16 was missing at 21:30. A run fails until every symbol has the daily bar for the last closed session, and systemd starts it again every hour.
 - **Raw archive.** Every Massive response is kept gzipped. It is the source for rebuilding the database and for the independent oracle.
 
 ## Data contract

@@ -109,15 +109,20 @@ const floatPageSchema = z.object({
 export type FloatRow = z.infer<typeof floatRowSchema>;
 
 // Massive's experimental latest free-float list for every ticker. Only the
-// latest value per ticker exists; history comes from the change log.
+// latest value per ticker exists; history comes from the change log. The
+// pages are archived because the provider cannot return past values again.
 export async function latestFloats(): Promise<FloatRow[]> {
   const rows: FloatRow[] = [];
   let url: string | undefined =
     `${BASE}/stocks/vX/float?limit=5000&sort=ticker.asc`;
+  let page = 0;
   while (url) {
-    const parsed = floatPageSchema.parse(await request(url));
+    const body = await request(url);
+    await archive("float", `float_${page}`, url, body);
+    const parsed = floatPageSchema.parse(body);
     rows.push(...(parsed.results ?? []));
     url = parsed.next_url;
+    page++;
   }
   return rows;
 }

@@ -128,6 +128,16 @@ async function daily() {
     await fetchRange(symbol, from, to);
   }
   await floats();
+  // Massive can publish a session hours after the close. The run fails so
+  // systemd starts it again later (Restart= in the ingest unit).
+  const missing: string[] = [];
+  for (const symbol of config.symbols()) {
+    const [row] = await sql`
+      select 1 from daily_bars where symbol = ${symbol} and session = ${to}`;
+    if (!row) missing.push(symbol);
+  }
+  if (missing.length)
+    throw new Error(`Massive has not published ${to} for ${missing.join(", ")}.`);
 }
 
 // Adds only (ticker, effective date, float) combinations not seen before.
@@ -158,13 +168,19 @@ async function floats() {
   console.log(`Float: ${result.rows} rows read, ${result.added} new.`);
 }
 
+// Reads a saved snapshot ({ fetchedAt, rows }) or an archived float page
+// (.json.gz). To rebuild the change log, import the pages oldest first.
 async function importFloats(file: string) {
-  const snapshot = (await Bun.file(file).json()) as {
+  const bytes = await Bun.file(file).bytes();
+  const snapshot = JSON.parse(
+    new TextDecoder().decode(file.endsWith(".gz") ? Bun.gunzipSync(bytes) : bytes),
+  ) as {
     fetchedAt: string;
-    rows: FloatRow[];
+    rows?: FloatRow[];
+    body?: { results?: FloatRow[] };
   };
   const result = await recordFloats(
-    snapshot.rows,
+    snapshot.rows ?? snapshot.body?.results ?? [],
     newYorkDate(Date.parse(snapshot.fetchedAt)),
   );
   console.log(`Imported ${file}: ${result.rows} rows, ${result.added} new.`);

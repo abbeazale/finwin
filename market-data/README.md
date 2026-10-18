@@ -21,7 +21,9 @@ Massive ──(daily ingest)──▶ Postgres ◀── API (127.0.0.1:8787) �
 
 Raw Massive responses are also kept, gzipped, in `MARKET_DATA_ARCHIVE`. They let
 you rebuild the database, and `scripts/screener-indicator-oracle.py` checks the
-app against them.
+app against them. Float pages are in `float/` from 2026-10-18. Massive gives only
+the latest float, so these files are the only copy of the float history before
+the database. To rebuild it, import them oldest first with `floats --import`.
 
 The symbol list is `MARKET_DATA_SYMBOLS` (default `AAPL,MSFT,NVDA,SPY,IWM`).
 Massive's free plan allows 5 requests per minute, so the ingest waits 13 seconds
@@ -34,9 +36,10 @@ Run from the repository root, so Bun loads the root `.env`:
 ```sh
 bun market-data/src/migrate.ts                       # create tables
 bun market-data/src/ingest.ts backfill --from 2024-10-14
-bun market-data/src/ingest.ts daily                  # new bars + floats
+bun market-data/src/ingest.ts daily                  # new bars + floats; fails until the last session is published
 bun market-data/src/ingest.ts floats                 # floats only
 bun market-data/src/ingest.ts floats --import .local/float-snapshots/massive-2026-10-06.json
+bun market-data/src/ingest.ts floats --import <archive>/float/float_0_<time>.json.gz
 bun market-data/src/ingest.ts verify                 # report data gaps
 bun market-data/src/server.ts                        # API on 127.0.0.1:8787
 ```
