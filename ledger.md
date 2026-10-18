@@ -1,5 +1,128 @@
 # FinWin Ledger
 
+## 2026-10-13
+
+### Market-data server on the Omarchy laptop
+
+- SSH from the Mac over Tailscale with a new host-only key (`~/.ssh/id_ed25519_omarchy`, `Host omarchy` in `~/.ssh/config`). Tailscale SSH stays off.
+- Committed the market-data work (`29a2780`) and set up the laptop: Postgres 18.6 on localhost (btrfs copy-on-write off for the data directory), `finwin` system user, root-only env file with a new production token, units, lid close ignored on AC and battery. Restored the Mac database (row counts match) and the raw archive (checksums match). One ingest run added 2026-10-13.
+- Deploy is `market-data/deploy/deploy.sh` (`65ad4c0`): git push over Tailscale SSH to `/opt/finwin`, then install and restart. The API unit applies the schema before it starts. Tested twice: the first run stopped on a changed unit file, the second deployed.
+- Sudo: a temporary full rule for setup, removed after. The permanent rule allows only restarting the API and starting the ingest.
+- Funnel on after the user enabled it in the admin console. Public checks through both relay addresses: health 200, coverage 401 without a valid token.
+- Vercel: `MARKET_DATA_URL` and `MARKET_DATA_TOKEN` added to Production (token sensitive, sent from the laptop by pipe). Did not redeploy: production builds `main`, which does not have the code yet. Pushed the branch to GitHub and opened PR #34; release gate and Vercel preview pass. Cursor Origin mirrors `finwin` from GitHub (inbound), so the PR is on GitHub.
+- Laptop tools, one copy each: Bun moved out of mise to `/usr/local/bin/bun` (the service user cannot read mise installs); old mise versions pruned and `auto_prune` on; mise Python removed (about 40 system packages need pacman Python); gemini and opencode moved from `sudo npm -g` to mise (opencode needs `allow_builds`). Pending, needs the user's password: `sudo npm rm -g @google/gemini-cli @openai/codex opencode-ai && sudo pacman -Rns npm nodejs`.
+- TPM2 disk unlock deferred: it needs `sd-encrypt`, which drops Omarchy's snapshot-boot hook, and Omarchy updates own the hook file. Remote unlock over Tailscale in the initramfs is the preferred fallback.
+- Next: merge PR #34, check `/screener` on the phone, read `ingest_runs` after a week.
+
+## 2026-10-12
+
+### Screener market-data service
+
+- After PR #33 merged: synced local main, added `/.local/` to `.gitignore`, kept leftover docs and tests local at the user's choice.
+- User wants the screener on several devices, for personal use only, with current data and no Neon storage limit. Chose Massive for prices (free key returns minute bars two years back) and Postgres on an always-on Linux laptop behind Tailscale Funnel. No owner gate.
+- Built on branch `market-data-service`: `market-data/` (Bun, Postgres, Massive ingest with raw archive, float change log, token API, systemd units), `src/lib/market-calendar.ts` (holidays, early closes, winter time), and the screener reading the API with fixed 60-session intraday and 300-session daily windows. Daily candles now come from Massive daily bars. Removed `cache.ts`, the old calendar and `scripts/fetch-massive-floats.py`.
+- Backfilled AAPL, MSFT, NVDA, SPY, IWM from 2024-10-14 to 2026-10-12 into local `finwin_market` (about 2.0M minute bars, 2,500 daily bars); no gaps. Imported the Oct 6 float snapshot (6,909 tickers). Found and skipped a Massive float row without a ticker.
+- Verified: replay check (360 EMA + 90 oracle cases against raw Massive data with Decimal), chart check (55,830 candles), 92 tests, typecheck, lint, knip, env/auth/security checks, audit, build. No browser acceptance yet. Nothing committed.
+- Next: Linux laptop setup and Vercel env vars; then browser check on phone.
+
+## 2026-10-05
+
+### Free stock float source research
+
+- Compared official float documentation, pricing and public lookup pages. Massive's experimental latest-float endpoint is documented on free Stocks Basic, with 5 calls/minute and up to 5,000 records/page. FMP's free coverage is 87 selected symbols, verified from pricing-grid icon alt text in the browser.
+- Yahoo Finance, Finviz and Stock Analysis provide free website float lookups; Stock Analysis explicitly offers no programmatic access. Twelve Data float statistics require a paid plan. No verified free point-in-time historical float feed was found.
+- Saved `docs/float-data-research.md` and updated resources. No accounts, authenticated API probes, subscriptions, product edits or commits. Existing SEC outstanding-shares proxy remains unchanged. Next recommended step: bounded Massive coverage/freshness probe and confirmation of intended display rights before integration.
+
+## 2026-10-06
+
+### PR #33 cleanup and Massive free float
+
+- PR #33 release gate failed only on knip: `screenFilterSchema` was exported for an uncommitted local test. Made it module-private; the local test derives it.
+- Probed Massive, FMP and Finnhub with existing keys: all current-only. User chose Massive with values valid from their effective dates plus a daily snapshot. New `scripts/fetch-massive-floats.py` replaced `scripts/fetch-replay-floats.py`. Old SEC file kept locally as `float.sec-shares-outstanding.backup.json`.
+- Filter is now "Free float", with reasons for "not in effect yet" and "no data (ETFs)". On the sample: AAPL from 2026-05-14, NVDA from 08-18, MSFT from 08-24.
+- Daily scheduling of the snapshot script is not set up yet.
+
+## 2026-10-04
+
+### Screener charts and EMA implemented
+
+- User accepted all three open proposals: EMA replaces SMA in screening as well as charts, the selector offers 1m/5m/10m/15m/30m/1h/Daily, and chart lines follow the candle interval with fixed overrides.
+- Committed the existing work first, without co-author tags: e28221d (desk restyle) and f53acbb (price range, daily change, float and news filters). Each commit was typechecked and linted alone. Docs and local tests stayed uncommitted.
+- Unit 1: the cache keeps full OHLCV; new `candles.ts` and `indicators.ts`. The old replay benchmark output stayed byte-identical before the EMA switch.
+- Unit 2: screen filter is now EMA (schema `ema`, form, table, seed time). 212 EMA values match the new Decimal oracle. 374 of 5,400 sampled cases changed between match and no-match; none changed to or from excluded.
+- Units 3–5: `screener.chart` protected query (minute data only), Lightweight Charts 5.2.1 (lazy chunk), research panel with symbol buttons, intervals, EMA 9/20/200 + custom, RSI, volume, fixed overrides, legend, summaries, OHLCV table. `scripts/check-screener-chart.ts` passes (38,519 raw candle and 5,563 raw EMA comparisons, 40 exact chart/screen agreements). Browser acceptance on desktop and phone passed after the user signed in.
+- All 90 tests, typecheck, lint, knip and production build pass. The full `verify` release gate was not run. Chart work is uncommitted.
+- Next: commit the chart milestone when the user asks, then the validated instrument catalog and bounded larger replay universe.
+
+### Chart interval and preset refinement
+
+- User requested individual EMA 9/20/200 toggles on intraday charts and multiple candle intervals including 1m, 10m and daily. Proposed full interval set adds 5m/15m/30m/1h; proposed ordinary chart presets follow the candle interval, with labeled fixed overrides for inherited screen indicators.
+- User selected regular-hours daily candles with the shorter existing history. Plan now derives all chart candles/indicators from verified MINI minute data, including complete-session daily aggregates; it does not substitute SUMMARY. Daily EMA 200 initially lacks warmup. Existing screen daily inputs/context retain their actual separate feed.
+- Updated chart spec/implementation plan, screener design, project plan/resources and decision trail. Defined 10m completion, session-aligned aggregation, shorter closing buckets, independent preset state and daily history/source checks. Supersedes the earlier daily-chart deferral/source-choice gate in this ledger.
+- No product implementation, installs, downloads, runtime tests or commits. Planning files and local links were checked. Next implementation unit is full OHLCV retention, interval aggregation and shared EMA/RSI calculations.
+
+### Screener chart planning and EMA correction
+
+- User requested a proper chart plan, selected a full-width panel below results and independent chart controls initialized from the screen, then corrected SMA to EMA.
+- Wrote `docs/spec/screener-charts.md` and `docs/plan/screener-charts.md` with candle/indicator rules, API/state flow, file ownership, delivery units and acceptance checks. Proposed coordinated scope corrects the existing SMA screen to actual EMA as well; preserving each indicator's native timeframe is recommended after explaining the alternatives but not explicitly selected yet.
+- Proposed first candles are one minute/five minutes from the verified local cache. Official EQUS.SUMMARY docs establish that daily bars use the final evening summary with post-market volume. Daily overlays retain the prior-session policy and distinct provenance; daily candles are a separate source decision.
+- Defined explicit EMA seed/recurrence/gap behavior, shared table/chart calculations, no-lookahead mixed-timeframe projection, independent query errors, expected-slot limits, browser/accessibility proof and offline raw-data/oracle checks. Old SMA screenshot values are not evidence for the proposed EMA results.
+- Updated plan, resources, screener design and decision trail. Planning artifacts were checked directly and for whitespace errors; no new runtime tests, installs, product edits, provider requests, data downloads or commits were performed in this planning session. Next step is settle the remaining draft timeframe behavior, then implement the full-bar/shared-indicator unit.
+
+### Project review: screener charts and larger replay universe
+
+- Reviewed the actual working tree, which contains additional optional filters and broad UI changes beyond the last ledger entry. User clarified stock charts in the screener and chose larger historical replay before current market data.
+- Proposed next steps: selected-result candlestick/volume/indicator panel on the existing five-symbol sample, then a measured 100–500-stock historical batch with a flexible validated catalog/cache contract, then saved screens/watchlists. Raw files already contain OHLCV; the loader currently discards open/high/low. The broader sandbox search and landing ticker list do not expand screener coverage.
+- Found that the local SEC float cache uses outstanding shares, contrary to the accepted public-float requirement. Correct the claim or data source before treating it as public-float support.
+- Verified `bun run typecheck` and `bun scripts/check-screener-replay.ts`: 50 raw SMA comparisons, 45 independent indicator cases and temporal/gap/calendar/auth checks passed. No browser acceptance or full release gate was run.
+- Updated only local planning/resources/handoff notes in this session; no product edits, data downloads, subscriptions or commits. Existing user work remains in place. Next recommended implementation is the bounded replay chart panel.
+
+## 2026-09-20
+
+### PR #32 release-gate repair
+
+- Reproduced the CI production-audit failure on PR #32: Next.js 16.2.11 triggered GHSA-p293-qw3h-jr36 and GHSA-2xp9-vwfh-vxw4.
+- Updated Next.js and eslint-config-next to 16.3.3 with the Bun 1.3.14 lockfile in the separate `finwin-login-pr` checkout. Pushed commit `39eff2c` to `agent/login-pages`; only package.json and bun.lock were committed.
+- Frozen install and the full release gate passed locally with CI environment values: 66 tests, static/security checks, dependency audit and production build. GitHub release-gate run 35531300232 also passed on commit 39eff2c.
+- The PR checkout now has independent node_modules. The screener checkout retains its own original locked dependencies and unfinished work; this repair is not yet merged into it.
+
+## 2026-09-16
+
+### Daily SMA, RSI and relative-volume replay
+
+- Independently verified every number in the user's SMA 30 screenshot for September 15 at 10:30 New York. Only NVDA matches, with price 212.74 versus SMA 212.702333333. User reviewed the first UI and authorized the next indicator milestone.
+- Added daily SMA, optional Wilder RSI with its own interval/period/threshold, and optional same-time relative volume against exactly 20 preceding MINI session prefixes. Every enabled condition must match. The table shows individual failed conditions, RSI seed/candle times, feed provenance, current volume and baseline average.
+- Daily indicators use the previous completed session even at 16:00. RSI reseeds after missing candles and requires a new contiguous warmup; flat RSI is explicitly 50. Volume gaps and zero baselines exclude the instrument. Prices stay unadjusted, and MINI volume stays feed-specific.
+- Loader verifies both pinned samples but only requires the daily cache when selected conditions need it. No purchases, new downloads, dependencies, database changes or commits.
+- Verification: 50 raw intraday SMA comparisons, 45 Python Decimal benchmark cases for daily SMA/RSI/relative volume, mixed-condition tRPC calls, no-lookahead checks, calendar/DST/early-close checks, real gaps, zero baselines and isolated optional-cache checks passed. All 69 tests, typecheck, lint, knip and production build passed. Existing dependency audit blockers remain unchanged; the new controls still need browser interaction/visual acceptance.
+- Updated README, plan, resources, screener spec and calculation contract. Next product milestone: saved screens. Charts/news, watchlists, historical paper-trade handoff and live-data deployment remain pending.
+
+### First screener replay slice
+
+- Implemented `/screener`, desk navigation and authenticated `screener.replay` using the pinned five-symbol local Databento minute sample. No database writes, provider requests, purchases or commits.
+- User explicitly removed owner-only access during implementation. Any signed-in account may use the replay; no new environment variable is required.
+- Supports price above/below SMA, periods 1–200 and one-minute/five-minute candles, a historical session/time selector and advance-one-minute control. Uses exact integer price comparisons, completed intervals and conservative missing-minute exclusions. Daily indicators, RSI, relative volume and paper-trade handoff remain deferred.
+- Verification: 40 raw-data SMA comparisons, temporal/gap/calendar/auth checks, local rendered-page checks, typecheck, lint, knip and production build passed. All 68 tests passed, including two new local page-render checks. Full `verify` stopped at the existing Next.js dependency audit with two critical advisories, GHSA-p293-qw3h-jr36 and GHSA-2xp9-vwfh-vxw4; framework dependencies were not changed. `/screener` returned HTTP 200; unauthenticated replay API returned 401. Visual/browser interaction acceptance remains unverified because the isolated browser was unavailable and the native browser was in active use.
+- Calculation contract: `docs/spec/screener-replay-calculations.md`. Updated README, plan, resources and screener design. No docs or tests committed.
+- Next: signed-in browser acceptance, then daily SMA/RSI/relative-volume contracts and implementation. Local cache delivery is not a deployment solution; live data, full-universe coverage and display rights remain open.
+
+### Databento probe handoff
+
+- Authenticated and downloaded a bounded historical sample for AAPL, MSFT, NVDA, SPY and IWM: 68,929 minute bars from EQUS.MINI and 1,410 daily bars from EQUS.SUMMARY. Estimated main download cost was $0.045345246792; actual billing/credit balance was not observed. No live subscription was started.
+- Added `scripts/databento-probe.py` with estimate-first behavior, explicit download budget, cache manifests, data validation and offline analysis. Data stays in ignored `.local/databento-probe/`; credentials are not stored in project files.
+- All symbols have enough history for SMA 200 and 20 prior first-hour volume baselines. IWM has five missing minutes; their causes remain unverified. MINI volume is feed-specific, and sparse bars, adjustments and calendar conventions still require a production contract.
+- Offline results reproduced exactly, raw daily SMA checks passed for all five symbols, and invalid budgets were rejected. Findings and commands are in `docs/databento-feasibility.md`, `docs/plan.md` and `docs/resources.md`.
+- Next: owner-only replay slice using cached data, explicit historical timestamps and completed-candle conditions. Live access, full-universe cost, display rights and replay-to-sandbox behavior remain unproven. No screener UI was implemented and no files were committed.
+
+### Screener design handoff
+
+- Consolidated the user's grilling answers 1 through 34 in `docs/spec/stock-screener.md`; the user confirmed the final design on 2026-09-16. No product code or purchases were performed.
+- Accepted scope: US-listed common stocks and ETFs, regular sessions, 60-second foreground refresh, mixed one-minute/five-minute/daily completed-candle indicators, editable SMA periods with 9/20/200 presets, RSI default 14 and same-time relative volume over 20 previous sessions. Missing required data excludes the instrument.
+- Accepted workflow: private explicitly saved screens, templates, configurable table, research chart/news panel, named watchlists and existing paper-trade handoff. Keep selected research open across refreshes and label stale/no-longer-matching results. Desktop-first editing; mobile saved-screen use and research.
+- FMP is provisional. Free preferred with a $50 USD/month recurring data ceiling. Historical replay is an accepted prototype fallback if live access does not fit; Databento's one-time credit is an evaluation option. No source is verified to meet the full live scope at that budget.
+- Rollout: owner-only validation, five trading sessions of personal acceptance, then invited users after live-data and display-rights checks. Paid launch pricing remains deferred; draggable workspace is a v2 direction.
+- Updated `CONTEXT.md`, `docs/plan.md`, `docs/resources.md`, and `decisions.tsv`. Personal docs remain uncommitted. Next agreed step: bounded provider/data feasibility evaluation, including replay-to-sandbox behavior and consistent indicator definitions.
+
 ## 2026-08-29
 
 ### Drop Vercel Cron for Hobby

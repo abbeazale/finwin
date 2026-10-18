@@ -1,0 +1,21 @@
+# Read-only market-data API. Edit User and the paths, then:
+#   sudo cp finwin-market-data*.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now finwin-market-data.service finwin-market-data-ingest.timer
+[Unit]
+Description=FinWin market-data API
+After=network-online.target postgresql.service
+Wants=network-online.target
+
+[Service]
+User=finwin
+WorkingDirectory=/opt/finwin
+EnvironmentFile=/etc/finwin-market-data.env
+# The schema is idempotent, so every start (and every deploy) applies it.
+ExecStartPre=/usr/local/bin/bun market-data/src/migrate.ts
+ExecStart=/usr/local/bin/bun market-data/src/server.ts
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,65 +1,93 @@
-"""Independent Decimal benchmark over raw downloads. No app imports or network."""
+"""Independent Decimal benchmark over raw Massive responses. No app imports,
+no database and no network: it reads the archive the market-data ingest keeps.
+
+Sessions come from SPY's daily bars, not from the app calendar. Early closes
+are listed here separately. Usage: python3 scripts/screener-indicator-oracle.py
+[archive dir]. Prints JSON cases for scripts/check-screener-replay.ts.
+"""
+import gzip
 import json
+import sys
 from datetime import datetime, timedelta
 from decimal import Decimal, getcontext
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-getcontext().prec = 40
+getcontext().prec = 50
 NY = ZoneInfo('America/New_York')
-root = Path('.local/databento-probe')
-minute = {}
-daily = {}
-for filename, target in [('mini-minute.jsonl', minute), ('summary-daily.jsonl', daily)]:
-    for line in (root / filename).read_text().splitlines():
-        row = json.loads(line)
-        stamp = datetime.fromisoformat(row['hd']['ts_event'].replace('Z', '+00:00'))
-        key = stamp.astimezone(NY) if target is minute else stamp.date().isoformat()
-        target.setdefault(row['symbol'], {})[key] = (Decimal(row['close']), int(row['volume']))
-sessions = []
-date = datetime(2026, 8, 3, tzinfo=NY)
-while date.date().isoformat() <= '2026-09-15':
-    if date.weekday() < 5 and date.date().isoformat() != '2026-09-07':
-        sessions.append(date.date().isoformat())
-    date += timedelta(days=1)
+root = Path(sys.argv[1] if len(sys.argv) > 1 else '.local/market-data/raw')
+SYMBOLS = ['AAPL', 'MSFT', 'NVDA', 'SPY', 'IWM']
+EARLY_CLOSES = {'2024-07-03', '2024-11-29', '2024-12-24', '2025-07-03', '2025-11-28',
+                '2025-12-24', '2026-11-27', '2026-12-24'}
+INTRADAY_LOOKBACK = 60
+DAILY_LOOKBACK = 300
+
+
+def load(kind):
+    # Later fetches replace earlier ones for the same bar.
+    files = []
+    for path in (root / kind).glob('*.json.gz'):
+        with gzip.open(path, 'rt') as handle:
+            files.append(json.load(handle, parse_float=Decimal))
+    bars = {}
+    for record in sorted(files, key=lambda item: item['fetchedAt']):
+        symbol = record['url'].split('/ticker/')[1].split('/')[0]
+        for row in record['body'].get('results', []):
+            bars.setdefault(symbol, {})[row['t']] = (Decimal(row['c']), Decimal(row['v']))
+    return bars
+
+
+minute = load('minute')
+daily_raw = load('day')
+daily = {symbol: {datetime.fromtimestamp(t / 1000, NY).date().isoformat(): value
+                  for t, value in rows.items()} for symbol, rows in daily_raw.items()}
+sessions = sorted(daily['SPY'])
+
+
+def session_bounds(day):
+    start = datetime.fromisoformat(f'{day}T09:30').replace(tzinfo=NY)
+    return start, 210 if day in EARLY_CLOSES else 390
+
+
+def millis(moment):
+    return int(moment.timestamp() * 1000)
+
+
+def window(day):
+    index = sessions.index(day)
+    return sessions[max(0, index - INTRADAY_LOOKBACK):index + 1]
+
 
 def series(symbol, day, clock, interval):
     if interval == '1d':
-        return [daily[symbol][date][0] for date in sorted(daily[symbol]) if date < day]
+        index = sessions.index(day)
+        return [daily[symbol].get(date, (None,))[0]
+                for date in sessions[max(0, index - DAILY_LOOKBACK):index]]
     boundary = datetime.fromisoformat(f'{day}T{clock}').replace(tzinfo=NY)
     width = int(interval[0])
     values = []
-    for session in sessions:
-        if session > day:
-            break
-        start = datetime.fromisoformat(f'{session}T09:30').replace(tzinfo=NY)
-        for offset in range(0, 390, width):
-            bucket = [start + timedelta(minutes=offset + i) for i in range(width)]
-            if bucket[-1] + timedelta(minutes=1) > boundary:
-                break
-            values.append(minute[symbol][bucket[-1]][0] if all(t in minute[symbol] for t in bucket) else None)
+    bars = minute[symbol]
+    for session in window(day):
+        start, length = session_bounds(session)
+        for offset in range(0, length, width):
+            size = min(width, length - offset)
+            stamps = [start + timedelta(minutes=offset + i) for i in range(size)]
+            if stamps[-1] + timedelta(minutes=1) > boundary:
+                return values
+            keys = [millis(stamp) for stamp in stamps]
+            values.append(bars[keys[-1]][0] if all(key in bars for key in keys) else None)
     return values
 
-def rsi(values, n):
-    # Select the last contiguous run first, independently of the TS state loop.
+
+def last_run(values):
     gaps = [i for i, v in enumerate(values) if v is None]
-    run = values[gaps[-1] + 1:] if gaps else values
-    changes = [b - a for a, b in zip(run, run[1:])]
-    if len(changes) < n:
-        return None
-    gains = [max(v, 0) for v in changes]
-    losses = [max(-v, 0) for v in changes]
-    up = sum(gains[:n]) / Decimal(n)
-    down = sum(losses[:n]) / Decimal(n)
-    for gain, loss in zip(gains[n:], losses[n:]):
-        up = up + (gain - up) / n
-        down = down + (loss - down) / n
-    return float(Decimal(50) if up + down == 0 else 100 - 100 / (1 + up / down) if down else 100)
+    return values[gaps[-1] + 1:] if gaps else values
+
 
 def ema(values, n):
-    # Last contiguous run, seeded at the mean of its first N closes.
-    gaps = [i for i, v in enumerate(values) if v is None]
-    run = values[gaps[-1] + 1:] if gaps else values
+    if values and values[-1] is None:
+        return None
+    run = last_run(values)
     if len(run) < n:
         return None
     if n == 1:
@@ -70,35 +98,71 @@ def ema(values, n):
         value = value + alpha * (close - value)
     return float(value)
 
-def volume(symbol, day, clock):
-    index = sessions.index(day)
-    if index < 20:
-        return None
-    elapsed = int(clock[:2]) * 60 + int(clock[3:]) - 570
-    totals = []
-    for session in sessions[index - 20:index + 1]:
-        start = datetime.fromisoformat(f'{session}T09:30').replace(tzinfo=NY)
-        keys = [start + timedelta(minutes=i) for i in range(elapsed)]
-        if any(t not in minute[symbol] for t in keys):
-            return None
-        totals.append(sum(minute[symbol][t][1] for t in keys))
-    baseline = Decimal(sum(totals[:-1])) / 20
-    return float(Decimal(totals[-1]) / baseline) if baseline else None
 
+def rsi(values, n):
+    if values and values[-1] is None:
+        return None
+    run = last_run(values)
+    changes = [b - a for a, b in zip(run, run[1:])]
+    if len(changes) < n:
+        return None
+    gains = [max(v, 0) for v in changes]
+    losses = [max(-v, 0) for v in changes]
+    up = sum(gains[:n]) / Decimal(n)
+    down = sum(losses[:n]) / Decimal(n)
+    for gain, loss in zip(gains[n:], losses[n:]):
+        up = up + (gain - up) / n
+        down = down + (loss - down) / n
+    if up + down == 0:
+        return 50.0
+    return float(100 * up / (up + down))
+
+
+def volume(symbol, day, clock):
+    days = window(day)
+    if len(days) < 21:
+        return None
+    start, _ = session_bounds(day)
+    elapsed = int((datetime.fromisoformat(f'{day}T{clock}').replace(tzinfo=NY) - start).total_seconds() // 60)
+    totals = []
+    for session in days[-21:]:
+        open_, _ = session_bounds(session)
+        keys = [millis(open_ + timedelta(minutes=i)) for i in range(elapsed)]
+        if any(key not in minute[symbol] for key in keys):
+            return None
+        totals.append(sum(minute[symbol][key][1] for key in keys))
+    baseline = sum(totals[:-1]) / 20
+    return float(totals[-1] / baseline) if baseline else None
+
+
+def previous_close_change(symbol, day, clock):
+    index = sessions.index(day)
+    previous = daily[symbol].get(sessions[index - 1])
+    boundary = datetime.fromisoformat(f'{day}T{clock}').replace(tzinfo=NY)
+    price = minute[symbol].get(millis(boundary - timedelta(minutes=1)))
+    if not previous or not price:
+        return None
+    return float((price[0] - previous[0]) / previous[0] * 100)
+
+
+# Recent session; winter time; first day of daylight time; an early close;
+# the day after a holiday; the session used in earlier screenshots.
+MOMENTS = [('2026-10-09', '10:30'), ('2026-01-15', '14:00'), ('2026-03-09', '11:00'),
+           ('2025-11-28', '12:30'), ('2025-12-26', '10:00'), ('2026-09-15', '10:30')]
 cases = []
-for day, clock in [('2026-09-15', '10:30'), ('2026-09-15', '14:00'), ('2026-08-18', '13:45')]:
-    for symbol in ['AAPL', 'MSFT', 'NVDA', 'SPY', 'IWM']:
+emas = []
+for day, clock in MOMENTS:
+    if day not in sessions:
+        continue
+    for symbol in SYMBOLS:
+        daily_closes = series(symbol, day, clock, '1d')
         for interval in ['1m', '5m', '1d']:
-            closes = series(symbol, day, clock, interval)
+            closes = daily_closes if interval == '1d' else series(symbol, day, clock, interval)
             cases.append(dict(symbol=symbol, session=day, time=clock, timeframe=interval,
                               rsi=rsi(closes, 14), volume=volume(symbol, day, clock),
-                              dailyEma200=ema(series(symbol, day, clock, '1d'), 200)))
-emas = []
-for day, clock in [('2026-09-15', '10:30'), ('2026-08-18', '13:45'), ('2026-08-18', '15:00')]:
-    for symbol in ['AAPL', 'MSFT', 'NVDA', 'SPY', 'IWM']:
-        for interval in ['1m', '5m', '1d']:
-            closes = series(symbol, day, clock, interval)
-            for period in [1, 9, 20, 30, 200]:
+                              dailyEma200=ema(daily_closes, 200),
+                              dailyChange=previous_close_change(symbol, day, clock)))
+            for period in [1, 9, 20, 200]:
                 emas.append(dict(symbol=symbol, session=day, time=clock, timeframe=interval,
                                  period=period, value=ema(closes, period)))
-print(json.dumps(dict(cases=cases, emas=emas)))
+print(json.dumps(dict(sessions=[sessions[0], sessions[-1]], cases=cases, emas=emas)))

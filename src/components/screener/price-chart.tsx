@@ -16,6 +16,7 @@ import {
   type Time,
 } from "lightweight-charts";
 import type { ChartResult } from "@/server/screener/chart";
+import { sessionOpen } from "@/lib/market-calendar";
 
 export type PlotLine = {
   key: string;
@@ -109,7 +110,7 @@ function resetView(chart: IChartApi, result: ChartResult) {
   if (last < 0) return;
   let from = Math.max(0, last - 59);
   if (result.timeframe !== "1d") {
-    const sessionStart = Date.parse(`${result.session}T09:30:00-04:00`);
+    const sessionStart = sessionOpen(result.session);
     const first = result.candles.findIndex(
       (candle) => candle.start >= sessionStart,
     );
