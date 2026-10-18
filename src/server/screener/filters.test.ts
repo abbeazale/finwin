@@ -1,7 +1,7 @@
 import { expect, test } from "bun:test";
 import type { Bar } from "./candles";
 import { evaluateReplay, type ReplayBars } from "./replay";
-import type { ReplayResearch } from "./research";
+import { floatSnapshots, type ReplayResearch } from "./research";
 import {
   replayInputSchema,
   parseReplayForm,
@@ -297,4 +297,26 @@ test("price equal to its EMA matches neither side; one billionth above matches a
   expect(
     apple(flat(price), { ema: { ...ema, period: 21, comparison: "above" } }),
   ).toMatchObject({ status: "excluded" });
+});
+
+test("a later float correction for the same effective date replaces the earlier value", () => {
+  const original = {
+    symbol: "AAPL" as const,
+    shares: 21_371_656,
+    effectiveDate: "2026-08-13",
+    firstSeen: "2026-10-06",
+  };
+  const correction = { ...original, shares: 1_181_669, firstSeen: "2026-10-15" };
+  const data = bars(BigInt(11_000_000_000));
+  const filter = { float: { maximum: 20_000_000 } };
+  for (const records of [
+    [original, correction],
+    [correction, original],
+  ]) {
+    const floats = floatSnapshots(records);
+    expect(floats.map((value) => value.shares)).toEqual([1_181_669]);
+    expect(apple(data, filter, { floats, news: new Map() }).status).toBe(
+      "match",
+    );
+  }
 });

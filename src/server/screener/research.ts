@@ -5,7 +5,7 @@ import {
   type ReplayInput,
   type ReplaySymbol,
 } from "@/lib/screener-replay";
-import { loadFloatRecords } from "./market-data";
+import { loadFloatRecords, type FloatRecord } from "./market-data";
 
 type FloatSnapshot = {
   symbol: ReplaySymbol;
@@ -39,21 +39,35 @@ export type ReplayResearch = {
 // date in New York; the source text keeps the date it was first fetched.
 export async function loadReplayFloats(): Promise<FloatSnapshot[]> {
   try {
-    return (await loadFloatRecords()).map((record) => {
-      const available = new Date(
-        newYorkTime(record.effectiveDate, "00:00"),
-      ).toISOString();
-      return {
-        symbol: record.symbol,
-        shares: record.shares,
-        effectiveAt: available,
-        publishedAt: available,
-        source: `Massive free float, effective ${record.effectiveDate}, first fetched ${record.firstSeen}; assumed known from its effective date`,
-      };
-    });
+    return floatSnapshots(await loadFloatRecords());
   } catch {
     return [];
   }
+}
+
+// Massive can correct a float and keep its effective date. Both values get the
+// same effective time, so only the last one fetched is kept for that date.
+export function floatSnapshots(
+  records: readonly FloatRecord[],
+): FloatSnapshot[] {
+  const latest = new Map<string, FloatRecord>();
+  for (const record of records) {
+    const key = `${record.symbol} ${record.effectiveDate}`;
+    const kept = latest.get(key);
+    if (!kept || record.firstSeen >= kept.firstSeen) latest.set(key, record);
+  }
+  return [...latest.values()].map((record) => {
+    const available = new Date(
+      newYorkTime(record.effectiveDate, "00:00"),
+    ).toISOString();
+    return {
+      symbol: record.symbol,
+      shares: record.shares,
+      effectiveAt: available,
+      publishedAt: available,
+      source: `Massive free float, effective ${record.effectiveDate}, first fetched ${record.firstSeen}; assumed known from its effective date`,
+    };
+  });
 }
 
 const articleSchema = z.object({

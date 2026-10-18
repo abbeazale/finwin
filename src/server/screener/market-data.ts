@@ -46,7 +46,7 @@ const floatsSchema = z.object({
   ),
 });
 type MarketCoverage = z.infer<typeof coverageSchema>;
-type FloatRecord = z.infer<typeof floatsSchema>["floats"][number];
+export type FloatRecord = z.infer<typeof floatsSchema>["floats"][number];
 
 async function request<T>(
   path: string,
